@@ -121,7 +121,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | windows_firewall_rules           | ⏳      |
 | windows_optional_features        | ⏳      |
 | windows_search                   | ⏳      |
-| windows_security_center          | ⏳      |
+| windows_security_center          | 🛠️      |
 | windows_security_products        | ⏳      |
 | windows_update_history           | ⏳      |
 | wmi_bios_info                    | ⏳      |
