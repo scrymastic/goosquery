@@ -24,10 +24,10 @@ type ProcessOpenSocket struct {
 	NetNamespace  string `json:"net_namespace"`
 }
 
-type _MIB_TCPTABLE_OWNER_PID struct {
-	DwNumEntries uint32
-	Table        [0]_MIB_TCPROW_OWNER_PID
-}
+// type _MIB_TCPTABLE_OWNER_PID struct {
+// 	DwNumEntries uint32
+// 	Table        [0]_MIB_TCPROW_OWNER_PID
+// }
 
 type _MIB_TCPROW_OWNER_PID struct {
 	DwState      uint32
@@ -38,10 +38,10 @@ type _MIB_TCPROW_OWNER_PID struct {
 	DwOwningPid  uint32
 }
 
-type _MIB_TCP6TABLE_OWNER_PID struct {
-	DwNumEntries uint32
-	Table        [0]_MIB_TCP6ROW_OWNER_PID
-}
+// type _MIB_TCP6TABLE_OWNER_PID struct {
+// 	DwNumEntries uint32
+// 	Table        [0]_MIB_TCP6ROW_OWNER_PID
+// }
 
 type _MIB_TCP6ROW_OWNER_PID struct {
 	UcLocalAddr     [16]byte
@@ -54,10 +54,10 @@ type _MIB_TCP6ROW_OWNER_PID struct {
 	DwOwningPid     uint32
 }
 
-type _MIB_UDPTABLE_OWNER_PID struct {
-	DwNumEntries uint32
-	Table        [0]_MIB_UDPROW_OWNER_PID
-}
+// type _MIB_UDPTABLE_OWNER_PID struct {
+// 	DwNumEntries uint32
+// 	Table        [0]_MIB_UDPROW_OWNER_PID
+// }
 
 type _MIB_UDPROW_OWNER_PID struct {
 	DwLocalAddr uint32
@@ -65,10 +65,10 @@ type _MIB_UDPROW_OWNER_PID struct {
 	DwOwningPid uint32
 }
 
-type _MIB_UDP6TABLE_OWNER_PID struct {
-	DwNumEntries uint32
-	Table        [0]_MIB_UDP6ROW_OWNER_PID
-}
+// type _MIB_UDP6TABLE_OWNER_PID struct {
+// 	DwNumEntries uint32
+// 	Table        [0]_MIB_UDP6ROW_OWNER_PID
+// }
 
 type _MIB_UDP6ROW_OWNER_PID struct {
 	UcLocalAddr    [16]byte
@@ -78,7 +78,7 @@ type _MIB_UDP6ROW_OWNER_PID struct {
 }
 
 var (
-	modiphlpapi             windows.Handle
+	modIphlpapi             windows.Handle
 	procGetExtendedTcpTable uintptr
 	procGetExtendedUdpTable uintptr
 )
@@ -111,20 +111,20 @@ func tcpStateToString(state uint32) string {
 func allocateSocketTable(sockType string) ([]byte, error) {
 	var err error
 	// Load iphlpapi.dll
-	modiphlpapi, err = windows.LoadLibrary("iphlpapi.dll")
+	modIphlpapi, err = windows.LoadLibrary("iphlpapi.dll")
 	if err != nil {
 		return nil, fmt.Errorf("error loading iphlpapi.dll: %v", err)
 	}
-	defer windows.FreeLibrary(modiphlpapi)
+	defer windows.FreeLibrary(modIphlpapi)
 
 	// Get the GetExtendedTcpTable function
-	procGetExtendedTcpTable, err = windows.GetProcAddress(modiphlpapi, "GetExtendedTcpTable")
+	procGetExtendedTcpTable, err = windows.GetProcAddress(modIphlpapi, "GetExtendedTcpTable")
 	if err != nil {
 		return nil, fmt.Errorf("error getting GetExtendedTcpTable function: %v", err)
 	}
 
 	// Get the GetExtendedUdpTable function
-	procGetExtendedUdpTable, err = windows.GetProcAddress(modiphlpapi, "GetExtendedUdpTable")
+	procGetExtendedUdpTable, err = windows.GetProcAddress(modIphlpapi, "GetExtendedUdpTable")
 	if err != nil {
 		return nil, fmt.Errorf("error getting GetExtendedUdpTable function: %v", err)
 	}

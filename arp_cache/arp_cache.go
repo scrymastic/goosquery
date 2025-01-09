@@ -32,25 +32,25 @@ const (
 	permanentState    uint8  = 6
 )
 
-var (
-	// addressFamilyMap maps address family numbers to their string representations.
-	addressFamilyMap = map[uint16]string{
-		ipv4AddressFamily: "IPv4",
-		ipv6AddressFamily: "IPv6",
-	}
+// var (
+// 	// addressFamilyMap maps address family numbers to their string representations.
+// 	addressFamilyMap = map[uint16]string{
+// 		ipv4AddressFamily: "IPv4",
+// 		ipv6AddressFamily: "IPv6",
+// 	}
 
-	// stateMap maps neighbor state numbers to their string representations.
-	stateMap = map[uint8]string{
-		0: "Unreachable",
-		1: "Incomplete",
-		2: "Probe",
-		3: "Delay",
-		4: "Stale",
-		5: "Reachable",
-		6: "Permanent",
-		7: "TBD",
-	}
-)
+// 	// stateMap maps neighbor state numbers to their string representations.
+// 	stateMap = map[uint8]string{
+// 		0: "Unreachable",
+// 		1: "Incomplete",
+// 		2: "Probe",
+// 		3: "Delay",
+// 		4: "Stale",
+// 		5: "Reachable",
+// 		6: "Permanent",
+// 		7: "TBD",
+// 	}
+// )
 
 // GenARPCache retrieves the current ARP cache entries from the system.
 // It returns a slice of ARPEntry and an error if the operation fails.

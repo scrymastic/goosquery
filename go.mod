@@ -7,4 +7,7 @@ require (
 	golang.org/x/sys v0.28.0
 )
 
-require github.com/go-ole/go-ole v1.3.0 // indirect
+require (
+	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
+)

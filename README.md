@@ -41,11 +41,11 @@ Golang reimplementation of osquery with JSON output, currently working on Window
 | cpuid                            | ⏳      |
 | curl                             | ⏳      |
 | curl_certificate                 | ⏳      |
-| default_environment              | ⏳      |
+| default_environment              | 🧪      |
 | deviceguard_status               | ✅      |
 | disk_info                        | ⏳      |
 | dns_cache                        | ✅      |
-| drivers                          | ⏳      |
+| drivers                          | 🛠️      |
 | ec2_instance_metadata            | ⏳      |
 | ec2_instance_tags                | ⏳      |
 | etc_hosts                        | ⏳      |
@@ -79,7 +79,7 @@ Golang reimplementation of osquery with JSON output, currently working on Window
 | osquery_packs                    | ⏳      |
 | osquery_registry                 | ⏳      |
 | osquery_schedule                 | ⏳      |
-| patches                          | ⏳      |
+| patches                          | ✅      |
 | physical_disk_performance        | ⏳      |
 | pipes                            | 🧪      |
 | platform_info                    | ⏳      |
@@ -112,7 +112,7 @@ Golang reimplementation of osquery with JSON output, currently working on Window
 | users                            | 🛠️      |
 | video_info                       | ⏳      |
 | vscode_extensions                | ⏳      |
-| winbaseobj                       | ⏳      |
+| winbaseobj                       | 🧪      |
 | windows_crashes                  | ⏳      |
 | windows_eventlog                 | ⏳      |
 | windows_events                   | ⏳      |
