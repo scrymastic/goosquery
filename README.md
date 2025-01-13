@@ -73,7 +73,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | ntfs_acl_permissions             | ⏳      |
 | ntfs_journal_events              | ⏳      |
 | office_mru                       | ⏳      |
-| os_version                       | ⏳      |
+| os_version                       | 🧪      |
 | osquery_events                   | ⏳      |
 | osquery_extensions               | ⏳      |
 | osquery_flags                    | ⏳      |
