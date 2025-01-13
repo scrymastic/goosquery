@@ -2,7 +2,6 @@ package drivers
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/StackExchange/wmi"
 	"golang.org/x/sys/windows"
@@ -107,6 +106,8 @@ func GenDrivers() ([]Driver, error) {
 		fmt.Printf("Hardware ID: %s\n", driver.HardWareID)
 		fmt.Println("---")
 	}
+
+	fmt.Print("Total drivers: ", len(drivers), "\n")
 
 	return nil, nil
 }
