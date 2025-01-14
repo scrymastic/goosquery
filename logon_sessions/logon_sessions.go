@@ -27,7 +27,6 @@ type LogonSession struct {
 }
 
 var (
-	secur32                       windows.Handle
 	procLsaEnumerateLogonSessions uintptr
 	procLsaGetLogonSessionData    uintptr
 	procLsaFreeReturnBuffer       uintptr
@@ -86,24 +85,18 @@ var securityLogonTypes = map[uint32]string{
 	13: "Cached Unlock",
 }
 
-func fileTimeToUnixTime(fileTime uint64) int64 {
-	// Windows FILETIME is in 100-nanosecond intervals since January 1, 1601 UTC
-	// Need to convert to Unix timestamp (seconds since January 1, 1970 UTC)
-	const (
-		WINDOWS_TICK      = 100         // nanoseconds
-		SEC_TO_UNIX_EPOCH = 11644473600 // seconds between 1601 and 1970
-	)
-
-	return int64((fileTime*WINDOWS_TICK)/1e9) - SEC_TO_UNIX_EPOCH
-}
+const (
+	WINDOWS_TICK      = 100         // nanoseconds
+	SEC_TO_UNIX_EPOCH = 11644473600 // seconds between 1601 and 1970
+)
 
 func GenLogonSessions() ([]LogonSession, error) {
 	var sessionCount uint32
 	var sessions *_LUID
 
-	var err error
 	// Load secur32.dll
-	if secur32, err = windows.LoadLibrary("secur32.dll"); err != nil {
+	secur32, err := windows.LoadLibrary("secur32.dll")
+	if err != nil {
 		return nil, fmt.Errorf("error loading secur32.dll: %v", err)
 	}
 	defer windows.FreeLibrary(secur32)
@@ -127,7 +120,7 @@ func GenLogonSessions() ([]LogonSession, error) {
 	if ret, _, _ := syscall.SyscallN(uintptr(procLsaEnumerateLogonSessions),
 		uintptr(unsafe.Pointer(&sessionCount)),
 		uintptr(unsafe.Pointer(&sessions)),
-	); ret != uintptr(windows.ERROR_SUCCESS) {
+	); syscall.Errno(ret) != windows.ERROR_SUCCESS {
 		return nil, fmt.Errorf("error calling LsaEnumerateLogonSessions: %v", ret)
 	}
 
@@ -143,7 +136,7 @@ func GenLogonSessions() ([]LogonSession, error) {
 		if ret, _, _ := syscall.SyscallN(uintptr(procLsaGetLogonSessionData),
 			uintptr(unsafe.Pointer(&sessionsSlice[i])),
 			uintptr(unsafe.Pointer(&sessionData)),
-		); ret != uintptr(windows.ERROR_SUCCESS) {
+		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
 			return nil, fmt.Errorf("error calling LsaGetLogonSessionData: %v", ret)
 		}
 
@@ -160,7 +153,7 @@ func GenLogonSessions() ([]LogonSession, error) {
 			LogonType:             securityLogonType,
 			SessionID:             sessionData.Session,
 			LogonSID:              sessionData.Sid.String(),
-			LogonTime:             fileTimeToUnixTime(uint64(sessionData.LogonTime)),
+			LogonTime:             int64((uint64(sessionData.LogonTime)*WINDOWS_TICK)/1e9) - SEC_TO_UNIX_EPOCH,
 			LogonServer:           windows.UTF16PtrToString(sessionData.LogonServer.Buffer),
 			DnsDomainName:         windows.UTF16PtrToString(sessionData.DnsDomainName.Buffer),
 			UPN:                   windows.UTF16PtrToString(sessionData.Upn.Buffer),

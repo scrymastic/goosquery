@@ -78,7 +78,6 @@ type _MIB_UDP6ROW_OWNER_PID struct {
 }
 
 var (
-	modIphlpapi             windows.Handle
 	procGetExtendedTcpTable uintptr
 	procGetExtendedUdpTable uintptr
 )
@@ -109,9 +108,8 @@ func tcpStateToString(state uint32) string {
 }
 
 func allocateSocketTable(sockType string) ([]byte, error) {
-	var err error
 	// Load iphlpapi.dll
-	modIphlpapi, err = windows.LoadLibrary("iphlpapi.dll")
+	modIphlpapi, err := windows.LoadLibrary("iphlpapi.dll")
 	if err != nil {
 		return nil, fmt.Errorf("error loading iphlpapi.dll: %v", err)
 	}
@@ -140,7 +138,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET,
 			5, // TCP_TABLE_OWNER_PID_ALL
 			0,
-		); ret != uintptr(windows.ERROR_INSUFFICIENT_BUFFER) {
+		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
 			return nil, fmt.Errorf("error getting TCP table size: %v", ret)
 		}
 
@@ -153,7 +151,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET,
 			5, // TCP_TABLE_OWNER_PID_ALL
 			0,
-		); ret != uintptr(windows.ERROR_SUCCESS) {
+		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
 			return nil, fmt.Errorf("error calling GetExtendedTcpTable: %v", ret)
 		}
 		return tcpTable, nil
@@ -166,7 +164,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET6,
 			5, // TCP_TABLE_OWNER_PID_ALL
 			0,
-		); ret != uintptr(windows.ERROR_INSUFFICIENT_BUFFER) {
+		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
 			return nil, fmt.Errorf("error getting TCP6 table size: %v", ret)
 		}
 
@@ -179,7 +177,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET6,
 			5, // TCP_TABLE_OWNER_PID_ALL
 			0,
-		); ret != uintptr(windows.ERROR_SUCCESS) {
+		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
 			return nil, fmt.Errorf("error calling GetExtendedTcpTable: %v", ret)
 		}
 		return tcp6Table, nil
@@ -193,7 +191,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET,
 			1, // UDP_TABLE_OWNER_PID
 			0,
-		); ret != uintptr(windows.ERROR_INSUFFICIENT_BUFFER) {
+		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
 			return nil, fmt.Errorf("error getting UDP table size: %v", ret)
 		}
 
@@ -206,7 +204,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET,
 			1, // UDP_TABLE_OWNER_PID
 			0,
-		); ret != uintptr(windows.ERROR_SUCCESS) {
+		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
 			return nil, fmt.Errorf("error calling GetExtendedUdpTable: %v", ret)
 		}
 		return udpTable, nil
@@ -220,7 +218,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET6,
 			1, // UDP_TABLE_OWNER_PID
 			0,
-		); ret != uintptr(windows.ERROR_INSUFFICIENT_BUFFER) {
+		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
 			return nil, fmt.Errorf("error getting UDP6 table size: %v", ret)
 		}
 
@@ -233,7 +231,7 @@ func allocateSocketTable(sockType string) ([]byte, error) {
 			syscall.AF_INET6,
 			1, // UDP_TABLE_OWNER_PID
 			0,
-		); ret != uintptr(windows.ERROR_SUCCESS) {
+		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
 			return nil, fmt.Errorf("error calling GetExtendedUdpTable: %v", ret)
 		}
 		return udp6Table, nil

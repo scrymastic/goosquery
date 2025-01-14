@@ -62,7 +62,7 @@ func enumObjectNamespace(directory string) ([]ObjectEntry, error) {
 		1, //DIRECTORY_QUERY
 		uintptr(unsafe.Pointer(&oa)),
 	)
-	if ret != uintptr(windows.STATUS_SUCCESS) {
+	if windows.NTStatus(ret) != windows.STATUS_SUCCESS {
 		return nil, fmt.Errorf("NtOpenDirectoryObject failed: %x", ret)
 	}
 
@@ -82,11 +82,11 @@ func enumObjectNamespace(directory string) ([]ObjectEntry, error) {
 			0,
 		)
 
-		if ret == uintptr(windows.STATUS_NO_MORE_ENTRIES) {
+		if windows.NTStatus(ret) == windows.STATUS_NO_MORE_ENTRIES {
 			break
 		}
 
-		if ret != uintptr(windows.STATUS_SUCCESS) {
+		if windows.NTStatus(ret) != windows.STATUS_SUCCESS {
 			return nil, fmt.Errorf("NtQueryDirectoryObject failed with unexpected error: %x", ret)
 		}
 
@@ -131,7 +131,7 @@ func enumBaseNamedObjectsLinks(session ObjectEntry) ([]ObjectEntry, error) {
 		1, //SYMBOLIC_LINK_QUERY
 		uintptr(unsafe.Pointer(&oa)),
 	)
-	if ret != uintptr(windows.STATUS_SUCCESS) {
+	if windows.NTStatus(ret) != windows.STATUS_SUCCESS {
 		return nil, fmt.Errorf("NtOpenSymbolicLinkObject failed: %x", ret)
 	}
 
@@ -148,7 +148,7 @@ func enumBaseNamedObjectsLinks(session ObjectEntry) ([]ObjectEntry, error) {
 		uintptr(unsafe.Pointer(&linkTarget)),
 		0,
 	)
-	if ret != uintptr(windows.STATUS_SUCCESS) {
+	if windows.NTStatus(ret) != windows.STATUS_SUCCESS {
 		return nil, fmt.Errorf("NtQuerySymbolicLinkObject failed: %x", ret)
 	}
 

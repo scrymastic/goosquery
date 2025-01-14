@@ -20,12 +20,3 @@ func TestGenDNSCache(t *testing.T) {
 	fmt.Printf("DNS Cache Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total DNS cache entries: %d\n", len(cache))
 }
-
-func ExampleGenDNSCache() {
-	cache, err := GenDNSCache()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Number of DNS cache entries: %d\n", len(cache))
-}

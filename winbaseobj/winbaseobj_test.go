@@ -20,12 +20,3 @@ func TestGenWinBaseObj(t *testing.T) {
 	fmt.Printf("Windows Base Objects:\n%s\n", string(jsonData))
 	fmt.Printf("Total objects: %d\n", len(objects))
 }
-
-func ExampleGenWinBaseObj() {
-	objects, err := GenWinBaseObj()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total Windows base objects: %d\n", len(objects))
-}

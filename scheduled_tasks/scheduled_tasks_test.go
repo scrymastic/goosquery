@@ -17,23 +17,6 @@ func TestGenScheduledTasks(t *testing.T) {
 		t.Fatalf("Failed to marshal tasks: %v", err)
 	}
 
-	t.Logf("Scheduled Tasks JSON:\n%s", string(jsonData))
-	t.Logf("Number of scheduled tasks: %d", len(tasks))
-}
-
-func ExampleGenScheduledTasks() {
-	tasks, err := GenScheduledTasks()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
+	fmt.Printf("Scheduled Tasks Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total scheduled tasks: %d\n", len(tasks))
-
-	jsonData, err := json.MarshalIndent(tasks, "", "  ")
-	if err != nil {
-		fmt.Printf("JSON error: %v\n", err)
-		return
-	}
-	fmt.Printf("%s\n", string(jsonData))
 }

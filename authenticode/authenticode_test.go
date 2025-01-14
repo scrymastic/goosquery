@@ -22,12 +22,3 @@ func TestGenAuthenticode(t *testing.T) {
 	fmt.Printf("Authenticode Results for %s:\n%s\n", testPath, string(jsonData))
 	fmt.Printf("Total entries: %d\n", len(entries))
 }
-
-func ExampleGenAuthenticode() {
-	entries, err := GenAuthenticode(`C:\Windows\System32\notepad.exe`)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total authenticode entries: %d\n", len(entries))
-}

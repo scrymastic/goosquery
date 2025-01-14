@@ -3,7 +3,6 @@ package process_memory_map
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"testing"
 )
 
@@ -22,14 +21,4 @@ func TestGenProcessMemoryMap(t *testing.T) {
 	}
 	fmt.Printf("Process Memory Map:\n%s\n", string(jsonData))
 	fmt.Printf("Total memory map entries: %d\n", len(maps))
-}
-
-func ExampleGenProcessMemoryMap() {
-	pid := uint32(os.Getpid())
-	maps, err := GenProcessMemoryMap(pid)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Number of memory map entries: %d\n", len(maps))
 }

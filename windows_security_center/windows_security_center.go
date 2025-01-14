@@ -6,6 +6,7 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/svc/mgr"
 )
 
 type WindowsSecurityCenter struct {
@@ -26,8 +27,8 @@ const (
 	WSC_SECURITY_PROVIDER_INTERNET_SETTINGS    = 0x10
 	WSC_SECURITY_PROVIDER_USER_ACCOUNT_CONTROL = 0x20
 	WSC_SECURITY_PROVIDER_SERVICE              = 0x40
-	WSC_SECURITY_PROVIDER_NONE                 = 0
-	WSC_SECURITY_PROVIDER_ALL
+	WSC_SECURITY_PROVIDER_NONE                 = 0x0
+	WSC_SECURITY_PROVIDER_ALL                  = 0x7f
 )
 
 const (
@@ -44,7 +45,7 @@ var providerStates = map[uint32]string{
 	WSC_SECURITY_PROVIDER_HEALTH_SNOOZE:       "Snoozed",
 }
 
-func resolveProductHealthOrError(productName uint32) string {
+func getProductHealth(productName uint32) string {
 	modWscapi, err := windows.LoadLibraryEx("wscapi.dll", 0, windows.LOAD_LIBRARY_SEARCH_SYSTEM32)
 	if err != nil {
 		return fmt.Sprintf("Error loading wscapi.dll: %v", err)
@@ -72,18 +73,73 @@ func resolveProductHealthOrError(productName uint32) string {
 	return "Unknown"
 }
 
+func isWindowsUpdateServicesEnabled() (bool, error) {
+	// Connect to the Windows Service Control Manager
+	manager, err := mgr.Connect()
+	if err != nil {
+		return false, fmt.Errorf("failed to connect to service manager: %w", err)
+	}
+	defer manager.Disconnect()
+
+	// Check both required services
+	services := []string{"wuauserv", "UsoSvc"}
+	for _, serviceName := range services {
+		enabled, err := isServiceEnabled(manager, serviceName)
+		if err != nil {
+			return false, fmt.Errorf("failed to check service %s: %w", serviceName, err)
+		}
+		if !enabled {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+// isServiceEnabled checks if a specific Windows service is enabled
+func isServiceEnabled(manager *mgr.Mgr, serviceName string) (bool, error) {
+	service, err := manager.OpenService(serviceName)
+	if err != nil {
+		// If service doesn't exist, consider Windows Update as not enabled
+		if err == windows.ERROR_SERVICE_DOES_NOT_EXIST {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to open service %s: %w", serviceName, err)
+	}
+	defer service.Close()
+
+	// Get service configuration
+	config, err := service.Config()
+	if err != nil {
+		return false, fmt.Errorf("failed to get service config: %w", err)
+	}
+
+	// Check if service is disabled
+	return config.StartType != windows.SERVICE_DISABLED, nil
+}
+
+func getWindowsUpdateHealth() string {
+	productHealth := getProductHealth(WSC_SECURITY_PROVIDER_AUTOUPDATE_SETTINGS)
+	enabled, _ := isWindowsUpdateServicesEnabled()
+
+	if productHealth == "Good" && !enabled {
+		return "Poor"
+	}
+
+	return productHealth
+}
 func GenWindowsSecurityCenter() ([]WindowsSecurityCenter, error) {
 
 	// Get Windows Security Center info
 	result := []WindowsSecurityCenter{
 		{
-			Firewall:              resolveProductHealthOrError(WSC_SECURITY_PROVIDER_FIREWALL),
-			Antivirus:             resolveProductHealthOrError(WSC_SECURITY_PROVIDER_ANTIVIRUS),
-			Autoupdate:            resolveProductHealthOrError(WSC_SECURITY_PROVIDER_AUTOUPDATE_SETTINGS),
-			Antispyware:           resolveProductHealthOrError(WSC_SECURITY_PROVIDER_ANTISPYWARE),
-			InternetSettings:      resolveProductHealthOrError(WSC_SECURITY_PROVIDER_INTERNET_SETTINGS),
-			UserAccountControl:    resolveProductHealthOrError(WSC_SECURITY_PROVIDER_USER_ACCOUNT_CONTROL),
-			WindowsSecurityCenter: resolveProductHealthOrError(WSC_SECURITY_PROVIDER_SERVICE),
+			Firewall:              getProductHealth(WSC_SECURITY_PROVIDER_FIREWALL),
+			Autoupdate:            getWindowsUpdateHealth(),
+			Antivirus:             getProductHealth(WSC_SECURITY_PROVIDER_ANTIVIRUS),
+			Antispyware:           getProductHealth(WSC_SECURITY_PROVIDER_ANTISPYWARE),
+			InternetSettings:      getProductHealth(WSC_SECURITY_PROVIDER_INTERNET_SETTINGS),
+			UserAccountControl:    getProductHealth(WSC_SECURITY_PROVIDER_USER_ACCOUNT_CONTROL),
+			WindowsSecurityCenter: getProductHealth(WSC_SECURITY_PROVIDER_SERVICE),
 		},
 	}
 

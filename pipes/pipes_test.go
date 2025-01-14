@@ -17,23 +17,6 @@ func TestGenPipes(t *testing.T) {
 		t.Fatalf("Failed to marshal pipes: %v", err)
 	}
 
-	t.Logf("Number of pipes: %d", len(pipes))
-	t.Logf("Named Pipes JSON:\n%s", string(jsonData))
-}
-
-func ExampleGenPipes() {
-	pipes, err := GenPipes()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
+	fmt.Printf("Pipes Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total pipes: %d\n", len(pipes))
-
-	jsonData, err := json.MarshalIndent(pipes, "", "  ")
-	if err != nil {
-		fmt.Printf("JSON error: %v\n", err)
-		return
-	}
-	fmt.Printf("%s\n", string(jsonData))
 }

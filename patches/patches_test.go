@@ -20,12 +20,3 @@ func TestGenPatches(t *testing.T) {
 	fmt.Printf("Patches Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total patches: %d\n", len(patches))
 }
-
-func ExampleGenPatches() {
-	patches, err := GenPatches()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total patches: %d\n", len(patches))
-}

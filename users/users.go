@@ -70,7 +70,7 @@ func processLocalAccounts() ([]User, error) {
 		)
 
 		// NERR_Success same value as ERROR_SUCCESS
-		if ret != uintptr(windows.ERROR_SUCCESS) && ret != uintptr(windows.ERROR_MORE_DATA) {
+		if syscall.Errno(ret) != windows.ERROR_SUCCESS && syscall.Errno(ret) != windows.ERROR_MORE_DATA {
 			log.Fatalf("NetUserEnum failed with error: %d", ret)
 			break
 		}
@@ -93,7 +93,7 @@ func processLocalAccounts() ([]User, error) {
 				uintptr(unsafe.Pointer(&userInfo4Ptr)),
 			)
 
-			if ret != uintptr(windows.ERROR_SUCCESS) || userInfo4Ptr == 0 {
+			if syscall.Errno(ret) != windows.ERROR_SUCCESS || userInfo4Ptr == 0 {
 				fmt.Printf("Failed to get detailed info for %s, error: %d\n", windows.UTF16PtrToString(userInfo0.usri0_name), ret)
 				continue
 			}
@@ -136,7 +136,7 @@ func processLocalAccounts() ([]User, error) {
 			userInfoBuf,
 		)
 
-		if ret != uintptr(windows.ERROR_MORE_DATA) {
+		if syscall.Errno(ret) != windows.ERROR_MORE_DATA {
 			break
 		}
 	}

@@ -20,12 +20,3 @@ func TestGenCPUInfo(t *testing.T) {
 	fmt.Printf("CPU Information:\n%s\n", string(jsonData))
 	fmt.Printf("Total CPU records: %d\n", len(cpuInfos))
 }
-
-func ExampleGenCPUInfo() {
-	cpuInfos, err := GenCPUInfo()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Number of CPU records: %d\n", len(cpuInfos))
-}

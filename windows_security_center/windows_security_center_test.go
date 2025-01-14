@@ -20,12 +20,3 @@ func TestGenWindowsSecurityCenter(t *testing.T) {
 	fmt.Printf("Windows Security Center Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total entries: %d\n", len(secInfo))
 }
-
-func ExampleGenWindowsSecurityCenter() {
-	secInfo, err := GenWindowsSecurityCenter()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total Security Center entries: %d\n", len(secInfo))
-}

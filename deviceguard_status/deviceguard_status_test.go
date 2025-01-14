@@ -20,12 +20,3 @@ func TestGenDeviceguardStatus(t *testing.T) {
 	fmt.Printf("Device Guard Status:\n%s\n", string(jsonData))
 	fmt.Printf("Total records: %d\n", len(status))
 }
-
-func ExampleGenDeviceguardStatus() {
-	status, err := GenDeviceguardStatus()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Number of Device Guard records: %d\n", len(status))
-}

@@ -2,9 +2,12 @@ package drivers
 
 import (
 	"fmt"
+	"syscall"
+	"unsafe"
 
 	"github.com/StackExchange/wmi"
 	"golang.org/x/sys/windows"
+	"golang.org/x/sys/windows/registry"
 )
 
 type Driver struct {
@@ -21,7 +24,7 @@ type Driver struct {
 	Manufacturer string `json:"manufacturer"`
 	DriverKey    string `json:"driver_key"`
 	Date         int64  `json:"date"`
-	Signed       int    `json:"signed"`
+	Signed       bool   `json:"signed"`
 }
 
 type win32_PnPSignedDriver struct {
@@ -60,7 +63,7 @@ type _SP_DEVINFO_DATA struct {
 	Reserved  uintptr
 }
 
-type _SP_DEVINSTALL_PARAMS_W struct {
+type _SP_DEVINSTALL_PARAMS struct {
 	cbSize                   uint32
 	Flags                    uint32
 	FlagsEx                  uint32
@@ -73,41 +76,156 @@ type _SP_DEVINSTALL_PARAMS_W struct {
 	DriverPath               [windows.MAX_PATH]uint16
 }
 
-func setupDevInfoSet() (uintptr, error) {
-	var devInfoSet uintptr
-	devInfoSet, err := setupDevInfoSet()
-	if err != nil {
-		return 0, err
+var (
+	procSetupGetInfDriverStoreLocationW uintptr
+)
+
+const (
+	regDriverKey  = `SYSTEM\CurrentControlSet\Control\Class\`
+	regServiceKey = `SYSTEM\CurrentControlSet\Services\`
+)
+
+// getInfPath retrieves the full driver INF path
+func getInfPath(infName string) (string, error) {
+	if infName == "" {
+		return "", nil
 	}
-	return devInfoSet, nil
+
+	// Convert input string to UTF16
+	infNameW := windows.StringToUTF16(infName)
+
+	infBuf := make([]uint16, windows.MAX_PATH)
+	var infSize uint32
+	if ret, _, err := syscall.SyscallN(procSetupGetInfDriverStoreLocationW,
+		uintptr(unsafe.Pointer(&infNameW[0])),
+		0,
+		0,
+		uintptr(unsafe.Pointer(&infBuf[0])),
+		uintptr(windows.MAX_PATH),
+		uintptr(unsafe.Pointer(&infSize)),
+	); ret == 0 && err == windows.ERROR_INSUFFICIENT_BUFFER {
+		// Resize buffer and try again
+		infBuf = make([]uint16, infSize)
+		if ret, _, err = syscall.SyscallN(procSetupGetInfDriverStoreLocationW,
+			uintptr(unsafe.Pointer(&infNameW[0])),
+			0,
+			0,
+			uintptr(unsafe.Pointer(&infBuf[0])),
+			uintptr(infSize),
+			uintptr(unsafe.Pointer(&infSize)),
+		); ret == 0 {
+			return "", fmt.Errorf("SetupGetInfDriverStoreLocation failed with errno: %d", err)
+		}
+	} else if ret == 0 {
+		return "", fmt.Errorf("SetupGetInfDriverStoreLocation failed with errno: %d", err)
+	}
+	// Convert result back to string
+	return windows.UTF16ToString(infBuf), nil
+}
+
+func getDeviceList() ([]windows.DevInfoData, error) {
+	// SetupDiGetClassDevsW
+	devHandle, err := windows.SetupDiGetClassDevsEx(
+		nil,
+		"",
+		0,
+		windows.DIGCF_ALLCLASSES|windows.DIGCF_PRESENT|windows.DIGCF_PROFILE,
+		0,
+		"",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get device list: %v", err)
+	}
+	defer windows.SetupDiDestroyDeviceInfoList(devHandle)
+
+	var devList []windows.DevInfoData
+
+	var installParams windows.DevInstallParams
+	// installParams.size = uint32(unsafe.Sizeof(installParams))
+	installParams.FlagsEx = windows.DI_FLAGSEX_ALLOWEXCLUDEDDRVS | windows.DI_FLAGSEX_INSTALLEDDRIVER
+
+	for i := 0; ; i++ {
+		var devInfo windows.DevInfoData
+		devInfoPtr, err := windows.SetupDiEnumDeviceInfo(
+			devHandle,
+			i,
+		)
+		if err != nil {
+			break
+		}
+		// SetupDiSetDeviceInstallParams
+		if err := windows.SetupDiSetDeviceInstallParams(
+			devHandle,
+			devInfoPtr,
+			&installParams,
+		); err != nil {
+			return nil, fmt.Errorf("failed to set device install params: %v", err)
+		}
+		devInfo := *(*windows.DevInfoData)(unsafe.Pointer(devInfoPtr))
+		devList = append(devList, devInfo)
+	}
+
+	return devList, nil
+}
+
+func getDriverImagePath(svcName string) (string, error) {
+	k, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, regServiceKey+svcName, registry.QUERY_VALUE)
+	if err != nil {
+		return "", fmt.Errorf("failed to open service registry key: %v", err)
+	}
+	defer k.Close()
+
+	imagePath, _, err := k.GetStringValue("ImagePath")
+	if err != nil {
+		return "", fmt.Errorf("failed to get ImagePath value: %v", err)
+	}
+	return imagePath, nil
 }
 
 func GenDrivers() ([]Driver, error) {
-	var drivers []win32_PnPSignedDriver
-
-	// Query WMI
-	query := "SELECT * FROM Win32_PnPSignedDriver"
-	err := wmi.QueryNamespace(query, &drivers, `root\CIMV2`)
+	// Load modSetupapi.dll
+	modSetupapi, err := windows.LoadLibrary("setupapi.dll")
 	if err != nil {
-		return nil, fmt.Errorf("Failed to query Win32_PnPSignedDriver: %v", err)
+		return nil, fmt.Errorf("error loading setupapi.dll: %v", err)
+	}
+	defer windows.FreeLibrary(modSetupapi)
+
+	// Get the SetupGetInfDriverStoreLocationW function
+	if procSetupGetInfDriverStoreLocationW, err = windows.GetProcAddress(modSetupapi, "SetupGetInfDriverStoreLocationW"); err != nil {
+		return nil, fmt.Errorf("error getting SetupGetInfDriverStoreLocationW function: %v", err)
+	}
+
+	var drivers []Driver
+	var wmiDrivers []win32_PnPSignedDriver
+
+	if err := wmi.QueryNamespace(
+		"SELECT * FROM Win32_PnPSignedDriver",
+		&wmiDrivers,
+		`root\CIMV2`); err != nil {
+		return nil, fmt.Errorf("failed to query Win32_PnPSignedDriver: %v", err)
 	}
 
 	// Print results
-	for _, driver := range drivers {
-		fmt.Printf("Device Name: %s\n", driver.DeviceName)
-		fmt.Printf("Device ID: %s\n", driver.DeviceID)
-		fmt.Printf("Driver Version: %s\n", driver.DriverVersion)
-		fmt.Printf("Manufacturer: %s\n", driver.Manufacturer)
-		fmt.Printf("Is Signed: %v\n", driver.IsSigned)
-		fmt.Printf("Provider: %s\n", driver.DriverProviderName)
-		fmt.Printf("INF Name: %s\n", driver.InfName)
-		fmt.Printf("Location: %s\n", driver.Location)
-		fmt.Printf("PDO: %s\n", driver.PDO)
-		fmt.Printf("Hardware ID: %s\n", driver.HardWareID)
-		fmt.Println("---")
+	for _, wmiInfo := range wmiDrivers {
+		driver := Driver{
+			DeviceID:     wmiInfo.DeviceID,
+			DeviceName:   wmiInfo.DeviceName,
+			Description:  wmiInfo.Description,
+			Class:        wmiInfo.DeviceClass,
+			Version:      wmiInfo.DriverVersion,
+			Manufacturer: wmiInfo.Manufacturer,
+			Provider:     wmiInfo.DriverProviderName,
+			Signed:       wmiInfo.IsSigned,
+		}
+
+		infPath, err := getInfPath(wmiInfo.InfName)
+		if err != nil {
+			infPath = wmiInfo.InfName
+		}
+
+		driver.Inf = infPath
+		drivers = append(drivers, driver)
 	}
 
-	fmt.Print("Total drivers: ", len(drivers), "\n")
-
-	return nil, nil
+	return drivers, nil
 }

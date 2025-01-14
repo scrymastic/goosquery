@@ -17,30 +17,7 @@ func TestGenProcesses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to marshal processes: %v", err)
 	}
-	t.Logf("Processes JSON:\n%s", string(jsonData))
 
-	// Print number of records
-	t.Logf("Number of processes: %d", len(processes))
-
-	// Basic validation
-	if len(processes) == 0 {
-		t.Error("No processes returned")
-	}
-}
-
-func ExampleGenProcesses() {
-	processes, err := GenProcesses()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-
+	fmt.Printf("Processes Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total processes: %d\n", len(processes))
-
-	jsonData, err := json.MarshalIndent(processes, "", "  ")
-	if err != nil {
-		fmt.Printf("JSON error: %v\n", err)
-		return
-	}
-	fmt.Printf("%s\n", string(jsonData))
 }

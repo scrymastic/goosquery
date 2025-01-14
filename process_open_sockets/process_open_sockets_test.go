@@ -20,12 +20,3 @@ func TestGenProcessOpenSockets(t *testing.T) {
 	fmt.Printf("Process Open Sockets:\n%s\n", string(jsonData))
 	fmt.Printf("Total open sockets: %d\n", len(sockets))
 }
-
-func ExampleGenProcessOpenSockets() {
-	sockets, err := GenProcessOpenSockets()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Number of open sockets: %d\n", len(sockets))
-}

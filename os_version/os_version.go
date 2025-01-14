@@ -2,6 +2,7 @@ package os_version
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -9,8 +10,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// Win32_OperatingSystem represents WMI Win32_OperatingSystem object
-type Win32_OperatingSystem struct {
+// Fields from win32_OperatingSystem WMI class, not all fields are used
+type win32_OperatingSystem struct {
 	Caption        string
 	Version        string
 	OSArchitecture string
@@ -33,19 +34,9 @@ type OSVersion struct {
 	Revision     uint64 `json:"revision"`
 }
 
-// parseVersionComponent safely converts a version string component to int64
-func parseVersionComponent(s string) uint64 {
-	var value uint64
-	_, err := fmt.Sscanf(s, "%d", &value)
-	if err != nil {
-		return 0
-	}
-	return value
-}
-
 // GenOSVersion retrieves the Windows operating system version information
 func GenOSVersion() (*OSVersion, error) {
-	var winOS []Win32_OperatingSystem
+	var winOS []win32_OperatingSystem
 	if err := wmi.Query(
 		"SELECT Caption, Version, OSArchitecture, InstallDate FROM Win32_OperatingSystem",
 		&winOS); err != nil {
@@ -70,10 +61,10 @@ func GenOSVersion() (*OSVersion, error) {
 	// Parse version components
 	parts := strings.Split(winOS[0].Version, ".")
 	if len(parts) >= 1 {
-		osVersion.Major = parseVersionComponent(parts[0])
+		osVersion.Major, _ = strconv.ParseUint(parts[0], 10, 64)
 	}
 	if len(parts) >= 2 {
-		osVersion.Minor = parseVersionComponent(parts[1])
+		osVersion.Minor, _ = strconv.ParseUint(parts[1], 10, 64)
 	}
 	if len(parts) >= 3 {
 		osVersion.Build = parts[2]
@@ -94,7 +85,7 @@ func GenOSVersion() (*OSVersion, error) {
 
 		// Get DisplayVersion for patch if available (Windows 10 and later)
 		if displayVersion, _, err := k.GetStringValue("DisplayVersion"); err == nil {
-			osVersion.Patch = parseVersionComponent(displayVersion)
+			osVersion.Patch, _ = strconv.ParseUint(displayVersion, 10, 64)
 		}
 	}
 

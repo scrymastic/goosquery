@@ -21,11 +21,17 @@ func TestGenDrivers(t *testing.T) {
 	fmt.Printf("Total drivers: %d\n", len(drivers))
 }
 
-func ExampleGenDrivers() {
-	drivers, err := GenDrivers()
+func TestGetDeviceList(t *testing.T) {
+	devList, err := getDeviceList()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
+		t.Fatalf("Failed to get device list: %v", err)
 	}
-	fmt.Printf("Total drivers: %d\n", len(drivers))
+
+	// Print results as JSON
+	jsonData, err := json.MarshalIndent(devList, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal device list to JSON: %v", err)
+	}
+	fmt.Printf("Device List Results:\n%s\n", string(jsonData))
+	fmt.Printf("Total devices: %d\n", len(devList))
 }

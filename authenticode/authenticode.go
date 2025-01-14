@@ -28,14 +28,6 @@ var (
 	procCryptCATAdminReleaseContext         uintptr
 )
 
-// // GUID for driver verification
-// var DRIVER_ACTION_VERIFY = windows.GUID{
-// 	Data1: 0xf750e6c3,
-// 	Data2: 0x38ee,
-// 	Data3: 0x11d1,
-// 	Data4: [8]byte{0x85, 0xe5, 0x00, 0xc0, 0x4f, 0xc2, 0x95, 0xee},
-// }
-
 var DRIVER_ACTION_VERIFY = ole.NewGUID("{f750e6c3-38ee-11d1-85e5-00c04fc295ee}")
 
 const SHA512_HASH_SIZE = 64

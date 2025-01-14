@@ -20,12 +20,3 @@ func TestGenDefaultEnvironments(t *testing.T) {
 	fmt.Printf("Default Environment Variables:\n%s\n", string(jsonData))
 	fmt.Printf("Total environment variables: %d\n", len(envVars))
 }
-
-func ExampleGenDefaultEnvironments() {
-	envVars, err := GenDefaultEnvironments()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total environment variables: %d\n", len(envVars))
-}

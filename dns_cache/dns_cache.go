@@ -25,7 +25,6 @@ type DNSCache struct {
 }
 
 var (
-	dnsapi                   syscall.Handle
 	procDnsGetCacheDataTable uintptr
 )
 
@@ -82,16 +81,16 @@ var (
 )
 
 func GenDNSCache() ([]DNSCache, error) {
-	var err error
-
 	// Load dnsapi.dll
-	if dnsapi, err = syscall.LoadLibrary("dnsapi.dll"); err != nil {
+	modDnsapi, err := syscall.LoadLibrary("dnsapi.dll")
+	if err != nil {
 		return nil, fmt.Errorf("error loading dnsapi.dll: %v", err)
 	}
-	defer syscall.FreeLibrary(dnsapi)
+	defer syscall.FreeLibrary(modDnsapi)
 
 	// Get the DnsGetCacheDataTable function
-	if procDnsGetCacheDataTable, err = syscall.GetProcAddress(dnsapi, "DnsGetCacheDataTable"); err != nil {
+	procDnsGetCacheDataTable, err = syscall.GetProcAddress(modDnsapi, "DnsGetCacheDataTable")
+	if err != nil {
 		return nil, fmt.Errorf("error getting DnsGetCacheDataTable function: %v", err)
 	}
 

@@ -20,12 +20,3 @@ func TestGenLogonSessions(t *testing.T) {
 	fmt.Printf("Logon Sessions:\n%s\n", string(jsonData))
 	fmt.Printf("Total logon sessions: %d\n", len(sessions))
 }
-
-func ExampleGenLogonSessions() {
-	sessions, err := GenLogonSessions()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Number of logon sessions: %d\n", len(sessions))
-}

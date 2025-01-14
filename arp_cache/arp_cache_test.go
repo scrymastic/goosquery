@@ -20,12 +20,3 @@ func TestGenARPCache(t *testing.T) {
 	fmt.Printf("ARP Cache Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total entries: %d\n", len(entries))
 }
-
-func ExampleGenARPCache() {
-	entries, err := GenARPCache()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total ARP entries: %d\n", len(entries))
-}

@@ -20,12 +20,3 @@ func TestGenWMIEventFilters(t *testing.T) {
 	fmt.Printf("WMI Event Filters:\n%s\n", string(jsonData))
 	fmt.Printf("Total filters: %d\n", len(filters))
 }
-
-func ExampleGenWMIEventFilters() {
-	filters, err := GenWMIEventFilters()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		return
-	}
-	fmt.Printf("Total WMI event filters: %d\n", len(filters))
-}
