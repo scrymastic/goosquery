@@ -47,7 +47,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | deviceguard_status               | ✅      |
 | disk_info                        | ⏳      |
 | dns_cache                        | ✅      |
-| drivers                          | 🛠️      |
+| drivers                          | 🧪      |
 | ec2_instance_metadata            | ⏳      |
 | ec2_instance_tags                | ⏳      |
 | etc_hosts                        | ⏳      |
