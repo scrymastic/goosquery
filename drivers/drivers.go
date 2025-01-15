@@ -317,9 +317,10 @@ func GenDrivers() ([]Driver, error) {
 		}
 		driverKey = regDriverKey + driverKey
 		// Check if the driver key exists
-		if _, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, driverKey, registry.QUERY_VALUE); err != nil {
+		if k, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, driverKey, registry.QUERY_VALUE); err != nil {
 			driverKey = ""
 		} else {
+			k.Close()
 			driverKey = `HKEY_LOCAL_MACHINE\` + driverKey
 		}
 
@@ -330,9 +331,10 @@ func GenDrivers() ([]Driver, error) {
 		}
 		serviceKey := regServiceKey + service
 		// Check if the service key exists
-		if _, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, serviceKey, registry.QUERY_VALUE); err != nil {
+		if k, err := registry.OpenKey(windows.HKEY_LOCAL_MACHINE, serviceKey, registry.QUERY_VALUE); err != nil {
 			serviceKey = ""
 		} else {
+			k.Close()
 			serviceKey = `HKEY_LOCAL_MACHINE\` + serviceKey
 		}
 
