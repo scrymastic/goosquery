@@ -22,7 +22,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 
 | Table Name                       | Status  |
 |----------------------------------|---------|
-| appcompat_shims                  | ⏳      |
+| appcompat_shims                  | 🧪      |
 | arp_cache                        | 🧪      |
 | authenticode                     | 🛠️      |
 | autoexec                         | ⏳      |
@@ -34,7 +34,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | carbon_black_info                | ⏳      |
 | carves                           | ⏳      |
 | certificates                     | ⏳      |
-| chassis_info                     | ⏳      |
+| chassis_info                     | ✅      |
 | chocolatey_packages              | ⏳      |
 | chrome_extension_content_scripts | ⏳      |
 | chrome_extensions                | ⏳      |

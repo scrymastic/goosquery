@@ -26,29 +26,114 @@ var (
 	procCryptCATCatalogInfoFromContext      uintptr
 	procCryptCATAdminReleaseCatalogContext  uintptr
 	procCryptCATAdminReleaseContext         uintptr
+	procWinVerifyTrust                      uintptr
+	procCryptQueryObject                    uintptr
+	procCryptMsgGetParam                    uintptr
 )
 
-var DRIVER_ACTION_VERIFY = ole.NewGUID("{f750e6c3-38ee-11d1-85e5-00c04fc295ee}")
+var (
+	_DRIVER_ACTION_VERIFY              = windows.GUID(*ole.NewGUID("{f750e6c3-38ee-11d1-85e5-00c04fc295ee}"))
+	_WINTRUST_ACTION_GENERIC_VERIFY_V2 = windows.GUID(*ole.NewGUID("{00aac56b-cd44-11d0-8cc2-00c04fc295ee}"))
+)
 
-const SHA512_HASH_SIZE = 64
+const (
+	_SHA512_HASH_SIZE       = 64
+	_CMSG_SIGNER_INFO_PARAM = 2
+)
 
-// _CATALOG_INFO structure
 type _CATALOG_INFO struct {
-	CbStruct       uint32
-	WSzCatalogFile [windows.MAX_PATH]uint16
+	cbStruct       uint32
+	wszCatalogFile [windows.MAX_PATH]uint16
 }
 
-// GetCatalogPathForFilePath retrieves the catalog file path for a given file path
-func GetCatalogPathForFilePath(path string) (catalogFile string, err error) {
+type _CRYPT_ATTRIBUTE struct {
+	pszObjId *byte
+	cValue   uint32
+	rgValue  *windows.CryptDataBlob
+}
+
+type _CRYPT_ATTRIBUTES struct {
+	cAttr  uint32
+	rgAttr *_CRYPT_ATTRIBUTE
+}
+
+type _CMSG_SIGNER_INFO struct {
+	dwVersion               uint32
+	Issuer                  windows.CertNameBlob
+	SerialNumber            windows.CryptIntegerBlob
+	HashAlgorithm           windows.CryptAlgorithmIdentifier
+	HashEncryptionAlgorithm windows.CryptAlgorithmIdentifier
+	EncryptedHash           windows.CryptDataBlob
+	AuthAttrs               _CRYPT_ATTRIBUTES
+	UnauthAttrs             _CRYPT_ATTRIBUTES
+}
+
+func getSignatureInformation(path string) (string, error) {
 	// Convert path to UTF16
-	pathPtr, err := windows.UTF16PtrFromString(path)
+	uft16Path, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert path: %v", err)
+	}
+
+	var certStore windows.Handle
+	var message windows.Handle
+
+	ret, _, _ := syscall.SyscallN(procCryptQueryObject,
+		uintptr(windows.CERT_QUERY_OBJECT_FILE),
+		uintptr(unsafe.Pointer(uft16Path)),
+		uintptr(windows.CERT_QUERY_CONTENT_FLAG_PKCS7_SIGNED_EMBED),
+		uintptr(windows.CERT_QUERY_FORMAT_FLAG_BINARY),
+		0,
+		0,
+		0,
+		0,
+		uintptr(unsafe.Pointer(&certStore)),
+		uintptr(unsafe.Pointer(&message)),
+		0,
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("failed to query object: %v", windows.GetLastError())
+	}
+
+	var signerInfoSize uint32
+	ret, _, _ = syscall.SyscallN(procCryptMsgGetParam,
+		uintptr(message),
+		uintptr(_CMSG_SIGNER_INFO_PARAM),
+		0,
+		0,
+		uintptr(unsafe.Pointer(&signerInfoSize)),
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("failed to get signer info size: %v", windows.GetLastError())
+	}
+
+	signerInfo := make([]byte, signerInfoSize)
+	signerInfoPtr := (*_CMSG_SIGNER_INFO)(unsafe.Pointer(&signerInfo[0]))
+	ret, _, _ = syscall.SyscallN(procCryptMsgGetParam,
+		uintptr(message),
+		uintptr(_CMSG_SIGNER_INFO_PARAM),
+		0,
+		uintptr(unsafe.Pointer(signerInfoPtr)),
+		uintptr(unsafe.Pointer(&signerInfoSize)),
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("failed to get signer info: %v", windows.GetLastError())
+	}
+
+	return "", nil
+}
+
+// getCatalogPathForFilePath retrieves the catalog file path for a given file path
+func getCatalogPathForFilePath(path string) (string, error) {
+	// Convert path to UTF16
+	uft16Path, err := windows.UTF16PtrFromString(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to convert path: %v", err)
 	}
 
 	// Open the file
 	handle, err := windows.CreateFile(
-		pathPtr,
+		uft16Path,
 		windows.GENERIC_READ,
 		windows.FILE_SHARE_READ,
 		nil,
@@ -65,8 +150,9 @@ func GetCatalogPathForFilePath(path string) (catalogFile string, err error) {
 	var context windows.Handle
 	ret, _, _ := syscall.SyscallN(procCryptCATAdminAcquireContext,
 		uintptr(unsafe.Pointer(&context)),
-		uintptr(unsafe.Pointer(&DRIVER_ACTION_VERIFY)),
-		0)
+		uintptr(unsafe.Pointer(&_DRIVER_ACTION_VERIFY)),
+		0,
+	)
 	if ret == 0 {
 		return "", fmt.Errorf("failed to acquire catalog context: %v", err)
 	}
@@ -76,7 +162,7 @@ func GetCatalogPathForFilePath(path string) (catalogFile string, err error) {
 	)
 
 	// Calculate file hash
-	hash := make([]byte, SHA512_HASH_SIZE)
+	hash := make([]byte, _SHA512_HASH_SIZE)
 	hashSize := uint32(len(hash))
 
 	ret, _, _ = syscall.SyscallN(procCryptCATAdminCalcHashFromFileHandle,
@@ -111,7 +197,7 @@ func GetCatalogPathForFilePath(path string) (catalogFile string, err error) {
 
 	// Get catalog info
 	var info _CATALOG_INFO
-	info.CbStruct = uint32(unsafe.Sizeof(info))
+	info.cbStruct = uint32(unsafe.Sizeof(info))
 
 	ret, _, err = syscall.SyscallN(procCryptCATCatalogInfoFromContext,
 		uintptr(catalog),
@@ -123,8 +209,51 @@ func GetCatalogPathForFilePath(path string) (catalogFile string, err error) {
 	}
 
 	// Convert catalog path from UTF16
-	catalogFile = windows.UTF16ToString(info.WSzCatalogFile[:])
+	catalogFile := windows.UTF16ToString(info.wszCatalogFile[:])
 	return catalogFile, nil
+}
+
+func verifySignature(path string) (string, error) {
+	uft16Path, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert path: %v", err)
+	}
+
+	trustProviderSettings := windows.WinTrustData{}
+	trustProviderSettings.Size = uint32(unsafe.Sizeof(trustProviderSettings))
+
+	fileInfo := windows.WinTrustFileInfo{
+		Size:     uint32(unsafe.Sizeof(windows.WinTrustFileInfo{})),
+		FilePath: uft16Path,
+	}
+
+	trustProviderSettings.FileOrCatalogOrBlobOrSgnrOrCert = unsafe.Pointer(&fileInfo)
+	trustProviderSettings.RevocationChecks = windows.WTD_REVOKE_WHOLECHAIN
+	trustProviderSettings.UIChoice = windows.WTD_UI_NONE
+	trustProviderSettings.StateAction = windows.WTD_STATEACTION_VERIFY
+	trustProviderSettings.UnionChoice = windows.WTD_CHOICE_FILE
+
+	authenticodePolicyProvider := _WINTRUST_ACTION_GENERIC_VERIFY_V2
+	ret, _, _ := syscall.SyscallN(procWinVerifyTrust,
+		uintptr(0),
+		uintptr(unsafe.Pointer(&authenticodePolicyProvider)),
+		uintptr(unsafe.Pointer(&trustProviderSettings)),
+	)
+
+	verificationStatus := int(ret)
+
+	switch verificationStatus {
+	case int(windows.ERROR_SUCCESS):
+		return "Trusted", nil
+	case int(windows.TRUST_E_NOSIGNATURE):
+		return "Missing", nil
+	case int(windows.CRYPT_E_SECURITY_SETTINGS):
+		return "Valid", nil
+	case int(windows.TRUST_E_SUBJECT_NOT_TRUSTED):
+		return "Untrusted", nil
+	default:
+		return "Unknown", fmt.Errorf("unknown verification status: %v", verificationStatus)
+	}
 }
 
 func GenAuthenticode(path string) ([]Authenticode, error) {
@@ -165,12 +294,40 @@ func GenAuthenticode(path string) ([]Authenticode, error) {
 		return nil, fmt.Errorf("failed to get CryptCATAdminReleaseContext address: %v", err)
 	}
 
-	catalogFile, err := GetCatalogPathForFilePath(path)
+	procWinVerifyTrust, err = windows.GetProcAddress(modWintrust, "WinVerifyTrust")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get catalog file: %v", err)
+		return nil, fmt.Errorf("failed to get WinVerifyTrust address: %v", err)
+	}
+
+	modCrypt32, err := windows.LoadLibrary("crypt32.dll")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load crypt32.dll: %v", err)
+	}
+	defer windows.FreeLibrary(modCrypt32)
+
+	procCryptQueryObject, err = windows.GetProcAddress(modCrypt32, "CryptQueryObject")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CryptQueryObject address: %v", err)
+	}
+
+	procCryptMsgGetParam, err = windows.GetProcAddress(modCrypt32, "CryptMsgGetParam")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CryptMsgGetParam address: %v", err)
+	}
+
+	catalogFile, err := getCatalogPathForFilePath(path)
+	if err != nil {
+		catalogFile = path
 	}
 
 	fmt.Printf("Catalog file: %s\n", catalogFile)
+
+	authenticode, err := verifySignature(catalogFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify signature: %v", err)
+	}
+
+	fmt.Printf("Authenticode: %s\n", authenticode)
 
 	return nil, errors.New("not implemented")
 }
