@@ -61,11 +61,11 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | intel_me_info                    | ⏳      |
 | interface_addresses              | ⏳      |
 | interface_details                | ⏳      |
-| kernel_info                      | ⏳      |
-| kva_speculative_info             | ⏳      |
+| kernel_info                      | ✅      |
+| kva_speculative_info             | ✅      |
 | listening_ports                  | ⏳      |
 | logged_in_users                  | ⏳      |
-| logical_drives                   | ⏳      |
+| logical_drives                   | ✅      |
 | logon_sessions                   | 🧪      |
 | memory_devices                   | ⏳      |
 | npm_packages                     | ⏳      |

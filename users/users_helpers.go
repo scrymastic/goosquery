@@ -1,16 +1,7 @@
 package users
 
 import (
-	"fmt"
-	"syscall"
-	"unsafe"
-
 	"golang.org/x/sys/windows"
-)
-
-const (
-	regProfileKey       = `SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
-	profileKeyValueName = "ProfileImagePath"
 )
 
 type _USER_INFO_0 struct {
@@ -108,22 +99,16 @@ type _USER_INFO_4 struct {
 	usri4_password_expired uint32
 }
 
-var (
-	procGetSidSubAuthCount uintptr
-	procGetSidSubAuthority uintptr
-)
-
-func getRidFromSid(sid *windows.SID) (uint32, error) {
-	countPtr, _, _ := syscall.SyscallN(procGetSidSubAuthCount,
-		uintptr(unsafe.Pointer(sid)),
-	)
-
-	count := *(*byte)(unsafe.Pointer(countPtr))
-
-	ridPtr, _, _ := syscall.SyscallN(procGetSidSubAuthority,
-		uintptr(unsafe.Pointer(sid)),
-		uintptr(count-1),
-	)
-
-	return *(*uint32)(unsafe.Pointer(ridPtr)), nil
-}
+// typedef enum _SID_NAME_USE {
+// 	SidTypeUser = 1,
+// 	SidTypeGroup,
+// 	SidTypeDomain,
+// 	SidTypeAlias,
+// 	SidTypeWellKnownGroup,
+// 	SidTypeDeletedAccount,
+// 	SidTypeInvalid,
+// 	SidTypeUnknown,
+// 	SidTypeComputer,
+// 	SidTypeLabel,
+// 	SidTypeLogonSession
+//   } SID_NAME_USE, *PSID_NAME_USE;
