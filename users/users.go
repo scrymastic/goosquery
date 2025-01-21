@@ -23,63 +23,88 @@ type User struct {
 	Type        string `json:"type"`
 }
 
-const (
-	userTypeLocal   = "local"
-	userTypeRoaming = "roaming"
-	userTypeSpecial = "special"
-	regProfileKey   = `SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
-	defaultShell    = "C:\\Windows\\system32\\cmd.exe"
-)
-
-var wellKnownSids = []string{
-	"S-1-5-1",
-	"S-1-5-2",
-	"S-1-5-3",
-	"S-1-5-4",
-	"S-1-5-6",
-	"S-1-5-7",
-	"S-1-5-8",
-	"S-1-5-9",
-	"S-1-5-10",
-	"S-1-5-11",
-	"S-1-5-12",
-	"S-1-5-13",
-	"S-1-5-18",
-	"S-1-5-19",
-	"S-1-5-20",
-	"S-1-5-21",
-	"S-1-5-32",
-}
-
-const (
-	_FILTER_NORMAL_ACCOUNT = 0x00000002
-	_MAX_PREFERRED_LENGTH  = 0xFFFFFFFF
-)
-
 var (
-	procNetUserGetLocalGroup uintptr
+	procNetUserGetLocalGroups uintptr
+	procLookupAccountNameW    uintptr
 )
 
-func getGidFromUsername(username string) (uint32, error) {
-	var bufptr *byte
-	ret, _, _ := syscall.SyscallN(procNetUserGetLocalGroup,
+func getSidFromAccountName(accountName string) (*windows.SID, error) {
+	var sidSize uint32
+	var domainSize uint32
+	var sidUse uint32
+
+	// First call to determine the buffer sizes
+	ret, _, err := syscall.SyscallN(procLookupAccountNameW,
 		0,
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(username))),
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(accountName))),
 		0,
+		uintptr(unsafe.Pointer(&sidSize)),
 		0,
-		uintptr(unsafe.Pointer(&bufptr)),
-		uintptr(_MAX_PREFERRED_LENGTH),
-		0,
-		0,
+		uintptr(unsafe.Pointer(&domainSize)),
+		uintptr(unsafe.Pointer(&sidUse)),
 	)
 
-	if ret != 0 {
-		return 0, fmt.Errorf("NetUserGetLocalGroup failed: %d", ret)
+	if ret == 0 && err != windows.ERROR_INSUFFICIENT_BUFFER {
+		return nil, fmt.Errorf("LookupAccountNameW failed: %w", err)
 	}
 
-	// groupSidPtr := getSidFromAccountName(bufptr)
+	// Allocate buffers
+	sid := make([]byte, sidSize)
+	domain := make([]uint16, domainSize)
 
-	return 0, nil
+	// Second call to actually retrieve the SID
+	ret, _, err = syscall.SyscallN(procLookupAccountNameW,
+		0,
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(accountName))),
+		uintptr(unsafe.Pointer(&sid[0])),
+		uintptr(unsafe.Pointer(&sidSize)),
+		uintptr(unsafe.Pointer(&domain[0])),
+		uintptr(unsafe.Pointer(&domainSize)),
+		uintptr(unsafe.Pointer(&sidUse)),
+	)
+
+	if ret == 0 {
+		return nil, err
+	}
+
+	return (*windows.SID)(unsafe.Pointer(&sid[0])), nil
+}
+
+func getGidFromUsername(username string) (int64, error) {
+	var entriesRead uint32
+	var totalEntries uint32
+	var bufptr *byte
+	// Call NetUserGetLocalGroups with proper flags
+	ret, _, err := syscall.SyscallN(procNetUserGetLocalGroups,
+		0, // local computer
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(username))),
+		0, // level 0
+		0, // no flags
+		uintptr(unsafe.Pointer(&bufptr)),
+		uintptr(_MAX_PREFERRED_LENGTH),
+		uintptr(unsafe.Pointer(&entriesRead)),
+		uintptr(unsafe.Pointer(&totalEntries)))
+	if windows.NTStatus(ret) != windows.STATUS_SUCCESS {
+		return 0, fmt.Errorf("NetUserGetLocalGroups failed: %w", err)
+	}
+	defer windows.NetApiBufferFree(bufptr)
+
+	if entriesRead == 0 {
+		return 0, fmt.Errorf("no local groups found for user")
+	}
+
+	// Get the first group name from the buffer
+	groupInfo := (*_LOCALGROUP_USERS_INFO_0)(unsafe.Pointer(bufptr))
+	groupName := windows.UTF16PtrToString(groupInfo.lgrui0_name)
+	// Get SID for the group name
+	groupSid, sidErr := getSidFromAccountName(groupName)
+	if sidErr != nil {
+		return 0, fmt.Errorf("getSidFromAccountName failed: %w", sidErr)
+	}
+	// Get the RID (last subauthority) from the SID
+	groupRid := int64(groupSid.SubAuthority(uint32(groupSid.SubAuthorityCount() - 1)))
+
+	return groupRid, nil
 }
 
 func getUserHomeDir(sid string) (string, error) {
@@ -151,11 +176,12 @@ func getLocalUsers(processedSids []string) ([]User, []string, error) {
 				user.UUID = userInfoLvl4.usri4_user_sid.String()
 
 				user.UID = int64(userInfoLvl4.usri4_user_sid.SubAuthority(uint32(userInfoLvl4.usri4_user_sid.SubAuthorityCount() - 1)))
-				user.GID = user.UID
-
+				user.GID, err = getGidFromUsername(windows.UTF16PtrToString(userInfoLvl4.usri4_name))
+				if err != nil {
+					user.GID = user.UID
+				}
 				user.UIDSigned = int64(user.UID)
 				user.GIDSigned = int64(user.GID)
-
 				user.Description = windows.UTF16PtrToString(userInfoLvl4.usri4_comment)
 				user.Directory, _ = getUserHomeDir(userInfoLvl4.usri4_user_sid.String())
 			}
@@ -212,11 +238,12 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 		}
 
 		user.UID = int64(sid.SubAuthority(uint32(sid.SubAuthorityCount() - 1)))
-		user.GID = user.UID
-
+		user.GID, err = getGidFromUsername(profileSid)
+		if err != nil {
+			user.GID = user.UID
+		}
 		user.UIDSigned = int64(user.UID)
 		user.GIDSigned = int64(user.GID)
-
 		user.Shell = defaultShell
 		user.Directory, _ = getUserHomeDir(profileSid)
 
@@ -259,16 +286,27 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 }
 
 func GenUsers() ([]User, error) {
-	// modadvapi32, err := windows.LoadLibrary("advapi32.dll")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("LoadLibrary failed: %w", err)
-	// }
-	// defer windows.FreeLibrary(modadvapi32)
+	modNetapi32, err := windows.LoadLibrary("netapi32.dll")
+	if err != nil {
+		return nil, fmt.Errorf("LoadLibrary failed: %w", err)
+	}
+	defer windows.FreeLibrary(modNetapi32)
 
-	// procNetUserGetLocalGroup, err = windows.GetProcAddress(modadvapi32, "NetUserGetLocalGroupW")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("GetProcAddress failed: %w", err)
-	// }
+	procNetUserGetLocalGroups, err = windows.GetProcAddress(modNetapi32, "NetUserGetLocalGroups")
+	if err != nil {
+		return nil, fmt.Errorf("GetProcAddress failed: %w", err)
+	}
+
+	modAdvapi32, err := windows.LoadLibrary("advapi32.dll")
+	if err != nil {
+		return nil, fmt.Errorf("LoadLibrary failed: %w", err)
+	}
+	defer windows.FreeLibrary(modAdvapi32)
+
+	procLookupAccountNameW, err = windows.GetProcAddress(modAdvapi32, "LookupAccountNameW")
+	if err != nil {
+		return nil, fmt.Errorf("GetProcAddress failed: %w", err)
+	}
 
 	var users []User
 	var processedSids []string

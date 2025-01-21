@@ -32,31 +32,6 @@ const (
 	_SystemSpeculationControlInformation = 201
 )
 
-// typedef struct _SYSTEM_KERNEL_VA_SHADOW_INFORMATION {
-// 	struct {
-// 	  ULONG KvaShadowEnabled : 1;
-// 	  ULONG KvaShadowUserGlobal : 1;
-// 	  ULONG KvaShadowPcid : 1;
-// 	  ULONG KvaShadowInvpcid : 1;
-// 	  ULONG Reserved : 28;
-// 	} KvaShadowFlags;
-//   } SYSTEM_KERNEL_VA_SHADOW_INFORMATION, *PSYSTEM_KERNEL_VA_SHADOW_INFORMATION;
-
-// typedef struct _SYSTEM_SPECULATION_CONTROL_INFORMATION {
-// 	struct {
-// 	  ULONG BpbEnabled : 1;
-// 	  ULONG BpbDisabledSystemPolicy : 1;
-// 	  ULONG BpbDisabledNoHardwareSupport : 1;
-// 	  ULONG SpecCtrlEnumerated : 1;
-// 	  ULONG SpecCmdEnumerated : 1;
-// 	  ULONG IbrsPresent : 1;
-// 	  ULONG StibpPresent : 1;
-// 	  ULONG SmepPresent : 1;
-// 	  ULONG Reserved : 24;
-// 	} SpeculationControlFlags;
-//   } SYSTEM_SPECULATION_CONTROL_INFORMATION,
-// 	  *PSYSTEM_SPECULATION_CONTROL_INFORMATION;
-
 type _SYSTEM_KERNEL_VA_SHADOW_INFORMATION uint32
 type _SYSTEM_SPECULATION_CONTROL_INFORMATION uint32
 

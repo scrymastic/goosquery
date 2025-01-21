@@ -4,6 +4,39 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+const (
+	userTypeLocal   = "local"
+	userTypeRoaming = "roaming"
+	userTypeSpecial = "special"
+	regProfileKey   = `SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList`
+	defaultShell    = "C:\\Windows\\system32\\cmd.exe"
+)
+
+var wellKnownSids = []string{
+	"S-1-5-1",
+	"S-1-5-2",
+	"S-1-5-3",
+	"S-1-5-4",
+	"S-1-5-6",
+	"S-1-5-7",
+	"S-1-5-8",
+	"S-1-5-9",
+	"S-1-5-10",
+	"S-1-5-11",
+	"S-1-5-12",
+	"S-1-5-13",
+	"S-1-5-18",
+	"S-1-5-19",
+	"S-1-5-20",
+	"S-1-5-21",
+	"S-1-5-32",
+}
+
+const (
+	_FILTER_NORMAL_ACCOUNT = 0x00000002
+	_MAX_PREFERRED_LENGTH  = 0xFFFFFFFF
+)
+
 type _USER_INFO_0 struct {
 	usri0_name *uint16
 }
@@ -99,16 +132,6 @@ type _USER_INFO_4 struct {
 	usri4_password_expired uint32
 }
 
-// typedef enum _SID_NAME_USE {
-// 	SidTypeUser = 1,
-// 	SidTypeGroup,
-// 	SidTypeDomain,
-// 	SidTypeAlias,
-// 	SidTypeWellKnownGroup,
-// 	SidTypeDeletedAccount,
-// 	SidTypeInvalid,
-// 	SidTypeUnknown,
-// 	SidTypeComputer,
-// 	SidTypeLabel,
-// 	SidTypeLogonSession
-//   } SID_NAME_USE, *PSID_NAME_USE;
+type _LOCALGROUP_USERS_INFO_0 struct {
+	lgrui0_name *uint16
+}

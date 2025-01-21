@@ -74,13 +74,13 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | ntfs_journal_events              | ⏳      |
 | office_mru                       | ⏳      |
 | os_version                       | 🧪      |
-| osquery_events                   | ⏳      |
-| osquery_extensions               | ⏳      |
-| osquery_flags                    | ⏳      |
-| osquery_info                     | ⏳      |
-| osquery_packs                    | ⏳      |
-| osquery_registry                 | ⏳      |
-| osquery_schedule                 | ⏳      |
+| osquery_events                   | 🗑️      |
+| osquery_extensions               | 🗑️      |
+| osquery_flags                    | 🗑️      |
+| osquery_info                     | 🗑️      |
+| osquery_packs                    | 🗑️      |
+| osquery_registry                 | 🗑️      |
+| osquery_schedule                 | 🗑️      |
 | patches                          | ✅      |
 | physical_disk_performance        | ⏳      |
 | pipes                            | 🧪      |
@@ -111,7 +111,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | user_groups                      | ⏳      |
 | user_ssh_keys                    | ⏳      |
 | userassist                       | ⏳      |
-| users                            | 🛠️      |
+| users                            | ✅      |
 | video_info                       | ⏳      |
 | vscode_extensions                | ⏳      |
 | winbaseobj                       | 🧪      |
@@ -119,7 +119,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | windows_eventlog                 | ⏳      |
 | windows_events                   | ⏳      |
 | windows_firewall_rules           | ⏳      |
-| windows_optional_features        | ⏳      |
+| windows_optional_features        | ✅      |
 | windows_search                   | ⏳      |
 | windows_security_center          | 🧪      |
 | windows_security_products        | ⏳      |
