@@ -99,7 +99,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | secureboot                       | ⏳      |
 | security_profile_info            | ⏳      |
 | services                         | ✅      |
-| shared_resources                 | ⏳      |
+| shared_resources                 | ✅      |
 | shellbags                        | ⏳      |
 | shimcache                        | ⏳      |
 | ssh_configs                      | ⏳      |
@@ -108,7 +108,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | time                             | ⏳      |
 | tpm_info                         | ⏳      |
 | uptime                           | ✅      |
-| user_groups                      | ⏳      |
+| user_groups                      | 🛠️      |
 | user_ssh_keys                    | ⏳      |
 | userassist                       | ⏳      |
 | users                            | ✅      |

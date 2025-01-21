@@ -75,7 +75,7 @@ func getGidFromUsername(username string) (int64, error) {
 	var totalEntries uint32
 	var bufptr *byte
 	// Call NetUserGetLocalGroups with proper flags
-	ret, _, err := syscall.SyscallN(procNetUserGetLocalGroups,
+	ret, _, _ := syscall.SyscallN(procNetUserGetLocalGroups,
 		0, // local computer
 		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(username))),
 		0, // level 0
@@ -83,28 +83,40 @@ func getGidFromUsername(username string) (int64, error) {
 		uintptr(unsafe.Pointer(&bufptr)),
 		uintptr(_MAX_PREFERRED_LENGTH),
 		uintptr(unsafe.Pointer(&entriesRead)),
-		uintptr(unsafe.Pointer(&totalEntries)))
-	if windows.NTStatus(ret) != windows.STATUS_SUCCESS {
-		return 0, fmt.Errorf("NetUserGetLocalGroups failed: %w", err)
-	}
+		uintptr(unsafe.Pointer(&totalEntries)),
+	)
+
 	defer windows.NetApiBufferFree(bufptr)
 
-	if entriesRead == 0 {
-		return 0, fmt.Errorf("no local groups found for user")
+	if windows.NTStatus(ret) == windows.STATUS_SUCCESS && bufptr != nil {
+		// Get the first group name from the buffer
+		groupInfo := (*_LOCALGROUP_USERS_INFO_0)(unsafe.Pointer(bufptr))
+		groupName := windows.UTF16PtrToString(groupInfo.lgrui0_name)
+		// Get SID for the group name
+		groupSid, sidErr := getSidFromAccountName(groupName)
+		if sidErr != nil {
+			return 0, fmt.Errorf("getSidFromAccountName failed: %w", sidErr)
+		}
+		// Get the RID (last subauthority) from the SID
+		groupRid := int64(groupSid.SubAuthority(uint32(groupSid.SubAuthorityCount() - 1)))
+
+		return groupRid, nil
 	}
 
-	// Get the first group name from the buffer
-	groupInfo := (*_LOCALGROUP_USERS_INFO_0)(unsafe.Pointer(bufptr))
-	groupName := windows.UTF16PtrToString(groupInfo.lgrui0_name)
-	// Get SID for the group name
-	groupSid, sidErr := getSidFromAccountName(groupName)
-	if sidErr != nil {
-		return 0, fmt.Errorf("getSidFromAccountName failed: %w", sidErr)
+	// If no local groups were found, fallback to using the primary group id from its USER_INFO_3 struct
+	windows.NetUserGetInfo(
+		nil,
+		(*uint16)(unsafe.Pointer(windows.StringToUTF16Ptr(username))),
+		3,
+		&bufptr,
+	)
+	if windows.NTStatus(ret) == windows.STATUS_SUCCESS && bufptr != nil {
+		userInfoLvl3 := (*_USER_INFO_3)(unsafe.Pointer(bufptr))
+		groupRid := int64(userInfoLvl3.usri3_primary_group_id)
+		return groupRid, nil
 	}
-	// Get the RID (last subauthority) from the SID
-	groupRid := int64(groupSid.SubAuthority(uint32(groupSid.SubAuthorityCount() - 1)))
 
-	return groupRid, nil
+	return 0, fmt.Errorf("no local groups found for user")
 }
 
 func getUserHomeDir(sid string) (string, error) {
