@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
+	if runtime.GOOS == "windows" {
+		fmt.Println("Hello, World!")
+	}
 }

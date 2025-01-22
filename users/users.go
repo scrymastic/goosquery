@@ -187,7 +187,7 @@ func getLocalUsers(processedSids []string) ([]User, []string, error) {
 
 				user.UUID = userInfoLvl4.usri4_user_sid.String()
 
-				user.UID = int64(userInfoLvl4.usri4_user_sid.SubAuthority(uint32(userInfoLvl4.usri4_user_sid.SubAuthorityCount() - 1)))
+				user.UID = getRidFromSid(userInfoLvl4.usri4_user_sid)
 				user.GID, err = getGidFromUsername(windows.UTF16PtrToString(userInfoLvl4.usri4_name))
 				if err != nil {
 					user.GID = user.UID
@@ -249,7 +249,7 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 			user.Type = userTypeRoaming
 		}
 
-		user.UID = int64(sid.SubAuthority(uint32(sid.SubAuthorityCount() - 1)))
+		user.UID = getRidFromSid(sid)
 		user.GID, err = getGidFromUsername(profileSid)
 		if err != nil {
 			user.GID = user.UID

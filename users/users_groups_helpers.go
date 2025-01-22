@@ -135,3 +135,11 @@ type _USER_INFO_4 struct {
 type _LOCALGROUP_USERS_INFO_0 struct {
 	lgrui0_name *uint16
 }
+
+// Helper function to get RID from SID
+func getRidFromSid(sid *windows.SID) int64 {
+	if sid == nil {
+		return -1
+	}
+	return int64(sid.SubAuthority(uint32(sid.SubAuthorityCount() - 1)))
+}
