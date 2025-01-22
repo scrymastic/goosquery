@@ -28,12 +28,14 @@ type LogicalDrive struct {
 
 func GenLogicalDrives() ([]LogicalDrive, error) {
 	var disks []win32_LogicalDisk
-	if err := wmi.Query("SELECT * FROM Win32_LogicalDisk", &disks); err != nil {
+	query := "SELECT * FROM Win32_LogicalDisk"
+	if err := wmi.Query(query, &disks); err != nil {
 		return nil, err
 	}
 
 	var bootConfig []win32_BootConfiguration
-	if err := wmi.Query("SELECT * FROM Win32_BootConfiguration", &bootConfig); err != nil {
+	query = "SELECT * FROM Win32_BootConfiguration"
+	if err := wmi.Query(query, &bootConfig); err != nil {
 		return nil, err
 	}
 

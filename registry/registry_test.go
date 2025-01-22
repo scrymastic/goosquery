@@ -8,7 +8,7 @@ import (
 
 func TestGenRegistry(t *testing.T) {
 	// Define a test registry key path
-	keyPath := `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion`
+	keyPath := `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\`
 
 	// Call the GenRegistry function
 	entries, err := GenRegistry(keyPath)

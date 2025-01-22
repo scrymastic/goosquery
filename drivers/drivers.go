@@ -361,11 +361,9 @@ func GenDrivers() ([]Driver, error) {
 	// Get driver list via WMI
 	var drivers []Driver
 	var wmiDriverList []win32_PnPSignedDriver
-
-	if err := wmi.QueryNamespace(
-		"SELECT * FROM Win32_PnPSignedDriver",
-		&wmiDriverList,
-		`root\CIMV2`); err != nil {
+	query := "SELECT * FROM Win32_PnPSignedDriver"
+	namespace := `root\CIMV2`
+	if err := wmi.QueryNamespace(query, &wmiDriverList, namespace); err != nil {
 		return nil, fmt.Errorf("failed to query Win32_PnPSignedDriver: %v", err)
 	}
 

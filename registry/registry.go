@@ -44,6 +44,8 @@ func parseSearchKey(searchKey string) (registry.Key, string, error) {
 		rootKey = registry.USERS
 	case "HKEY_CLASSES_ROOT", "HKCR":
 		rootKey = registry.CLASSES_ROOT
+	default:
+		return 0, "", fmt.Errorf("invalid registry key: %s", parts[0])
 	}
 
 	if len(parts) == 1 {
@@ -60,6 +62,13 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) (
 		return nil, fmt.Errorf("failed to open registry key: %v", err)
 	}
 	defer key.Close()
+
+	info, err := key.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry key info: %v", err)
+	}
+
+	modTime := uint64(info.ModTime().Unix())
 
 	var results []Registry
 	var reg registry.Key
@@ -110,26 +119,22 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) (
 			continue // Skip values that can't be read
 		}
 
-		entry := Registry{
-			Key:  searchKey,
-			Path: searchKey + "\\" + valueName,
-			Name: valueName,
-			Type: registryTypeMap[valType],
-			Data: val,
+		if valueName == "" {
+			valueName = "(Default)"
 		}
-		// Need to be fixed
-		if keyPath == "" {
-			reg, err = registry.OpenKey(rootKey, valueName, registry.QUERY_VALUE)
-		} else {
-			reg, err = registry.OpenKey(rootKey, keyPath+"\\"+valueName, registry.QUERY_VALUE)
-		}
-		defer reg.Close()
 
-		if err == nil {
-			info, err := reg.Stat()
-			if err == nil {
-				entry.MTime = uint64(info.ModTime().Unix())
-			}
+		regType, ok := registryTypeMap[valType]
+		if !ok {
+			regType = fmt.Sprintf("Unknown Type: %d", valType)
+		}
+
+		entry := Registry{
+			Key:   searchKey,
+			Path:  searchKey + "\\" + valueName,
+			Name:  valueName,
+			Type:  regType,
+			Data:  val,
+			MTime: modTime,
 		}
 
 		results = append(results, entry)

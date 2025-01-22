@@ -37,9 +37,8 @@ type OSVersion struct {
 // GenOSVersion retrieves the Windows operating system version information
 func GenOSVersion() (*OSVersion, error) {
 	var winOS []win32_OperatingSystem
-	if err := wmi.Query(
-		"SELECT Caption, Version, OSArchitecture, InstallDate FROM Win32_OperatingSystem",
-		&winOS); err != nil {
+	query := "SELECT Caption, Version, OSArchitecture, InstallDate FROM Win32_OperatingSystem"
+	if err := wmi.Query(query, &winOS); err != nil {
 		return nil, fmt.Errorf("failed to query WMI: %v", err)
 	}
 

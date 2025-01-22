@@ -56,10 +56,9 @@ const (
 // It returns a slice of ARPEntry and an error if the operation fails.
 func GenARPCache() ([]ARPCache, error) {
 	var neighbors []msft_NetNeighbor
-
-	if err := wmi.QueryNamespace(`SELECT * FROM MSFT_NetNeighbor`,
-		&neighbors,
-		`ROOT\StandardCimv2`); err != nil {
+	query := "SELECT * FROM MSFT_NetNeighbor"
+	namespace := `ROOT\StandardCimv2`
+	if err := wmi.QueryNamespace(query, &neighbors, namespace); err != nil {
 		return nil, fmt.Errorf("failed to query WMI for ARP entries: %w", err)
 	}
 

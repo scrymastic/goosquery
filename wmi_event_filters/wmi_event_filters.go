@@ -28,10 +28,9 @@ type WMIEventFilter struct {
 func GenWMIEventFilters() ([]WMIEventFilter, error) {
 
 	var filters []_EventFilter
-	if err := wmi.QueryNamespace(
-		"SELECT * FROM __EventFilter",
-		&filters,
-		`ROOT\Subscription`); err != nil {
+	query := "SELECT * FROM __EventFilter"
+	namespace := `ROOT\Subscription`
+	if err := wmi.QueryNamespace(query, &filters, namespace); err != nil {
 		return nil, fmt.Errorf("failed to query WMI event filters: %w", err)
 	}
 

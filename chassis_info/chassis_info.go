@@ -108,9 +108,8 @@ func getSecurityBreachStatus(breach uint16) string {
 
 func GenChassisInfo() ([]ChassisInfo, error) {
 	var enclosures []win32_SystemEnclosure
-
-	err := wmi.Query("SELECT * FROM Win32_SystemEnclosure", &enclosures)
-	if err != nil {
+	query := "SELECT * FROM Win32_SystemEnclosure"
+	if err := wmi.Query(query, &enclosures); err != nil {
 		return nil, fmt.Errorf("failed to query chassis info: %w", err)
 	}
 

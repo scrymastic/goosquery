@@ -71,10 +71,9 @@ func formatServices(services []int32) string {
 // GenDeviceguardStatus retrieves the Device Guard status information
 func GenDeviceguardStatus() ([]DeviceGuardStatus, error) {
 	var guards []win32_DeviceGuard
-	if err := wmi.QueryNamespace(
-		`SELECT * FROM Win32_DeviceGuard`,
-		&guards,
-		`ROOT\MICROSOFT\WINDOWS\DEVICEGUARD`); err != nil {
+	query := "SELECT * FROM Win32_DeviceGuard"
+	namespace := `ROOT\MICROSOFT\WINDOWS\DEVICEGUARD`
+	if err := wmi.QueryNamespace(query, &guards, namespace); err != nil {
 		return nil, fmt.Errorf("failed to query Device Guard status: %w", err)
 	}
 

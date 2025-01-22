@@ -1,6 +1,8 @@
 package windows_optional_features
 
 import (
+	"fmt"
+
 	"github.com/StackExchange/wmi"
 )
 
@@ -32,9 +34,13 @@ func getDismPackageFeatureStateName(state uint32) string {
 // GenWinOptionalFeatures queries the Windows optional features and returns them as a slice of Feature
 func GenWinOptionalFeatures() ([]WindowsOptionalFeature, error) {
 	var features []win32_OptionalFeature
-	err := wmi.Query("SELECT Caption, Name, InstallState FROM Win32_OptionalFeature", &features)
-	if err != nil {
+	query := "SELECT Caption, Name, InstallState FROM Win32_OptionalFeature"
+	if err := wmi.Query(query, &features); err != nil {
 		return nil, err
+	}
+
+	if len(features) == 0 {
+		return nil, fmt.Errorf("no optional features found")
 	}
 
 	var results []WindowsOptionalFeature

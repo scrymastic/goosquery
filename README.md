@@ -93,7 +93,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | processes                        | 🧪      |
 | programs                         | 🧪      |
 | python_packages                  | ⏳      |
-| registry                         | ⏳      |
+| registry                         | 🧪      |
 | routes                           | 🛠️      |
 | scheduled_tasks                  | 🧪      |
 | secureboot                       | ⏳      |

@@ -33,7 +33,8 @@ type win32_QuickFixEngineering struct {
 
 func GenPatches() ([]Patch, error) {
 	var patches []win32_QuickFixEngineering
-	if err := wmi.Query("SELECT * FROM Win32_QuickFixEngineering", &patches); err != nil {
+	query := "SELECT * FROM Win32_QuickFixEngineering"
+	if err := wmi.Query(query, &patches); err != nil {
 		return nil, fmt.Errorf("failed to query patches: %w", err)
 	}
 

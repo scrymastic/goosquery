@@ -43,7 +43,8 @@ type CPUInfo struct {
 // GenCPUInfo retrieves CPU information using WMI query
 func GenCPUInfo() ([]CPUInfo, error) {
 	var processors []win32_Processor
-	if err := wmi.Query("SELECT * FROM Win32_Processor", &processors); err != nil {
+	query := "SELECT * FROM Win32_Processor"
+	if err := wmi.Query(query, &processors); err != nil {
 		return nil, fmt.Errorf("failed to query CPU info: %w", err)
 	}
 
