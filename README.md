@@ -53,7 +53,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | etc_hosts                        | ⏳      |
 | etc_protocols                    | ⏳      |
 | etc_services                     | ⏳      |
-| file                             | ⏳      |
+| file                             | 🛠️      |
 | firefox_addons                   | ⏳      |
 | groups                           | ⏳      |
 | hash                             | ⏳      |
@@ -92,7 +92,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | process_open_sockets             | ✅      |
 | processes                        | 🧪      |
 | programs                         | 🧪      |
-| python_packages                  | ⏳      |
+| python_packages                  | 🧪      |
 | registry                         | 🧪      |
 | routes                           | 🛠️      |
 | scheduled_tasks                  | 🧪      |
