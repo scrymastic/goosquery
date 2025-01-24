@@ -1,4 +1,4 @@
-package time
+package time_info
 
 import (
 	"time"
