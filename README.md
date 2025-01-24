@@ -104,8 +104,8 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | shimcache                        | ⏳      |
 | ssh_configs                      | ⏳      |
 | startup_items                    | 🛠️      |
-| system_info                      | ⏳      |
-| time                             | ⏳      |
+| system_info                      | 🧪      |
+| time                             | ✅      |
 | tpm_info                         | ⏳      |
 | uptime                           | ✅      |
 | user_groups                      | 🛠️      |
