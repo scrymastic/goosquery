@@ -30,7 +30,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | azure_instance_tags              | ⏳      |
 | background_activities_moderator  | ⏳      |
 | battery                          | ⏳      |
-| bitlocker_info                   | ⏳      |
+| bitlocker_info                   | 🧪      |
 | carbon_black_info                | ⏳      |
 | carves                           | ⏳      |
 | certificates                     | ⏳      |
@@ -45,7 +45,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | curl_certificate                 | ⏳      |
 | default_environment              | 🧪      |
 | deviceguard_status               | ✅      |
-| disk_info                        | ⏳      |
+| disk_info                        | ✅      |
 | dns_cache                        | ✅      |
 | drivers                          | 🧪      |
 | ec2_instance_metadata            | ⏳      |
@@ -67,7 +67,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | logged_in_users                  | ⏳      |
 | logical_drives                   | ✅      |
 | logon_sessions                   | 🧪      |
-| memory_devices                   | ⏳      |
+| memory_devices                   | 🧪      |
 | npm_packages                     | ⏳      |
 | ntdomains                        | ⏳      |
 | ntfs_acl_permissions             | ⏳      |
@@ -129,6 +129,6 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | wmi_event_filters                | ⏳      |
 | wmi_filter_consumer_binding      | ⏳      |
 | wmi_script_event_consumers       | ⏳      |
-| yara                             | ⏳      |
-| yara_events                      | ⏳      |
-| ycloud_instance_metadata         | ⏳      |
+| yara                             | ⛔      |
+| yara_events                      | ⛔      |
+| ycloud_instance_metadata         | ⛔      |
