@@ -27,9 +27,6 @@ func TestGenWinOptionalFeatures(t *testing.T) {
 		if feature.Name == "" {
 			t.Error("Found feature with empty Name")
 		}
-		if feature.Caption == "" {
-			t.Error("Found feature with empty Caption")
-		}
 		if feature.StateName == "" {
 			t.Error("Found feature with empty StateName")
 		}

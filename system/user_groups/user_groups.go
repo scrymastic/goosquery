@@ -1,6 +1,6 @@
 package user_groups
 
-import "osquery/users"
+import "osquery/system/users"
 
 type UserGroup struct {
 	UID int64 `json:"uid"`
