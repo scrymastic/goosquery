@@ -33,7 +33,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | bitlocker_info                   | 🧪      |
 | carbon_black_info                | ⏳      |
 | carves                           | ⏳      |
-| certificates                     | ⏳      |
+| certificates                     | 🛠️      |
 | chassis_info                     | ✅      |
 | chocolatey_packages              | ⏳      |
 | chrome_extension_content_scripts | ⏳      |
@@ -50,9 +50,9 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | drivers                          | 🧪      |
 | ec2_instance_metadata            | ⏳      |
 | ec2_instance_tags                | ⏳      |
-| etc_hosts                        | ⏳      |
-| etc_protocols                    | ⏳      |
-| etc_services                     | ⏳      |
+| etc_hosts                        | ✅      |
+| etc_protocols                    | ✅      |
+| etc_services                     | ✅      |
 | file                             | 🛠️      |
 | firefox_addons                   | ⏳      |
 | groups                           | ⏳      |
@@ -97,7 +97,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | routes                           | 🛠️      |
 | scheduled_tasks                  | 🧪      |
 | secureboot                       | ⏳      |
-| security_profile_info            | ⏳      |
+| security_profile_info            | 🛠️      |
 | services                         | ✅      |
 | shared_resources                 | ✅      |
 | shellbags                        | ⏳      |
