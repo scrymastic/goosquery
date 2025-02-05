@@ -2,6 +2,7 @@ package background_activities_moderator
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 )
 
@@ -16,5 +17,6 @@ func TestBackgroundActivitiesModerator(t *testing.T) {
 		t.Errorf("Error marshalling background activities moderator: %v", err)
 	}
 
-	t.Logf("Background activities moderator: %s", jsonData)
+	fmt.Printf("Background activities moderator: %s", jsonData)
+	fmt.Println("Total: ", len(results))
 }

@@ -28,7 +28,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | autoexec                         | ⏳      |
 | azure_instance_metadata          | ⏳      |
 | azure_instance_tags              | ⏳      |
-| background_activities_moderator  | ⏳      |
+| background_activities_moderator  | 🧪      |
 | battery                          | ⏳      |
 | bitlocker_info                   | 🧪      |
 | carbon_black_info                | ⏳      |
@@ -84,7 +84,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | patches                          | ✅      |
 | physical_disk_performance        | ⏳      |
 | pipes                            | 🧪      |
-| platform_info                    | ⏳      |
+| platform_info                    | 🧪      |
 | powershell_events                | ⏳      |
 | prefetch                         | ⏳      |
 | process_etw_events               | ⏳      |
