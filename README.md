@@ -38,7 +38,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | chocolatey_packages              | ⏳      |
 | chrome_extension_content_scripts | ⏳      |
 | chrome_extensions                | ⏳      |
-| connectivity                     | ⏳      |
+| connectivity                     | 🛠️      |
 | cpu_info                         | ✅      |
 | cpuid                            | ⏳      |
 | curl                             | ⏳      |
@@ -64,7 +64,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | kernel_info                      | ✅      |
 | kva_speculative_info             | ✅      |
 | listening_ports                  | ✅      |
-| logged_in_users                  | ⏳      |
+| logged_in_users                  | 🛠️      |
 | logical_drives                   | ✅      |
 | logon_sessions                   | 🧪      |
 | memory_devices                   | 🧪      |

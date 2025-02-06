@@ -1,4 +1,4 @@
-package bitlocker
+package bitlocker_info
 
 import (
 	"fmt"
@@ -11,12 +11,12 @@ type BitLockerVolume struct {
 	DeviceID            string `json:"device_id"`
 	DriveLetter         string `json:"drive_letter"`
 	PersistentVolumeID  string `json:"persistent_volume_id"`
-	ConversionStatus    int32  `json:"conversion_status"`
-	ProtectionStatus    int32  `json:"protection_status"`
+	ConversionStatus    uint32 `json:"conversion_status"`
+	ProtectionStatus    uint32 `json:"protection_status"`
 	EncryptionMethod    string `json:"encryption_method"`
-	Version             int32  `json:"version"`
-	PercentageEncrypted int32  `json:"percentage_encrypted"`
-	LockStatus          int32  `json:"lock_status"`
+	Version             uint32 `json:"version"`
+	PercentageEncrypted uint32 `json:"percentage_encrypted"`
+	LockStatus          uint32 `json:"lock_status"`
 }
 
 // win32_EncryptableVolume represents the WMI class structure
@@ -48,6 +48,16 @@ func getEncryptionMethodString(method int32) string {
 	return "UNKNOWN"
 }
 
+// getWMIValue retrieves a uint32 value by calling a WMI method on a BitLocker volume
+func getWMIValue(deviceID string, methodName string) (uint32, error) {
+	var value uint32
+	_, err := wmi.CallMethod([]interface{}{}, deviceID, methodName, []interface{}{&value})
+	if err != nil {
+		return 0, fmt.Errorf("failed to call %s: %v", methodName, err)
+	}
+	return value, nil
+}
+
 // GenBitLockerInfo retrieves BitLocker information for all encryptable volumes
 func GenBitLockerInfo() ([]BitLockerVolume, error) {
 	// Set up WMI query
@@ -63,17 +73,32 @@ func GenBitLockerInfo() ([]BitLockerVolume, error) {
 	// Convert WMI results to BitLockerVolume structs
 	var results []BitLockerVolume
 	for _, vol := range encryptableVolumes {
+		// Get values using WMI methods
+		version, err := getWMIValue(vol.DeviceID, "GetVersion")
+		if err != nil {
+			version = 0 // Use default if method fails
+		}
+
+		percentageEncrypted, err := getWMIValue(vol.DeviceID, "GetConversionStatus")
+		if err != nil {
+			percentageEncrypted = 0 // Use default if method fails
+		}
+
+		lockStatus, err := getWMIValue(vol.DeviceID, "GetLockStatus")
+		if err != nil {
+			lockStatus = 0 // Use default if method fails
+		}
+
 		volume := BitLockerVolume{
-			DeviceID:           vol.DeviceID,
-			DriveLetter:        vol.DriveLetter,
-			PersistentVolumeID: vol.PersistentVolumeID,
-			ConversionStatus:   vol.ConversionStatus,
-			ProtectionStatus:   vol.ProtectionStatus,
-			EncryptionMethod:   getEncryptionMethodString(vol.EncryptionMethod),
-			// Default values for method-based properties
-			Version:             -1,
-			PercentageEncrypted: -1,
-			LockStatus:          -1,
+			DeviceID:            vol.DeviceID,
+			DriveLetter:         vol.DriveLetter,
+			PersistentVolumeID:  vol.PersistentVolumeID,
+			ConversionStatus:    uint32(vol.ConversionStatus),
+			ProtectionStatus:    uint32(vol.ProtectionStatus),
+			EncryptionMethod:    getEncryptionMethodString(vol.EncryptionMethod),
+			Version:             version,
+			PercentageEncrypted: percentageEncrypted,
+			LockStatus:          lockStatus,
 		}
 		results = append(results, volume)
 	}
