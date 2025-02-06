@@ -59,8 +59,8 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | hash                             | ⏳      |
 | ie_extensions                    | ⏳      |
 | intel_me_info                    | ⏳      |
-| interface_addresses              | ⏳      |
-| interface_details                | ⏳      |
+| interface_addresses              | ✅      |
+| interface_details                | 🧪      |
 | kernel_info                      | ✅      |
 | kva_speculative_info             | ✅      |
 | listening_ports                  | ✅      |

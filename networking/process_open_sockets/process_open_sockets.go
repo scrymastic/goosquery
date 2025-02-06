@@ -2,6 +2,7 @@ package process_open_sockets
 
 import (
 	"fmt"
+	"net"
 	"syscall"
 	"unsafe"
 
@@ -248,15 +249,17 @@ func networkToHostPort(port uint32) uint32 {
 
 // formatIPv6Address formats a 16-byte IPv6 address into proper string representation
 func formatIPv6Address(addr [16]byte) string {
-	return fmt.Sprintf("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-		addr[0], addr[1], addr[2], addr[3],
-		addr[4], addr[5], addr[6], addr[7],
-		addr[8], addr[9], addr[10], addr[11],
-		addr[12], addr[13], addr[14], addr[15])
+	ip := net.IP(addr[:])
+	return ip.String()
 }
 
 func formatIPv4Address(addr uint32) string {
-	return fmt.Sprintf("%d.%d.%d.%d", byte(addr), byte(addr>>8), byte(addr>>16), byte(addr>>24))
+	ip := make(net.IP, 4)
+	ip[0] = byte(addr)
+	ip[1] = byte(addr >> 8)
+	ip[2] = byte(addr >> 16)
+	ip[3] = byte(addr >> 24)
+	return ip.String()
 }
 
 func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error) {
