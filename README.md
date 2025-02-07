@@ -122,8 +122,8 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | windows_optional_features        | ✅      |
 | windows_search                   | ⏳      |
 | windows_security_center          | 🧪      |
-| windows_security_products        | ⏳      |
-| windows_update_history           | ⏳      |
+| windows_security_products        | 🛠️      |
+| windows_update_history           | 🛠️      |
 | wmi_bios_info                    | ⏳      |
 | wmi_cli_event_consumers          | ⏳      |
 | wmi_event_filters                | ⏳      |
