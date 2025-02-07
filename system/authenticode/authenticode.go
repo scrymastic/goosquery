@@ -1,7 +1,6 @@
 package authenticode
 
 import (
-	"errors"
 	"fmt"
 	"syscall"
 	"unsafe"
@@ -29,6 +28,8 @@ var (
 	procWinVerifyTrust                      uintptr
 	procCryptQueryObject                    uintptr
 	procCryptMsgGetParam                    uintptr
+	procCryptDecodeObject                   uintptr
+	procCryptMsgClose                       uintptr
 )
 
 var (
@@ -68,11 +69,78 @@ type _CMSG_SIGNER_INFO struct {
 	UnauthAttrs             _CRYPT_ATTRIBUTES
 }
 
-func getSignatureInformation(path string) (string, error) {
+// error invalid pointer attr.pszObjId
+func getOriginalProgramName(signerInfo *_CMSG_SIGNER_INFO) (string, error) {
+	var publisherInfoPtr *_CRYPT_ATTRIBUTE
+
+	// Search through auth attributes for SPC_SP_OPUS_INFO_OBJID
+	for i := uint32(0); i < signerInfo.AuthAttrs.cAttr; i++ {
+		attr := (*_CRYPT_ATTRIBUTE)(
+			unsafe.Pointer(
+				uintptr(unsafe.Pointer(signerInfo.AuthAttrs.rgAttr)) +
+					uintptr(i)*unsafe.Sizeof(_CRYPT_ATTRIBUTE{}),
+			),
+		)
+
+		if windows.BytePtrToString(attr.pszObjId) == "1.3.6.1.4.1.311.2.1.12" { // SPC_SP_OPUS_INFO_OBJID
+			publisherInfoPtr = attr
+			break
+		}
+	}
+
+	if publisherInfoPtr == nil {
+		return "", fmt.Errorf("publisher information could not be found")
+	}
+
+	var publisherInfoSize uint32
+	ret, _, _ := syscall.SyscallN(procCryptDecodeObject,
+		uintptr(windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING),
+		uintptr(unsafe.Pointer(publisherInfoPtr.pszObjId)),
+		uintptr(unsafe.Pointer(publisherInfoPtr.rgValue.Data)),
+		uintptr(publisherInfoPtr.rgValue.Size),
+		0,
+		0,
+		uintptr(unsafe.Pointer(&publisherInfoSize)))
+
+	if ret == 0 {
+		return "", fmt.Errorf("failed to access the publisher information: %v", windows.GetLastError())
+	}
+
+	publisherInfoBlob := make([]byte, publisherInfoSize)
+	ret, _, _ = syscall.SyscallN(procCryptDecodeObject,
+		uintptr(windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING),
+		uintptr(unsafe.Pointer(publisherInfoPtr.pszObjId)),
+		uintptr(unsafe.Pointer(publisherInfoPtr.rgValue.Data)),
+		uintptr(publisherInfoPtr.rgValue.Size),
+		0,
+		uintptr(unsafe.Pointer(&publisherInfoBlob[0])),
+		uintptr(unsafe.Pointer(&publisherInfoSize)))
+
+	if ret == 0 {
+		return "", fmt.Errorf("failed to decode the publisher information: %v", windows.GetLastError())
+	}
+
+	// Extract program name from decoded blob
+	// The SPC_SP_OPUS_INFO structure has a pwszProgramName field that's a wide string
+	if len(publisherInfoBlob) < 2 {
+		return "", nil
+	}
+
+	programNamePtr := (*uint16)(unsafe.Pointer(&publisherInfoBlob[0]))
+	if programNamePtr == nil {
+		return "", nil
+	}
+
+	programName := windows.UTF16PtrToString(programNamePtr)
+
+	return programName, nil
+}
+
+func getSignatureInformation(path string, authenticode *Authenticode) error {
 	// Convert path to UTF16
 	uft16Path, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to convert path: %v", err)
+		return fmt.Errorf("failed to convert path: %v", err)
 	}
 
 	var certStore windows.Handle
@@ -92,8 +160,11 @@ func getSignatureInformation(path string) (string, error) {
 		0,
 	)
 	if ret == 0 {
-		return "", fmt.Errorf("failed to query object: %v", windows.GetLastError())
+		return fmt.Errorf("failed to query object: %v", windows.GetLastError())
 	}
+	defer windows.CertCloseStore(certStore, 0)
+	// Use syscall for CryptMsgClose since it's not in windows package
+	defer syscall.SyscallN(procCryptMsgClose, uintptr(message))
 
 	var signerInfoSize uint32
 	ret, _, _ = syscall.SyscallN(procCryptMsgGetParam,
@@ -104,7 +175,7 @@ func getSignatureInformation(path string) (string, error) {
 		uintptr(unsafe.Pointer(&signerInfoSize)),
 	)
 	if ret == 0 {
-		return "", fmt.Errorf("failed to get signer info size: %v", windows.GetLastError())
+		return fmt.Errorf("failed to get signer info size: %v", windows.GetLastError())
 	}
 
 	signerInfo := make([]byte, signerInfoSize)
@@ -117,10 +188,108 @@ func getSignatureInformation(path string) (string, error) {
 		uintptr(unsafe.Pointer(&signerInfoSize)),
 	)
 	if ret == 0 {
-		return "", fmt.Errorf("failed to get signer info: %v", windows.GetLastError())
+		return fmt.Errorf("failed to get signer info: %v", windows.GetLastError())
 	}
 
-	return "", nil
+	// // Get original program name
+	// originalProgramName, err := getOriginalProgramName(signerInfoPtr)
+	// if err != nil {
+	// 	// Just log the error and continue, as this is not critical
+	// 	fmt.Printf("Warning: failed to get original program name: %v\n", err)
+	// }
+	// authenticode.OriginalProgramName = originalProgramName
+
+	// Find certificate in store
+	certInfo := windows.CertInfo{
+		Issuer:       signerInfoPtr.Issuer,
+		SerialNumber: signerInfoPtr.SerialNumber,
+	}
+
+	certContext, err := windows.CertFindCertificateInStore(
+		certStore,
+		windows.X509_ASN_ENCODING|windows.PKCS_7_ASN_ENCODING,
+		0,
+		windows.CERT_FIND_SUBJECT_CERT,
+		unsafe.Pointer(&certInfo),
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to find certificate in store: %v", err)
+	}
+	defer windows.CertFreeCertificateContext(certContext)
+
+	// Get serial number
+	serialNumber := make([]byte, certContext.CertInfo.SerialNumber.Size)
+	copy(serialNumber, unsafe.Slice(certContext.CertInfo.SerialNumber.Data, certContext.CertInfo.SerialNumber.Size))
+
+	// Format serial number as hex string
+	var serialNumberStr string
+	for i := len(serialNumber) - 1; i >= 0; i-- {
+		serialNumberStr += fmt.Sprintf("%02x", serialNumber[i])
+	}
+	authenticode.SerialNumber = serialNumberStr
+
+	// Get issuer name
+	var issuerNameSize uint32
+	// First call to get size
+	issuerNameSize = uint32(windows.CertGetNameString(
+		certContext,
+		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+		windows.CERT_NAME_ISSUER_FLAG,
+		nil,
+		nil,
+		0,
+	))
+	if issuerNameSize == 0 {
+		return fmt.Errorf("failed to get issuer name size: %v", windows.GetLastError())
+	}
+
+	issuerName := make([]uint16, issuerNameSize)
+	// Second call to get actual name
+	ret2 := windows.CertGetNameString(
+		certContext,
+		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+		windows.CERT_NAME_ISSUER_FLAG,
+		nil,
+		&issuerName[0],
+		issuerNameSize,
+	)
+	if ret2 == 0 {
+		return fmt.Errorf("failed to get issuer name: %v", windows.GetLastError())
+	}
+	authenticode.IssuerName = windows.UTF16ToString(issuerName)
+
+	// Get subject name
+	var subjectNameSize uint32
+	// First call to get size
+	subjectNameSize = uint32(windows.CertGetNameString(
+		certContext,
+		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+		0,
+		nil,
+		nil,
+		0,
+	))
+	if subjectNameSize == 0 {
+		return fmt.Errorf("failed to get subject name size: %v", windows.GetLastError())
+	}
+
+	subjectName := make([]uint16, subjectNameSize)
+	// Second call to get actual name
+	ret2 = windows.CertGetNameString(
+		certContext,
+		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+		0,
+		nil,
+		&subjectName[0],
+		subjectNameSize,
+	)
+	if ret2 == 0 {
+		return fmt.Errorf("failed to get subject name: %v", windows.GetLastError())
+	}
+	authenticode.SubjectName = windows.UTF16ToString(subjectName)
+
+	return nil
 }
 
 // getCatalogPathForFilePath retrieves the catalog file path for a given file path
@@ -244,15 +413,15 @@ func verifySignature(path string) (string, error) {
 
 	switch verificationStatus {
 	case int(windows.ERROR_SUCCESS):
-		return "Trusted", nil
+		return "trusted", nil
 	case int(windows.TRUST_E_NOSIGNATURE):
-		return "Missing", nil
+		return "missing", nil
 	case int(windows.CRYPT_E_SECURITY_SETTINGS):
-		return "Valid", nil
+		return "valid", nil
 	case int(windows.TRUST_E_SUBJECT_NOT_TRUSTED):
-		return "Untrusted", nil
+		return "untrusted", nil
 	default:
-		return "Unknown", fmt.Errorf("unknown verification status: %v", verificationStatus)
+		return "unknown", fmt.Errorf("unknown verification status: %v", verificationStatus)
 	}
 }
 
@@ -315,6 +484,18 @@ func GenAuthenticode(path string) ([]Authenticode, error) {
 		return nil, fmt.Errorf("failed to get CryptMsgGetParam address: %v", err)
 	}
 
+	procCryptDecodeObject, err = windows.GetProcAddress(modCrypt32, "CryptDecodeObject")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CryptDecodeObject address: %v", err)
+	}
+
+	procCryptMsgClose, err = windows.GetProcAddress(modCrypt32, "CryptMsgClose")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CryptMsgClose address: %v", err)
+	}
+
+	authenticode := Authenticode{}
+
 	catalogFile, err := getCatalogPathForFilePath(path)
 	if err != nil {
 		catalogFile = path
@@ -322,12 +503,19 @@ func GenAuthenticode(path string) ([]Authenticode, error) {
 
 	fmt.Printf("Catalog file: %s\n", catalogFile)
 
-	authenticode, err := verifySignature(catalogFile)
+	verificationResult, err := verifySignature(catalogFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify signature: %v", err)
 	}
 
+	authenticode.Result = verificationResult
+
 	fmt.Printf("Authenticode: %s\n", authenticode)
 
-	return nil, errors.New("not implemented")
+	err = getSignatureInformation(catalogFile, &authenticode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get signature information: %v", err)
+	}
+
+	return []Authenticode{authenticode}, nil
 }

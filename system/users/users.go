@@ -133,7 +133,32 @@ func getUserHomeDir(sid string) (string, error) {
 		return "", err
 	}
 
-	return profilePath, nil
+	// Convert to UTF16 pointer for windows API
+	src, err := windows.UTF16PtrFromString(profilePath)
+	if err != nil {
+		return "", err
+	}
+
+	// Get required buffer size
+	n, err := windows.ExpandEnvironmentStrings(src, nil, 0)
+	if err != nil {
+		return "", err
+	}
+	if n == 0 {
+		return "", windows.GetLastError()
+	}
+
+	// Allocate destination buffer and expand
+	dst := make([]uint16, n)
+	n, err = windows.ExpandEnvironmentStrings(src, &dst[0], n)
+	if err != nil {
+		return "", err
+	}
+	if n == 0 {
+		return "", windows.GetLastError()
+	}
+
+	return windows.UTF16ToString(dst), nil
 }
 
 func getLocalUsers(processedSids []string) ([]User, []string, error) {
