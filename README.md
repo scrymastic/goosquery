@@ -1,6 +1,6 @@
-# go-osquery
+# goosquery
 
-Golang reimplementation of osquery with JSON output, currently working on Windows.
+Go osquery with JSON output, currently working on Windows.
 
 The goal is to provide a lightweight, portable, and easy-to-use version of osquery that can be integrated into other projects.
 
