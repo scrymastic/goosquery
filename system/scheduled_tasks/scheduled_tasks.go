@@ -31,6 +31,11 @@ var taskStates = map[int]string{
 	4: "running",
 }
 
+var (
+	CLSID_TaskScheduler = ole.NewGUID("{0F87369F-A4E5-4CFC-BD3E-73E6154572DD}")
+	IID_ITaskScheduler  = ole.NewGUID("{148BD520-A2AB-11CE-B11F-00AA00476E5D}")
+)
+
 func getTasksFromFolder(folder *ole.IDispatch) ([]ScheduledTask, error) {
 	tasks := []ScheduledTask{}
 
@@ -192,7 +197,7 @@ func GenScheduledTasks() ([]ScheduledTask, error) {
 	}
 	defer ole.CoUninitialize()
 
-	unknown, err := ole.CreateInstance(ole.NewGUID("{0F87369F-A4E5-4CFC-BD3E-73E6154572DD}"), nil)
+	unknown, err := ole.CreateInstance(CLSID_TaskScheduler, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Task Scheduler instance: %w", err)
 	}

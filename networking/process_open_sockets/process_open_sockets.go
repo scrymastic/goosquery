@@ -25,12 +25,7 @@ type ProcessOpenSocket struct {
 	NetNamespace  string `json:"net_namespace"`
 }
 
-// type _MIB_TCPTABLE_OWNER_PID struct {
-// 	DwNumEntries uint32
-// 	Table        [0]_MIB_TCPROW_OWNER_PID
-// }
-
-type _MIB_TCPROW_OWNER_PID struct {
+type MIB_TCPROW_OWNER_PID struct {
 	DwState      uint32
 	DwLocalAddr  uint32
 	DwLocalPort  uint32
@@ -39,12 +34,7 @@ type _MIB_TCPROW_OWNER_PID struct {
 	DwOwningPid  uint32
 }
 
-// type _MIB_TCP6TABLE_OWNER_PID struct {
-// 	DwNumEntries uint32
-// 	Table        [0]_MIB_TCP6ROW_OWNER_PID
-// }
-
-type _MIB_TCP6ROW_OWNER_PID struct {
+type MIB_TCP6ROW_OWNER_PID struct {
 	UcLocalAddr     [16]byte
 	DwLocalScopeId  uint32
 	DwLocalPort     uint32
@@ -55,23 +45,13 @@ type _MIB_TCP6ROW_OWNER_PID struct {
 	DwOwningPid     uint32
 }
 
-// type _MIB_UDPTABLE_OWNER_PID struct {
-// 	DwNumEntries uint32
-// 	Table        [0]_MIB_UDPROW_OWNER_PID
-// }
-
-type _MIB_UDPROW_OWNER_PID struct {
+type MIB_UDPROW_OWNER_PID struct {
 	DwLocalAddr uint32
 	DwLocalPort uint32
 	DwOwningPid uint32
 }
 
-// type _MIB_UDP6TABLE_OWNER_PID struct {
-// 	DwNumEntries uint32
-// 	Table        [0]_MIB_UDP6ROW_OWNER_PID
-// }
-
-type _MIB_UDP6ROW_OWNER_PID struct {
+type MIB_UDP6ROW_OWNER_PID struct {
 	UcLocalAddr    [16]byte
 	DwLocalScopeId uint32
 	DwLocalPort    uint32
@@ -79,10 +59,10 @@ type _MIB_UDP6ROW_OWNER_PID struct {
 }
 
 var (
-	procGetExtendedTcpTable uintptr
-	procGetExtendedUdpTable uintptr
+	modIphlpapi             = windows.NewLazySystemDLL("iphlpapi.dll")
+	procGetExtendedTcpTable = modIphlpapi.NewProc("GetExtendedTcpTable")
+	procGetExtendedUdpTable = modIphlpapi.NewProc("GetExtendedUdpTable")
 )
-
 var (
 	tcpStateMap = map[uint32]string{
 		1:  "CLOSED",
@@ -100,6 +80,24 @@ var (
 	}
 )
 
+const (
+	UDP_TABLE_BASIC        = 0
+	UDP_TABLE_OWNER_PID    = 1
+	UDP_TABLE_OWNER_MODULE = 2
+)
+
+const (
+	TCP_TABLE_BASIC_LISTENER           = 0
+	TCP_TABLE_BASIC_CONNECTIONS        = 1
+	TCP_TABLE_BASIC_ALL                = 2
+	TCP_TABLE_OWNER_PID_LISTENER       = 3
+	TCP_TABLE_OWNER_PID_CONNECTIONS    = 4
+	TCP_TABLE_OWNER_PID_ALL            = 5
+	TCP_TABLE_OWNER_MODULE_LISTENER    = 6
+	TCP_TABLE_OWNER_MODULE_CONNECTIONS = 7
+	TCP_TABLE_OWNER_MODULE_ALL         = 8
+)
+
 // TCP states mapping similar to osquery
 func tcpStateToString(state uint32) string {
 	if s, ok := tcpStateMap[state]; ok {
@@ -108,135 +106,44 @@ func tcpStateToString(state uint32) string {
 	return fmt.Sprintf("UNKNOWN (%d)", state)
 }
 
-func allocateSocketTable(sockType string) ([]byte, error) {
-	// Load iphlpapi.dll
-	modIphlpapi, err := windows.LoadLibrary("iphlpapi.dll")
-	if err != nil {
-		return nil, fmt.Errorf("error loading iphlpapi.dll: %v", err)
-	}
-	defer windows.FreeLibrary(modIphlpapi)
-
-	// Get the GetExtendedTcpTable function
-	procGetExtendedTcpTable, err = windows.GetProcAddress(modIphlpapi, "GetExtendedTcpTable")
-	if err != nil {
-		return nil, fmt.Errorf("error getting GetExtendedTcpTable function: %v", err)
-	}
-
-	// Get the GetExtendedUdpTable function
-	procGetExtendedUdpTable, err = windows.GetProcAddress(modIphlpapi, "GetExtendedUdpTable")
-	if err != nil {
-		return nil, fmt.Errorf("error getting GetExtendedUdpTable function: %v", err)
-	}
-
+// Helper function to handle table allocation
+func allocateTable(proc *windows.LazyProc, family uint32, class uint32) ([]byte, error) {
 	var size uint32
+	if ret, _, _ := proc.Call(
+		0,
+		uintptr(unsafe.Pointer(&size)),
+		1, // true for sorted
+		uintptr(family),
+		uintptr(class),
+		0,
+	); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
+		return nil, fmt.Errorf("error getting table size: %v", ret)
+	}
+
+	table := make([]byte, size)
+	if ret, _, _ := proc.Call(
+		uintptr(unsafe.Pointer(&table[0])),
+		uintptr(unsafe.Pointer(&size)),
+		1, // true for sorted
+		uintptr(family),
+		uintptr(class),
+		0,
+	); syscall.Errno(ret) != windows.ERROR_SUCCESS {
+		return nil, fmt.Errorf("error calling GetExtendedTable: %v", ret)
+	}
+	return table, nil
+}
+
+func allocateSocketTable(sockType string) ([]byte, error) {
 	switch sockType {
 	case "TCP":
-		// TCP IPv4 table
-		if ret, _, _ := syscall.SyscallN(procGetExtendedTcpTable,
-			0,
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET,
-			5, // TCP_TABLE_OWNER_PID_ALL
-			0,
-		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
-			return nil, fmt.Errorf("error getting TCP table size: %v", ret)
-		}
-
-		// Allocate memory for the TCP table
-		tcpTable := make([]byte, size)
-		if ret, _, _ := syscall.SyscallN(procGetExtendedTcpTable,
-			uintptr(unsafe.Pointer(&tcpTable[0])),
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET,
-			5, // TCP_TABLE_OWNER_PID_ALL
-			0,
-		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
-			return nil, fmt.Errorf("error calling GetExtendedTcpTable: %v", ret)
-		}
-		return tcpTable, nil
+		return allocateTable(procGetExtendedTcpTable, syscall.AF_INET, TCP_TABLE_OWNER_PID_ALL)
 	case "TCP6":
-		// TCP IPv6 table
-		if ret, _, _ := syscall.SyscallN(procGetExtendedTcpTable,
-			0,
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET6,
-			5, // TCP_TABLE_OWNER_PID_ALL
-			0,
-		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
-			return nil, fmt.Errorf("error getting TCP6 table size: %v", ret)
-		}
-
-		// Allocate memory for the TCP6 table
-		tcp6Table := make([]byte, size)
-		if ret, _, _ := syscall.SyscallN(procGetExtendedTcpTable,
-			uintptr(unsafe.Pointer(&tcp6Table[0])),
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET6,
-			5, // TCP_TABLE_OWNER_PID_ALL
-			0,
-		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
-			return nil, fmt.Errorf("error calling GetExtendedTcpTable: %v", ret)
-		}
-		return tcp6Table, nil
-
+		return allocateTable(procGetExtendedTcpTable, syscall.AF_INET6, TCP_TABLE_OWNER_PID_ALL)
 	case "UDP":
-		// UDP IPv4 table
-		if ret, _, _ := syscall.SyscallN(procGetExtendedUdpTable,
-			0,
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET,
-			1, // UDP_TABLE_OWNER_PID
-			0,
-		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
-			return nil, fmt.Errorf("error getting UDP table size: %v", ret)
-		}
-
-		// Allocate memory for the UDP table
-		udpTable := make([]byte, size)
-		if ret, _, _ := syscall.SyscallN(procGetExtendedUdpTable,
-			uintptr(unsafe.Pointer(&udpTable[0])),
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET,
-			1, // UDP_TABLE_OWNER_PID
-			0,
-		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
-			return nil, fmt.Errorf("error calling GetExtendedUdpTable: %v", ret)
-		}
-		return udpTable, nil
-
+		return allocateTable(procGetExtendedUdpTable, syscall.AF_INET, UDP_TABLE_OWNER_PID)
 	case "UDP6":
-		// UDP IPv6 table
-		if ret, _, _ := syscall.SyscallN(procGetExtendedUdpTable,
-			0,
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET6,
-			1, // UDP_TABLE_OWNER_PID
-			0,
-		); syscall.Errno(ret) != windows.ERROR_INSUFFICIENT_BUFFER {
-			return nil, fmt.Errorf("error getting UDP6 table size: %v", ret)
-		}
-
-		// Allocate memory for the UDP6 table
-		udp6Table := make([]byte, size)
-		if ret, _, _ := syscall.SyscallN(procGetExtendedUdpTable,
-			uintptr(unsafe.Pointer(&udp6Table[0])),
-			uintptr(unsafe.Pointer(&size)),
-			1, // true for sorted
-			syscall.AF_INET6,
-			1, // UDP_TABLE_OWNER_PID
-			0,
-		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
-			return nil, fmt.Errorf("error calling GetExtendedUdpTable: %v", ret)
-		}
-		return udp6Table, nil
-
+		return allocateTable(procGetExtendedUdpTable, syscall.AF_INET6, UDP_TABLE_OWNER_PID)
 	default:
 		return nil, fmt.Errorf("unknown socket type: %s", sockType)
 	}
@@ -269,7 +176,7 @@ func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error
 	switch sockType {
 	case "TCP":
 		// Get the first TCP row
-		row := (*_MIB_TCPROW_OWNER_PID)(unsafe.Pointer(&table[4]))
+		row := (*MIB_TCPROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the TCP table
 		sockets := make([]ProcessOpenSocket, 0, DwNumEntries)
@@ -288,13 +195,13 @@ func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error
 				State:         tcpStateToString(row.DwState),
 				NetNamespace:  "",
 			})
-			row = (*_MIB_TCPROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
+			row = (*MIB_TCPROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
 
 	case "TCP6":
 		// Get the first TCP6 row
-		row := (*_MIB_TCP6ROW_OWNER_PID)(unsafe.Pointer(&table[4]))
+		row := (*MIB_TCP6ROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the TCP6 table
 		sockets := make([]ProcessOpenSocket, 0, DwNumEntries)
@@ -313,13 +220,13 @@ func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error
 				State:         tcpStateToString(row.DwState),
 				NetNamespace:  "",
 			})
-			row = (*_MIB_TCP6ROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
+			row = (*MIB_TCP6ROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
 
 	case "UDP":
 		// Get the first UDP row
-		row := (*_MIB_UDPROW_OWNER_PID)(unsafe.Pointer(&table[4]))
+		row := (*MIB_UDPROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the UDP table
 		sockets := make([]ProcessOpenSocket, 0, DwNumEntries)
@@ -338,13 +245,13 @@ func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error
 				State:         "",
 				NetNamespace:  "",
 			})
-			row = (*_MIB_UDPROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
+			row = (*MIB_UDPROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
 
 	case "UDP6":
 		// Get the first UDP6 row
-		row := (*_MIB_UDP6ROW_OWNER_PID)(unsafe.Pointer(&table[4]))
+		row := (*MIB_UDP6ROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the UDP6 table
 		sockets := make([]ProcessOpenSocket, 0, DwNumEntries)
@@ -363,7 +270,7 @@ func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error
 				State:         "",
 				NetNamespace:  "",
 			})
-			row = (*_MIB_UDP6ROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
+			row = (*MIB_UDP6ROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
 

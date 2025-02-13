@@ -18,7 +18,7 @@ type PlatformInfo struct {
 	FirmwareType string `json:"firmware_type"`
 }
 
-type win32_bios struct {
+type Win32_bios struct {
 	Manufacturer           string
 	SMBIOSBIOSVersion      string
 	ReleaseDate            string
@@ -80,7 +80,7 @@ func GetFirmwareTypeDescription(kind FirmwareType) string {
 // GenPlatformInfo retrieves system BIOS and firmware information
 func GenPlatformInfo() ([]PlatformInfo, error) {
 	var info []PlatformInfo
-	var bios []win32_bios
+	var bios []Win32_bios
 
 	// WMI query to get BIOS information
 	query := `SELECT Manufacturer, SMBIOSBIOSVersion, ReleaseDate,

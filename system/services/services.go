@@ -66,21 +66,21 @@ func serviceTypesToString(serviceType uint32) string {
 	if s, ok := serviceTypes[serviceType]; ok {
 		return s
 	}
-	return fmt.Sprintf("UNKNOWN (%d)", serviceType)
+	return fmt.Sprintf("unknown (%d)", serviceType)
 }
 
 func svcStartTypesToString(startType uint32) string {
 	if int(startType) < len(svcStartTypes) {
 		return svcStartTypes[startType]
 	}
-	return fmt.Sprintf("UNKNOWN (%d)", startType)
+	return fmt.Sprintf("unknown (%d)", startType)
 }
 
 func svcStatusStatesToString(status uint32) string {
 	if int(status) < len(svcStatusStates) {
 		return svcStatusStates[status]
 	}
-	return fmt.Sprintf("UNKNOWN (%d)", status)
+	return fmt.Sprintf("unknown (%d)", status)
 }
 
 func getServiceModulePath(serviceName string) (string, error) {

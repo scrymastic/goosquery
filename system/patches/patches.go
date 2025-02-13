@@ -2,6 +2,7 @@ package patches
 
 import (
 	"fmt"
+
 	"github.com/StackExchange/wmi"
 )
 
@@ -17,7 +18,7 @@ type Patch struct {
 }
 
 // Win32_QuickFixEngineering represents the WMI class structure
-type win32_QuickFixEngineering struct {
+type Win32_QuickFixEngineering struct {
 	Caption             string
 	Description         string
 	InstallDate         string
@@ -32,14 +33,10 @@ type win32_QuickFixEngineering struct {
 }
 
 func GenPatches() ([]Patch, error) {
-	var patches []win32_QuickFixEngineering
+	var patches []Win32_QuickFixEngineering
 	query := "SELECT * FROM Win32_QuickFixEngineering"
 	if err := wmi.Query(query, &patches); err != nil {
 		return nil, fmt.Errorf("failed to query patches: %w", err)
-	}
-
-	if len(patches) == 0 {
-		return nil, fmt.Errorf("no patches found")
 	}
 
 	patchInfo := make([]Patch, 0, len(patches))

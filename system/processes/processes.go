@@ -1,4 +1,4 @@
-package main
+package processes
 
 import (
 	"fmt"
@@ -175,39 +175,22 @@ func getProcessWorkingDirectory(proc windows.Handle) (string, error) {
 // getProcessRssInfo retrieves memory-related information about the calling process.
 func getProcessRssInfo(proc windows.Handle) (*_PROCESS_MEMORY_COUNTERS_EX, error) {
 	// https://docs.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getprocessmemoryinfo
-	var procGetProcessMemoryInfo uintptr
-
-	kernel32, err := syscall.LoadLibrary("kernel32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load kernel32.dll: %v", err)
-	}
-	// It's weird to unload kernel32.dll, just a convention
-	defer syscall.FreeLibrary(kernel32)
-	procGetProcessMemoryInfo, err = syscall.GetProcAddress(kernel32, "K32GetProcessMemoryInfo")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get GetProcessMemoryInfo address: %v", err)
-	}
+	modKernel32 := windows.NewLazySystemDLL("kernel32.dll")
+	procGetProcessMemoryInfo := modKernel32.NewProc("K32GetProcessMemoryInfo")
 
 	// If GetProcessMemoryInfo is not available, try with psapi.dll
-	if procGetProcessMemoryInfo == 0 {
-		psapi, err := syscall.LoadLibrary("psapi.dll")
-		if err != nil {
-			return nil, fmt.Errorf("failed to load psapi.dll: %v", err)
-		}
-		defer syscall.FreeLibrary(psapi)
-		procGetProcessMemoryInfo, err = syscall.GetProcAddress(psapi, "GetProcessMemoryInfo")
-		if err != nil {
-			return nil, fmt.Errorf("failed to get GetProcessMemoryInfo address: %v", err)
-		}
+	if procGetProcessMemoryInfo == nil {
+		modPsapi := windows.NewLazySystemDLL("psapi.dll")
+		procGetProcessMemoryInfo = modPsapi.NewProc("GetProcessMemoryInfo")
 	}
 
 	// If GetProcessMemoryInfo is not available, return an error
-	if procGetProcessMemoryInfo == 0 {
+	if procGetProcessMemoryInfo == nil {
 		return nil, fmt.Errorf("failed to get GetProcessMemoryInfo address")
 	}
 
 	var pmcEx _PROCESS_MEMORY_COUNTERS_EX
-	ret, _, _ := syscall.SyscallN(procGetProcessMemoryInfo,
+	ret, _, _ := procGetProcessMemoryInfo.Call(
 		uintptr(proc),
 		uintptr(unsafe.Pointer(&pmcEx)), // _PROCESS_MEMORY_COUNTERS_EX
 		uintptr(unsafe.Sizeof(pmcEx)),

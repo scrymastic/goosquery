@@ -14,7 +14,7 @@ type DefaultEnvironment struct {
 }
 
 const (
-	regEnvironmentKey = `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`
+	regKeyEnvironment = `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`
 )
 
 // GenDefaultEnvironments retrieves system environment variables from the Windows Registry
@@ -23,7 +23,7 @@ func GenDefaultEnvironments() ([]DefaultEnvironment, error) {
 
 	// Open the Registry key
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE,
-		regEnvironmentKey,
+		regKeyEnvironment,
 		registry.QUERY_VALUE,
 	)
 	if err != nil {

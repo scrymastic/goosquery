@@ -19,8 +19,8 @@ type BitLockerVolume struct {
 	LockStatus          uint32 `json:"lock_status"`
 }
 
-// win32_EncryptableVolume represents the WMI class structure
-type win32_EncryptableVolume struct {
+// Win32_EncryptableVolume represents the WMI class structure
+type Win32_EncryptableVolume struct {
 	DeviceID           string
 	DriveLetter        string
 	PersistentVolumeID string
@@ -61,7 +61,7 @@ func getWMIValue(deviceID string, methodName string) (uint32, error) {
 // GenBitLockerInfo retrieves BitLocker information for all encryptable volumes
 func GenBitLockerInfo() ([]BitLockerVolume, error) {
 	// Set up WMI query
-	var encryptableVolumes []win32_EncryptableVolume
+	var encryptableVolumes []Win32_EncryptableVolume
 
 	query := "SELECT * FROM Win32_EncryptableVolume"
 	namespace := "ROOT\\CIMV2\\Security\\MicrosoftVolumeEncryption"

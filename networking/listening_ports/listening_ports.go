@@ -2,7 +2,8 @@ package listening_ports
 
 import (
 	"fmt"
-	"osquery/networking/process_open_sockets"
+	"goosquery/networking/process_open_sockets"
+	"syscall"
 )
 
 // ListeningPort represents a single listening port entry
@@ -26,21 +27,14 @@ func GenListeningPorts() ([]ListeningPort, error) {
 
 	var results []ListeningPort
 
-	// Constants for socket families (matching osquery constants)
-	const (
-		AF_UNIX  = 1
-		AF_INET  = 2
-		AF_INET6 = 10
-	)
-
 	for _, socket := range sockets {
 		// Skip anonymous unix domain sockets
-		if socket.Family == AF_UNIX && socket.Path == "" {
+		if socket.Family == syscall.AF_UNIX && socket.Path == "" {
 			continue
 		}
 
 		// For IPv4/IPv6 sockets, only include those with remote_port = 0 (listening)
-		if (socket.Family == AF_INET || socket.Family == AF_INET6) && socket.RemotePort != 0 {
+		if (socket.Family == syscall.AF_INET || socket.Family == syscall.AF_INET6) && socket.RemotePort != 0 {
 			continue
 		}
 
@@ -54,7 +48,7 @@ func GenListeningPorts() ([]ListeningPort, error) {
 		}
 
 		// Handle different socket families
-		if socket.Family == AF_UNIX {
+		if socket.Family == syscall.AF_UNIX {
 			port.Port = 0
 		} else {
 			port.Address = socket.LocalAddress

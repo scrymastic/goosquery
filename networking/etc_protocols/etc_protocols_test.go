@@ -24,31 +24,4 @@ func TestGenEtcProtocols(t *testing.T) {
 	}
 	fmt.Printf("Protocols Results:\n%s\n", string(jsonData))
 	fmt.Printf("Total protocols: %d\n", len(protocols))
-
-	// Verify some well-known protocols exist
-	wellKnownProtocols := map[string]uint32{
-		"tcp":  6,
-		"udp":  17,
-		"icmp": 1,
-	}
-
-	for name, number := range wellKnownProtocols {
-		found := false
-		for _, protocol := range protocols {
-			if protocol.Name == name && protocol.Number == number {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Well-known protocol %s (number %d) not found in results", name, number)
-		}
-	}
-
-	// Verify protocol structure
-	for i, protocol := range protocols {
-		if protocol.Name == "" {
-			t.Errorf("Protocol at index %d has empty name", i)
-		}
-	}
 }

@@ -2,7 +2,6 @@ package interface_details
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -45,6 +44,102 @@ type InterfaceDetail struct {
 	DNSDomainSuffixSearchOrder string `json:"dns_domain_suffix_search_order"`
 	DNSHostName                string `json:"dns_host_name"`
 	DNSServerSearchOrder       string `json:"dns_server_search_order"`
+}
+
+func getInterfaceStats(detail *InterfaceDetail) error {
+	var dst []struct {
+		PacketsReceivedPerSec    string
+		PacketsSentPerSec        string
+		BytesReceivedPerSec      string
+		BytesSentPerSec          string
+		PacketsReceivedErrors    string
+		PacketsOutboundErrors    string
+		PacketsReceivedDiscarded string
+		PacketsOutboundDiscarded string
+	}
+
+	query := fmt.Sprintf("SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface WHERE Name = %q", detail.Description)
+	err := wmi.Query(query, &dst)
+	if err != nil {
+		return fmt.Errorf("failed to query interface stats: %v", err)
+	}
+
+	if len(dst) > 0 {
+		detail.IPackets, _ = strconv.ParseUint(dst[0].PacketsReceivedPerSec, 10, 64)
+		detail.OPackets, _ = strconv.ParseUint(dst[0].PacketsSentPerSec, 10, 64)
+		detail.IBytes, _ = strconv.ParseUint(dst[0].BytesReceivedPerSec, 10, 64)
+		detail.OBytes, _ = strconv.ParseUint(dst[0].BytesSentPerSec, 10, 64)
+		detail.IErrors, _ = strconv.ParseUint(dst[0].PacketsReceivedErrors, 10, 64)
+		detail.OErrors, _ = strconv.ParseUint(dst[0].PacketsOutboundErrors, 10, 64)
+		detail.IDrops, _ = strconv.ParseUint(dst[0].PacketsReceivedDiscarded, 10, 64)
+		detail.ODrops, _ = strconv.ParseUint(dst[0].PacketsOutboundDiscarded, 10, 64)
+	}
+
+	return nil
+}
+
+func getAdapterDetails(detail *InterfaceDetail) error {
+	var dst []struct {
+		Manufacturer        string
+		NetConnectionID     string
+		NetConnectionStatus uint32
+		NetEnabled          bool
+		PhysicalAdapter     bool
+		ServiceName         string
+		Speed               uint64
+	}
+
+	ifIndex, _ := strconv.ParseInt(detail.Interface, 10, 64)
+	query := fmt.Sprintf("SELECT * FROM Win32_NetworkAdapter WHERE InterfaceIndex = %d", ifIndex)
+	err := wmi.Query(query, &dst)
+	if err != nil {
+		return fmt.Errorf("failed to query adapter details: %v", err)
+	}
+
+	if len(dst) > 0 {
+		detail.Manufacturer = dst[0].Manufacturer
+		detail.ConnectionID = dst[0].NetConnectionID
+		detail.ConnectionStatus = strconv.FormatUint(uint64(dst[0].NetConnectionStatus), 10)
+		detail.Enabled = dst[0].NetEnabled
+		detail.PhysicalAdapter = dst[0].PhysicalAdapter
+		detail.Service = dst[0].ServiceName
+		detail.Speed = uint64(dst[0].Speed)
+	}
+
+	return nil
+}
+
+func getDHCPAndDNSInfo(detail *InterfaceDetail) error {
+	var dst []struct {
+		DHCPEnabled                bool
+		DHCPLeaseExpires           string
+		DHCPLeaseObtained          string
+		DHCPServer                 string
+		DNSDomain                  string
+		DNSDomainSuffixSearchOrder []string
+		DNSHostName                string
+		DNSServerSearchOrder       []string
+	}
+
+	ifIndex, _ := strconv.ParseInt(detail.Interface, 10, 64)
+	query := fmt.Sprintf("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE InterfaceIndex = %d", ifIndex)
+	err := wmi.Query(query, &dst)
+	if err != nil {
+		return fmt.Errorf("failed to query DHCP and DNS info: %v", err)
+	}
+
+	if len(dst) > 0 {
+		detail.DHCPEnabled = dst[0].DHCPEnabled
+		detail.DHCPLeaseExpires = dst[0].DHCPLeaseExpires
+		detail.DHCPLeaseObtained = dst[0].DHCPLeaseObtained
+		detail.DHCPServer = dst[0].DHCPServer
+		detail.DNSDomain = dst[0].DNSDomain
+		detail.DNSDomainSuffixSearchOrder = strings.Join(dst[0].DNSDomainSuffixSearchOrder, ", ")
+		detail.DNSHostName = dst[0].DNSHostName
+		detail.DNSServerSearchOrder = strings.Join(dst[0].DNSServerSearchOrder, ", ")
+	}
+
+	return nil
 }
 
 func GenInterfaceDetails() ([]InterfaceDetail, error) {
@@ -101,119 +196,17 @@ func GenInterfaceDetails() ([]InterfaceDetail, error) {
 		detail.MAC = strings.Join(macBytes, ":")
 
 		// Get network interface statistics using WMI
-		if err := getInterfaceStats(&detail); err != nil {
-			log.Printf("Failed to get interface stats: %v", err)
-		}
+		_ = getInterfaceStats(&detail)
 
 		// Get physical adapter details using WMI
-		if err := getAdapterDetails(&detail); err != nil {
-			log.Printf("Failed to get adapter details: %v", err)
-		}
+		_ = getAdapterDetails(&detail)
 
 		// Get DHCP and DNS information using WMI
-		if err := getDHCPAndDNSInfo(&detail); err != nil {
-			log.Printf("Failed to get DHCP and DNS info: %v", err)
-		}
+		_ = getDHCPAndDNSInfo(&detail)
 
 		interfaces = append(interfaces, detail)
 		current = current.Next
 	}
 
 	return interfaces, nil
-}
-
-func getInterfaceStats(detail *InterfaceDetail) error {
-	var dst []struct {
-		PacketsReceivedPerSec    string
-		PacketsSentPerSec        string
-		BytesReceivedPerSec      string
-		BytesSentPerSec          string
-		PacketsReceivedErrors    string
-		PacketsOutboundErrors    string
-		PacketsReceivedDiscarded string
-		PacketsOutboundDiscarded string
-	}
-
-	query := fmt.Sprintf("SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface WHERE Name = %q", detail.Description)
-	err := wmi.Query(query, &dst)
-	if err != nil {
-		return fmt.Errorf("WMI query failed: %v", err)
-	}
-
-	if len(dst) > 0 {
-		detail.IPackets, _ = strconv.ParseUint(dst[0].PacketsReceivedPerSec, 10, 64)
-		detail.OPackets, _ = strconv.ParseUint(dst[0].PacketsSentPerSec, 10, 64)
-		detail.IBytes, _ = strconv.ParseUint(dst[0].BytesReceivedPerSec, 10, 64)
-		detail.OBytes, _ = strconv.ParseUint(dst[0].BytesSentPerSec, 10, 64)
-		detail.IErrors, _ = strconv.ParseUint(dst[0].PacketsReceivedErrors, 10, 64)
-		detail.OErrors, _ = strconv.ParseUint(dst[0].PacketsOutboundErrors, 10, 64)
-		detail.IDrops, _ = strconv.ParseUint(dst[0].PacketsReceivedDiscarded, 10, 64)
-		detail.ODrops, _ = strconv.ParseUint(dst[0].PacketsOutboundDiscarded, 10, 64)
-	}
-
-	return nil
-}
-
-func getAdapterDetails(detail *InterfaceDetail) error {
-	var dst []struct {
-		Manufacturer        string
-		NetConnectionID     string
-		NetConnectionStatus uint32
-		NetEnabled          bool
-		PhysicalAdapter     bool
-		ServiceName         string
-		Speed               uint64
-	}
-
-	ifIndex, _ := strconv.ParseInt(detail.Interface, 10, 64)
-	query := fmt.Sprintf("SELECT * FROM Win32_NetworkAdapter WHERE InterfaceIndex = %d", ifIndex)
-	err := wmi.Query(query, &dst)
-	if err != nil {
-		return fmt.Errorf("WMI query failed: %v", err)
-	}
-
-	if len(dst) > 0 {
-		detail.Manufacturer = dst[0].Manufacturer
-		detail.ConnectionID = dst[0].NetConnectionID
-		detail.ConnectionStatus = strconv.FormatUint(uint64(dst[0].NetConnectionStatus), 10)
-		detail.Enabled = dst[0].NetEnabled
-		detail.PhysicalAdapter = dst[0].PhysicalAdapter
-		detail.Service = dst[0].ServiceName
-		detail.Speed = uint64(dst[0].Speed)
-	}
-
-	return nil
-}
-
-func getDHCPAndDNSInfo(detail *InterfaceDetail) error {
-	var dst []struct {
-		DHCPEnabled                bool
-		DHCPLeaseExpires           string
-		DHCPLeaseObtained          string
-		DHCPServer                 string
-		DNSDomain                  string
-		DNSDomainSuffixSearchOrder []string
-		DNSHostName                string
-		DNSServerSearchOrder       []string
-	}
-
-	ifIndex, _ := strconv.ParseInt(detail.Interface, 10, 64)
-	query := fmt.Sprintf("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE InterfaceIndex = %d", ifIndex)
-	err := wmi.Query(query, &dst)
-	if err != nil {
-		return fmt.Errorf("WMI query failed: %v", err)
-	}
-
-	if len(dst) > 0 {
-		detail.DHCPEnabled = dst[0].DHCPEnabled
-		detail.DHCPLeaseExpires = dst[0].DHCPLeaseExpires
-		detail.DHCPLeaseObtained = dst[0].DHCPLeaseObtained
-		detail.DHCPServer = dst[0].DHCPServer
-		detail.DNSDomain = dst[0].DNSDomain
-		detail.DNSDomainSuffixSearchOrder = strings.Join(dst[0].DNSDomainSuffixSearchOrder, ", ")
-		detail.DNSHostName = dst[0].DNSHostName
-		detail.DNSServerSearchOrder = strings.Join(dst[0].DNSServerSearchOrder, ", ")
-	}
-
-	return nil
 }

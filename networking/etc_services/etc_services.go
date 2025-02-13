@@ -25,6 +25,53 @@ func getSystemRoot() string {
 	return systemRoot
 }
 
+func parseServiceEntry(line string) (*ServiceEntry, bool) {
+	// Skip empty lines and comments
+	if len(line) == 0 || strings.HasPrefix(line, "#") {
+		return nil, false
+	}
+
+	// Split line into service info and comment parts
+	parts := strings.SplitN(line, "#", 2)
+	serviceInfo := strings.Fields(parts[0])
+
+	if len(serviceInfo) < 2 {
+		return nil, false
+	}
+
+	// Parse port/protocol
+	portProto := strings.Split(serviceInfo[1], "/")
+	if len(portProto) != 2 {
+		return nil, false
+	}
+
+	// Convert port string to integer
+	var port int
+	_, err := fmt.Sscanf(portProto[0], "%d", &port)
+	if err != nil {
+		return nil, false
+	}
+
+	// Create service entry
+	entry := &ServiceEntry{
+		Name:     serviceInfo[0],
+		Port:     uint16(port),
+		Protocol: portProto[1],
+	}
+
+	// Handle aliases (if any)
+	if len(serviceInfo) > 2 {
+		entry.Aliases = strings.Join(serviceInfo[2:], " ")
+	}
+
+	// Handle comment (if any)
+	if len(parts) > 1 {
+		entry.Comment = strings.TrimSpace(parts[1])
+	}
+
+	return entry, true
+}
+
 func parseServicesFile(path string) ([]ServiceEntry, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -36,52 +83,9 @@ func parseServicesFile(path string) ([]ServiceEntry, error) {
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
-		line := scanner.Text()
-
-		// Skip empty lines and comments
-		if len(line) == 0 || strings.HasPrefix(line, "#") {
-			continue
+		if entry, ok := parseServiceEntry(scanner.Text()); ok {
+			services = append(services, *entry)
 		}
-
-		// Split line into service info and comment parts
-		parts := strings.SplitN(line, "#", 2)
-		serviceInfo := strings.Fields(parts[0])
-
-		if len(serviceInfo) < 2 {
-			continue
-		}
-
-		// Parse port/protocol
-		portProto := strings.Split(serviceInfo[1], "/")
-		if len(portProto) != 2 {
-			continue
-		}
-
-		// Convert port string to integer
-		var port int
-		_, err := fmt.Sscanf(portProto[0], "%d", &port)
-		if err != nil {
-			continue
-		}
-
-		// Create service entry
-		entry := ServiceEntry{
-			Name:     serviceInfo[0],
-			Port:     uint16(port),
-			Protocol: portProto[1],
-		}
-
-		// Handle aliases (if any)
-		if len(serviceInfo) > 2 {
-			entry.Aliases = strings.Join(serviceInfo[2:], " ")
-		}
-
-		// Handle comment (if any)
-		if len(parts) > 1 {
-			entry.Comment = strings.TrimSpace(parts[1])
-		}
-
-		services = append(services, entry)
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -91,12 +95,14 @@ func parseServicesFile(path string) ([]ServiceEntry, error) {
 	return services, nil
 }
 
+// GenEtcServices retrieves the contents of the services file from the system.
+// It returns a slice of ServiceEntry and an error if the operation fails.
 func GenEtcServices() ([]ServiceEntry, error) {
 	// Get Windows system root
 	sysRoot := getSystemRoot()
 
 	// Construct path to services file
-	servicesPath := filepath.Join(sysRoot, "system32", "drivers", "etc", "services")
+	servicesPath := filepath.Join(sysRoot, "System32", "drivers", "etc", "services")
 
 	// Read and parse services
 	services, err := parseServicesFile(servicesPath)

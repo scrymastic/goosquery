@@ -18,8 +18,8 @@ type DiskInfo struct {
 	Description   string `json:"description"`
 }
 
-// win32_DiskDrive represents the WMI Win32_DiskDrive class
-type win32_DiskDrive struct {
+// Win32_DiskDrive represents the WMI Win32_DiskDrive class
+type Win32_DiskDrive struct {
 	Partitions    uint32
 	Index         uint32
 	InterfaceType string
@@ -34,7 +34,7 @@ type win32_DiskDrive struct {
 }
 
 func GenDiskInfo() ([]DiskInfo, error) {
-	var diskDrives []win32_DiskDrive
+	var diskDrives []Win32_DiskDrive
 	query := "SELECT * FROM Win32_DiskDrive"
 
 	if err := wmi.Query(query, &diskDrives); err != nil {

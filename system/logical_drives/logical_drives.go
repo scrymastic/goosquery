@@ -4,7 +4,7 @@ import (
 	"github.com/StackExchange/wmi"
 )
 
-type win32_LogicalDisk struct {
+type Win32_LogicalDisk struct {
 	DeviceID    string
 	Description string
 	FileSystem  string
@@ -12,7 +12,7 @@ type win32_LogicalDisk struct {
 	Size        *int64
 }
 
-type win32_BootConfiguration struct {
+type Win32_BootConfiguration struct {
 	BootDirectory string
 }
 
@@ -27,13 +27,13 @@ type LogicalDrive struct {
 }
 
 func GenLogicalDrives() ([]LogicalDrive, error) {
-	var disks []win32_LogicalDisk
+	var disks []Win32_LogicalDisk
 	query := "SELECT * FROM Win32_LogicalDisk"
 	if err := wmi.Query(query, &disks); err != nil {
 		return nil, err
 	}
 
-	var bootConfig []win32_BootConfiguration
+	var bootConfig []Win32_BootConfiguration
 	query = "SELECT * FROM Win32_BootConfiguration"
 	if err := wmi.Query(query, &bootConfig); err != nil {
 		return nil, err

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"osquery/system/users"
+	"goosquery/system/users"
 
 	"golang.org/x/sys/windows"
 )

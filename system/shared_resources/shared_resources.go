@@ -19,7 +19,7 @@ type SharedResource struct {
 	TypeName       string `json:"type_name"`
 }
 
-type win32_Share struct {
+type Win32_Share struct {
 	Description    string
 	InstallDate    string
 	Status         string
@@ -51,7 +51,7 @@ func getShareTypeName(shareType uint32) string {
 
 // GenSharedResources queries WMI for Windows shares and returns a list of Share structs
 func GenSharedResources() ([]SharedResource, error) {
-	var wmiShares []win32_Share
+	var wmiShares []Win32_Share
 	query := "SELECT * FROM Win32_Share"
 	if err := wmi.Query(query, &wmiShares); err != nil {
 		return nil, fmt.Errorf("failed to execute WMI query: %w", err)

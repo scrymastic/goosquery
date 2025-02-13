@@ -25,18 +25,23 @@ type sdb struct {
 }
 
 const (
-	WINDOWS_TICK      = 100         // nanoseconds
-	SEC_TO_UNIX_EPOCH = 11644473600 // seconds between 1601 and 1970
+	regKeyInstalledSDB = `SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\InstalledSDB`
+	regKeyCustomSDB    = `SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Custom`
 )
 
+// fileTimeToUnix converts a Windows FILETIME to a Unix timestamp
+func fileTimeToUnix(windowsFileTime int64) int64 {
+	return (windowsFileTime / 1e7) - 11644473600
+}
+
+// GenAppCompatShims generates the information about the appcompat shims
+// A shim is a compatibility layer that allows a program to run on a newer version of Windows
 func GenAppCompatShims() ([]AppCompatShim, error) {
 	var results []AppCompatShim
 	sdbs := make(map[string]sdb)
 
 	// Query installed SDBs
-	sdbKey, err := registry.OpenKey(registry.LOCAL_MACHINE,
-		`SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\InstalledSDB`,
-		registry.READ)
+	sdbKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyInstalledSDB, registry.READ)
 	if err != nil {
 		return nil, fmt.Errorf("error opening registry key: %v", err)
 	}
@@ -81,16 +86,14 @@ func GenAppCompatShims() ([]AppCompatShim, error) {
 		if timestamp, _, err := subKey.GetStringValue("DatabaseInstallTimeStamp"); err == nil {
 			// Convert Windows timestamp to Unix timestamp
 			if ts, err := strconv.ParseInt(timestamp, 10, 64); err == nil {
-				currentSdb.installTime = (ts*WINDOWS_TICK)/1e9 - SEC_TO_UNIX_EPOCH
+				currentSdb.installTime = fileTimeToUnix(ts)
 			}
 		}
 		sdbs[sdbId] = currentSdb
 	}
 
 	// Query custom shims
-	customKey, err := registry.OpenKey(registry.LOCAL_MACHINE,
-		`SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Custom`,
-		registry.READ)
+	customKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyCustomSDB, registry.READ)
 	if err != nil {
 		return nil, fmt.Errorf("error opening registry key: %v", err)
 	}

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/sys/windows"
 )
 
 type EtcProtocol struct {
@@ -16,9 +18,9 @@ type EtcProtocol struct {
 }
 
 func getSystemRoot() string {
-	systemRoot := os.Getenv("SystemRoot")
-	if systemRoot == "" {
-		systemRoot = `C:\Windows`
+	systemRoot, err := windows.GetWindowsDirectory()
+	if err != nil {
+		return `C:\Windows`
 	}
 	return systemRoot
 }
@@ -77,8 +79,10 @@ func parseProtocolsFile(path string) ([]EtcProtocol, error) {
 	return protocols, nil
 }
 
+// GenEtcProtocols retrieves the contents of the protocols file from the system.
+// It returns a slice of EtcProtocol and an error if the operation fails.
 func GenEtcProtocols() ([]EtcProtocol, error) {
-	protocolsPath := filepath.Join(getSystemRoot(), `system32\drivers\etc\protocol`)
+	protocolsPath := filepath.Join(getSystemRoot(), "System32", "drivers", "etc", "protocol")
 	protocols, err := parseProtocolsFile(protocolsPath)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing protocols file: %w", err)

@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"golang.org/x/sys/windows"
 )
 
 // HostEntry represents a single hosts file entry
@@ -15,9 +17,9 @@ type HostEntry struct {
 }
 
 func getSystemRoot() string {
-	systemRoot := os.Getenv("SystemRoot")
-	if systemRoot == "" {
-		systemRoot = `C:\Windows`
+	systemRoot, err := windows.GetWindowsDirectory()
+	if err != nil {
+		return `C:\Windows`
 	}
 	return systemRoot
 }
@@ -73,13 +75,15 @@ func parseHostsFile(path string) ([]HostEntry, error) {
 	return entries, nil
 }
 
+// GenEtcHosts retrieves the contents of the hosts file from the system.
+// It returns a slice of HostEntry and an error if the operation fails.
 func GenEtcHosts() ([]HostEntry, error) {
 	// Get Windows system root
 	sysRoot := getSystemRoot()
 
 	// Construct paths to hosts files
-	hostsPath := filepath.Join(sysRoot, "system32", "drivers", "etc", "hosts")
-	hostsIcsPath := filepath.Join(sysRoot, "system32", "drivers", "etc", "hosts.ics")
+	hostsPath := filepath.Join(sysRoot, "System32", "drivers", "etc", "hosts")
+	hostsIcsPath := filepath.Join(sysRoot, "System32", "drivers", "etc", "hosts.ics")
 
 	// Read and parse main hosts file
 	entries, err := parseHostsFile(hostsPath)

@@ -10,13 +10,13 @@ import (
 
 // InterfaceAddress represents a network interface address
 type InterfaceAddress struct {
-	Interface    uint32 `json:"interface"`      // Interface name
-	Address      string `json:"address"`        // Specific address for interface
-	Mask         string `json:"mask"`           // Interface netmask
-	Broadcast    string `json:"broadcast"`      // Broadcast address for the interface
-	PointToPoint string `json:"point_to_point"` // PtP address for the interface
-	Type         string `json:"type"`           // Type of address (dhcp, manual, auto, other, unknown)
-	FriendlyName string `json:"friendly_name"`  // Windows only: friendly display name
+	Interface    uint32 `json:"interface"`
+	Address      string `json:"address"`
+	Mask         string `json:"mask"`
+	Broadcast    string `json:"broadcast"`
+	PointToPoint string `json:"point_to_point"`
+	Type         string `json:"type"`
+	FriendlyName string `json:"friendly_name"`
 }
 
 // Windows-specific constants for IP address suffix origin
@@ -56,11 +56,85 @@ func calculateBroadcast(ip net.IP, prefixLength uint8) string {
 	return broadcast.String()
 }
 
+// processUnicastAddress handles a single unicast address and returns an InterfaceAddress
+func processUnicastAddress(addr *windows.IpAdapterAddresses, unicastAddr *windows.IpAdapterUnicastAddress) (ifaceAddr InterfaceAddress, isOk bool) {
+
+	// Set interface index and friendly name
+	ifaceAddr.Interface = addr.IfIndex
+	ifaceAddr.FriendlyName = windows.UTF16PtrToString(addr.FriendlyName)
+
+	// Get the IP address from the unicast address
+	sockAddr := (*syscall.RawSockaddrAny)(unsafe.Pointer(unicastAddr.Address.Sockaddr))
+	ip, isIPv6, ok := getIPFromSockAddr(sockAddr)
+	if !ok {
+		return ifaceAddr, false
+	}
+
+	// Set IP address and mask
+	ifaceAddr.Address = ip.String()
+	ifaceAddr.Mask = ipNetMaskToString(unicastAddr.OnLinkPrefixLength, isIPv6)
+
+	// Set address type
+	ifaceAddr.Type = getAddressType(addr.IfType, unicastAddr.SuffixOrigin)
+
+	// Set broadcast for IPv4
+	if ip.To4() != nil {
+		ifaceAddr.Broadcast = calculateBroadcast(ip, unicastAddr.OnLinkPrefixLength)
+	}
+
+	// Set point-to-point if applicable
+	if addr.IfType == windows.IF_TYPE_PPP {
+		ifaceAddr.PointToPoint = ""
+	}
+
+	return ifaceAddr, true
+}
+
+// getIPFromSockAddr extracts IP address from a socket address
+func getIPFromSockAddr(sockAddr *syscall.RawSockaddrAny) (ip net.IP, isIPv6 bool, isOk bool) {
+	switch sockAddr.Addr.Family {
+	case syscall.AF_INET:
+		sa := (*syscall.RawSockaddrInet4)(unsafe.Pointer(sockAddr))
+		ip = net.IP(sa.Addr[:])
+		isIPv6 = false
+		isOk = true
+	case syscall.AF_INET6:
+		sa := (*syscall.RawSockaddrInet6)(unsafe.Pointer(sockAddr))
+		ip = net.IP(sa.Addr[:])
+		isIPv6 = true
+		isOk = true
+	default:
+		ip = nil
+		isIPv6 = false
+		isOk = false
+	}
+	return
+}
+
+// getAddressType determines the address type based on interface and suffix origin
+func getAddressType(ifType uint32, suffixOrigin int32) string {
+	if ifType == windows.IF_TYPE_SOFTWARE_LOOPBACK {
+		return "other"
+	}
+
+	switch suffixOrigin {
+	case IpSuffixOriginManual:
+		return "manual"
+	case IpSuffixOriginDhcp:
+		return "dhcp"
+	case IpSuffixOriginLinkLayerAddress, IpSuffixOriginRandom:
+		return "auto"
+	default:
+		return "unknown"
+	}
+}
+
 // GenInterfaceAddresses returns a list of all interface addresses on the system
+// It returns a slice of InterfaceAddress and an error if the operation fails.
 func GenInterfaceAddresses() ([]InterfaceAddress, error) {
 	var results []InterfaceAddress
 
-	// First call to get required buffer size
+	// Get required buffer size
 	var size uint32
 	err := windows.GetAdaptersAddresses(
 		syscall.AF_UNSPEC,
@@ -89,71 +163,10 @@ func GenInterfaceAddresses() ([]InterfaceAddress, error) {
 
 	// Iterate through all adapters
 	for ; addr != nil; addr = addr.Next {
-		// Get unicast addresses for this adapter
 		for unicastAddr := addr.FirstUnicastAddress; unicastAddr != nil; unicastAddr = unicastAddr.Next {
-			var ifaceAddr InterfaceAddress
-
-			// Set interface index
-			ifaceAddr.Interface = addr.IfIndex
-
-			// Get the IP address from the unicast address
-			sockAddr := (*syscall.RawSockaddrAny)(unsafe.Pointer(unicastAddr.Address.Sockaddr))
-			var ip net.IP
-			isIPv6 := false
-
-			switch sockAddr.Addr.Family {
-			case syscall.AF_INET:
-				sa := (*syscall.RawSockaddrInet4)(unsafe.Pointer(sockAddr))
-				ip = net.IP(sa.Addr[:])
-			case syscall.AF_INET6:
-				sa := (*syscall.RawSockaddrInet6)(unsafe.Pointer(sockAddr))
-				ip = net.IP(sa.Addr[:])
-				isIPv6 = true
-			default:
-				continue
+			if ifaceAddr, ok := processUnicastAddress(addr, unicastAddr); ok {
+				results = append(results, ifaceAddr)
 			}
-
-			// Set IP address
-			ifaceAddr.Address = ip.String()
-
-			// Set netmask from prefix length
-			ifaceAddr.Mask = ipNetMaskToString(unicastAddr.OnLinkPrefixLength, isIPv6)
-
-			// Set address type based on suffix origin
-			if addr.IfType == windows.IF_TYPE_SOFTWARE_LOOPBACK {
-				ifaceAddr.Type = "other"
-			} else {
-				switch unicastAddr.SuffixOrigin {
-				case IpSuffixOriginManual:
-					ifaceAddr.Type = "manual"
-				case IpSuffixOriginDhcp:
-					ifaceAddr.Type = "dhcp"
-				case IpSuffixOriginLinkLayerAddress, IpSuffixOriginRandom:
-					ifaceAddr.Type = "auto"
-				default:
-					ifaceAddr.Type = "unknown"
-				}
-			}
-
-			// Set broadcast address for IPv4
-			if ip.To4() != nil {
-				broadcast := calculateBroadcast(ip, unicastAddr.OnLinkPrefixLength)
-				if broadcast != "" {
-					ifaceAddr.Broadcast = broadcast
-				}
-			}
-
-			// Set point-to-point address if applicable
-			if addr.IfType == windows.IF_TYPE_PPP {
-				// For PPP interfaces, we could get the remote address from addr.FirstPrefix
-				// but for now we'll leave it empty as it requires more complex processing
-				ifaceAddr.PointToPoint = ""
-			}
-
-			// Set friendly name
-			ifaceAddr.FriendlyName = windows.UTF16PtrToString(addr.FriendlyName)
-
-			results = append(results, ifaceAddr)
 		}
 	}
 

@@ -3,7 +3,6 @@ package drivers
 import (
 	"fmt"
 	"runtime"
-	"syscall"
 	"unsafe"
 
 	"github.com/StackExchange/wmi"
@@ -38,7 +37,7 @@ type partialDevInfo struct {
 	Date       int64
 }
 
-type win32_PnPSignedDriver struct {
+type Win32_PnPSignedDriver struct {
 	ClassGuid               string
 	CompatID                string
 	Description             string
@@ -68,9 +67,10 @@ type win32_PnPSignedDriver struct {
 }
 
 var (
-	procSetupGetInfDriverStoreLocationW uintptr
-	procCM_Get_Device_IDW               uintptr
-	procSetupDiGetDevicePropertyW       uintptr
+	modSetupapi                         = windows.NewLazySystemDLL("setupapi.dll")
+	procSetupGetInfDriverStoreLocationW = modSetupapi.NewProc("SetupGetInfDriverStoreLocationW")
+	procCM_Get_Device_IDW               = modSetupapi.NewProc("CM_Get_Device_IDW")
+	procSetupDiGetDevicePropertyW       = modSetupapi.NewProc("SetupDiGetDevicePropertyW")
 )
 
 const (
@@ -114,7 +114,7 @@ func setupDiGetDeviceProperty(deviceInfoSet windows.DevInfo, deviceInfoData *win
 	for {
 		var dataType windows.DEVPROPTYPE
 		buf := make([]byte, reqSize)
-		ret, _, err := syscall.SyscallN(procSetupDiGetDevicePropertyW,
+		ret, _, err := procSetupDiGetDevicePropertyW.Call(
 			uintptr(deviceInfoSet),
 			uintptr(unsafe.Pointer(deviceInfoData)),
 			uintptr(unsafe.Pointer(propertyKey)),
@@ -159,7 +159,7 @@ func getInfPath(infName string) (string, error) {
 
 	infBuf := make([]uint16, windows.MAX_PATH)
 	var infSize uint32
-	if ret, _, err := syscall.SyscallN(procSetupGetInfDriverStoreLocationW,
+	if ret, _, err := procSetupGetInfDriverStoreLocationW.Call(
 		uintptr(unsafe.Pointer(&infNameW[0])),
 		0,
 		0,
@@ -169,7 +169,7 @@ func getInfPath(infName string) (string, error) {
 	); ret == 0 && err == windows.ERROR_INSUFFICIENT_BUFFER {
 		// Resize buffer and try again
 		infBuf = make([]uint16, infSize)
-		if ret, _, err = syscall.SyscallN(procSetupGetInfDriverStoreLocationW,
+		if ret, _, err = procSetupGetInfDriverStoreLocationW.Call(
 			uintptr(unsafe.Pointer(&infNameW[0])),
 			0,
 			0,
@@ -245,34 +245,6 @@ func getDriverImagePath(svcName string) (string, error) {
 }
 
 func GenDrivers() ([]Driver, error) {
-	// Load Setupapi.dll
-	modSetupapi, err := windows.LoadLibrary("setupapi.dll")
-	if err != nil {
-		return nil, fmt.Errorf("error loading setupapi.dll: %v", err)
-	}
-	defer windows.FreeLibrary(modSetupapi)
-
-	// Get the SetupGetInfDriverStoreLocationW function
-	if procSetupGetInfDriverStoreLocationW, err = windows.GetProcAddress(modSetupapi, "SetupGetInfDriverStoreLocationW"); err != nil {
-		return nil, fmt.Errorf("error getting SetupGetInfDriverStoreLocationW function: %v", err)
-	}
-
-	// Load Cfgmgr32.dll
-	modCfgmgr32, err := windows.LoadLibrary("cfgmgr32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("error loading cfgmgr32.dll: %v", err)
-	}
-	defer windows.FreeLibrary(modCfgmgr32)
-
-	// Get the CM_Get_Device_IDW function
-	if procCM_Get_Device_IDW, err = windows.GetProcAddress(modCfgmgr32, "CM_Get_Device_IDW"); err != nil {
-		return nil, fmt.Errorf("error getting CM_Get_Device_IDW function: %v", err)
-	}
-
-	// Get the SetupDiGetDevicePropertyW function
-	if procSetupDiGetDevicePropertyW, err = windows.GetProcAddress(modSetupapi, "SetupDiGetDevicePropertyW"); err != nil {
-		return nil, fmt.Errorf("error getting SetupDiGetDevicePropertyW function: %v", err)
-	}
 
 	// Get device set handle
 	devInfoSet, err := windows.SetupDiGetClassDevsEx(
@@ -298,7 +270,7 @@ func GenDrivers() ([]Driver, error) {
 
 	for _, devInfo := range apiDevList {
 		var devID [windows.MAX_DEVICE_ID_LEN]uint16
-		if ret, _, _ := syscall.SyscallN(procCM_Get_Device_IDW,
+		if ret, _, _ := procCM_Get_Device_IDW.Call(
 			uintptr(devInfo.DevInst),
 			uintptr(unsafe.Pointer(&devID[0])),
 			uintptr(windows.MAX_DEVICE_ID_LEN),
@@ -360,7 +332,7 @@ func GenDrivers() ([]Driver, error) {
 
 	// Get driver list via WMI
 	var drivers []Driver
-	var wmiDriverList []win32_PnPSignedDriver
+	var wmiDriverList []Win32_PnPSignedDriver
 	query := "SELECT * FROM Win32_PnPSignedDriver"
 	namespace := `root\CIMV2`
 	if err := wmi.QueryNamespace(query, &wmiDriverList, namespace); err != nil {

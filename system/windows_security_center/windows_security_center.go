@@ -2,7 +2,6 @@ package windows_security_center
 
 import (
 	"fmt"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -46,24 +45,15 @@ var providerStates = map[uint32]string{
 }
 
 func getProductHealth(productName uint32) string {
-	modWscapi, err := windows.LoadLibraryEx("wscapi.dll", 0, windows.LOAD_LIBRARY_SEARCH_SYSTEM32)
-	if err != nil {
-		return fmt.Sprintf("Error loading wscapi.dll: %v", err)
-	}
-	defer windows.FreeLibrary(modWscapi)
-
-	procWscGetSecurityProviderHealth, err := windows.GetProcAddress(modWscapi, "WscGetSecurityProviderHealth")
-	if err != nil {
-		return fmt.Sprintf("Error getting WscGetSecurityProviderHealth address: %v", err)
-	}
-
+	modWscapi := windows.NewLazySystemDLL("wscapi.dll")
+	procWscGetSecurityProviderHealth := modWscapi.NewProc("WscGetSecurityProviderHealth")
 	var health uint32
-	ret, _, _ := syscall.SyscallN(procWscGetSecurityProviderHealth,
+	ret, _, _ := procWscGetSecurityProviderHealth.Call(
 		uintptr(productName),
 		uintptr(unsafe.Pointer(&health)),
 	)
 
-	if ret != 0 { // S_OK = 0
+	if ret != uintptr(windows.S_OK) {
 		return "Error"
 	}
 

@@ -6,8 +6,8 @@ import (
 	"github.com/StackExchange/wmi"
 )
 
-// win32_Processor represents the WMI Win32_Processor class structure
-type win32_Processor struct {
+// Win32_Processor represents the WMI Win32_Processor class structure
+type Win32_Processor struct {
 	DeviceID                  string
 	Name                      string
 	Manufacturer              string
@@ -42,14 +42,10 @@ type CPUInfo struct {
 
 // GenCPUInfo retrieves CPU information using WMI query
 func GenCPUInfo() ([]CPUInfo, error) {
-	var processors []win32_Processor
+	var processors []Win32_Processor
 	query := "SELECT * FROM Win32_Processor"
 	if err := wmi.Query(query, &processors); err != nil {
 		return nil, fmt.Errorf("failed to query CPU info: %w", err)
-	}
-
-	if len(processors) == 0 {
-		return nil, fmt.Errorf("no CPU information retrieved")
 	}
 
 	cpuInfo := make([]CPUInfo, 0, len(processors))

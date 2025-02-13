@@ -33,8 +33,8 @@ type SystemInfo struct {
 	LocalHostname    string `json:"local_hostname"`
 }
 
-// win32_Processor represents WMI win32_Processor class
-type win32_Processor struct {
+// Win32_Processor represents WMI Win32_Processor class
+type Win32_Processor struct {
 	Name                      string
 	NumberOfCores             uint32
 	NumberOfLogicalProcessors uint32
@@ -43,22 +43,22 @@ type win32_Processor struct {
 	Architecture              uint16
 }
 
-// win32_ComputerSystem represents WMI win32_ComputerSystem class
-type win32_ComputerSystem struct {
+// Win32_ComputerSystem represents WMI Win32_ComputerSystem class
+type Win32_ComputerSystem struct {
 	Manufacturer       string
 	Model              string
 	NumberOfProcessors uint32
 }
 
-// win32_BIOS represents WMI win32_BIOS class
-type win32_BIOS struct {
+// Win32_BIOS represents WMI Win32_BIOS class
+type Win32_BIOS struct {
 	SerialNumber string
 	Manufacturer string
 	Version      string
 }
 
-// win32_BaseBoard represents WMI win32_BaseBoard class
-type win32_BaseBoard struct {
+// Win32_BaseBoard represents WMI Win32_BaseBoard class
+type Win32_BaseBoard struct {
 	Manufacturer string
 	Product      string
 	Version      string
@@ -83,7 +83,7 @@ func GenSystemInfo() ([]SystemInfo, error) {
 	// }
 
 	// Get processor information
-	var processors []win32_Processor
+	var processors []Win32_Processor
 	err = wmi.Query("SELECT * FROM Win32_Processor", &processors)
 	if err == nil && len(processors) > 0 {
 		info.CPUBrand = processors[0].Name
@@ -106,7 +106,7 @@ func GenSystemInfo() ([]SystemInfo, error) {
 	}
 
 	// Get system information
-	var computerSystem []win32_ComputerSystem
+	var computerSystem []Win32_ComputerSystem
 	err = wmi.Query("SELECT * FROM Win32_ComputerSystem", &computerSystem)
 	if err == nil && len(computerSystem) > 0 {
 		info.HardwareVendor = computerSystem[0].Manufacturer
@@ -115,14 +115,14 @@ func GenSystemInfo() ([]SystemInfo, error) {
 	}
 
 	// Get BIOS information
-	var bios []win32_BIOS
+	var bios []Win32_BIOS
 	err = wmi.Query("SELECT * FROM Win32_BIOS", &bios)
 	if err == nil && len(bios) > 0 {
 		info.HardwareSerial = bios[0].SerialNumber
 	}
 
 	// Get motherboard information
-	var baseBoard []win32_BaseBoard
+	var baseBoard []Win32_BaseBoard
 	err = wmi.Query("SELECT * FROM Win32_BaseBoard", &baseBoard)
 	if err == nil && len(baseBoard) > 0 {
 		info.BoardVendor = baseBoard[0].Manufacturer

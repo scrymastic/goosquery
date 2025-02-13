@@ -10,8 +10,8 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// Fields from win32_OperatingSystem WMI class, not all fields are used
-type win32_OperatingSystem struct {
+// Fields from Win32_OperatingSystem WMI class, not all fields are used
+type Win32_OperatingSystem struct {
 	Caption        string
 	Version        string
 	OSArchitecture string
@@ -36,14 +36,10 @@ type OSVersion struct {
 
 // GenOSVersion retrieves the Windows operating system version information
 func GenOSVersion() (*OSVersion, error) {
-	var winOS []win32_OperatingSystem
+	var winOS []Win32_OperatingSystem
 	query := "SELECT Caption, Version, OSArchitecture, InstallDate FROM Win32_OperatingSystem"
 	if err := wmi.Query(query, &winOS); err != nil {
 		return nil, fmt.Errorf("failed to query WMI: %v", err)
-	}
-
-	if len(winOS) == 0 {
-		return nil, fmt.Errorf("no OS information found")
 	}
 
 	// Create OSVersion struct

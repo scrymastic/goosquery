@@ -3,7 +3,6 @@ package users
 import (
 	"fmt"
 	"slices"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -24,8 +23,10 @@ type User struct {
 }
 
 var (
-	procNetUserGetLocalGroups uintptr
-	procLookupAccountNameW    uintptr
+	modNetapi32               = windows.NewLazySystemDLL("netapi32.dll")
+	procNetUserGetLocalGroups = modNetapi32.NewProc("NetUserGetLocalGroups")
+	modAdvapi32               = windows.NewLazySystemDLL("advapi32.dll")
+	procLookupAccountNameW    = modAdvapi32.NewProc("LookupAccountNameW")
 )
 
 func getSidFromAccountName(accountName string) (*windows.SID, error) {
@@ -34,7 +35,7 @@ func getSidFromAccountName(accountName string) (*windows.SID, error) {
 	var sidUse uint32
 
 	// First call to determine the buffer sizes
-	ret, _, err := syscall.SyscallN(procLookupAccountNameW,
+	ret, _, err := procLookupAccountNameW.Call(
 		0,
 		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(accountName))),
 		0,
@@ -53,7 +54,7 @@ func getSidFromAccountName(accountName string) (*windows.SID, error) {
 	domain := make([]uint16, domainSize)
 
 	// Second call to actually retrieve the SID
-	ret, _, err = syscall.SyscallN(procLookupAccountNameW,
+	ret, _, err = procLookupAccountNameW.Call(
 		0,
 		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(accountName))),
 		uintptr(unsafe.Pointer(&sid[0])),
@@ -75,7 +76,7 @@ func getGidFromUsername(username string) (int64, error) {
 	var totalEntries uint32
 	var bufptr *byte
 	// Call NetUserGetLocalGroups with proper flags
-	ret, _, _ := syscall.SyscallN(procNetUserGetLocalGroups,
+	ret, _, _ := procNetUserGetLocalGroups.Call(
 		0, // local computer
 		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(username))),
 		0, // level 0
@@ -181,7 +182,7 @@ func getLocalUsers(processedSids []string) ([]User, []string, error) {
 			&totalEntries,
 			&resumeHandle,
 		); netEnumErr != nil && netEnumErr != windows.ERROR_MORE_DATA {
-			return nil, processedSids, fmt.Errorf("NetUserEnum failed: %w", netEnumErr)
+			return nil, processedSids, fmt.Errorf("failed to enumerate users: %w", netEnumErr)
 		}
 		defer windows.NetApiBufferFree(bufptr)
 
@@ -243,13 +244,13 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 		regProfileKey,
 		registry.READ)
 	if err != nil {
-		return nil, processedSids, fmt.Errorf("OpenKey failed: %w", err)
+		return nil, processedSids, fmt.Errorf("failed to open registry key: %w", err)
 	}
 	defer key.Close()
 
 	subkeys, err := key.ReadSubKeyNames(-1)
 	if err != nil {
-		return nil, processedSids, fmt.Errorf("ReadSubKeyNames failed: %w", err)
+		return nil, processedSids, fmt.Errorf("failed to read subkeys: %w", err)
 	}
 
 	for _, profileSid := range subkeys {
@@ -323,28 +324,6 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 }
 
 func GenUsers() ([]User, error) {
-	modNetapi32, err := windows.LoadLibrary("netapi32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("LoadLibrary failed: %w", err)
-	}
-	defer windows.FreeLibrary(modNetapi32)
-
-	procNetUserGetLocalGroups, err = windows.GetProcAddress(modNetapi32, "NetUserGetLocalGroups")
-	if err != nil {
-		return nil, fmt.Errorf("GetProcAddress failed: %w", err)
-	}
-
-	modAdvapi32, err := windows.LoadLibrary("advapi32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("LoadLibrary failed: %w", err)
-	}
-	defer windows.FreeLibrary(modAdvapi32)
-
-	procLookupAccountNameW, err = windows.GetProcAddress(modAdvapi32, "LookupAccountNameW")
-	if err != nil {
-		return nil, fmt.Errorf("GetProcAddress failed: %w", err)
-	}
-
 	var users []User
 	var processedSids []string
 	// Get local users

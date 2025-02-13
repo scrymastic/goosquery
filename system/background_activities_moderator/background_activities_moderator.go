@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-const bamRegPath = `SYSTEM\CurrentControlSet\Services\bam\State\UserSettings`
+const regKeyBam = `SYSTEM\CurrentControlSet\Services\bam\State\UserSettings`
 
 type BackgroundActivitiesModerator struct {
 	Path              string `json:"path"`
@@ -14,12 +14,18 @@ type BackgroundActivitiesModerator struct {
 	SID               string `json:"sid"`
 }
 
-// GenerateBackgroundActivitiesModerator generates the background_activities_moderator table
-func GenerateBackgroundActivitiesModerator() ([]BackgroundActivitiesModerator, error) {
+// fileTimeToUnix converts a Windows FILETIME to a Unix timestamp
+func fileTimeToUnix(windowsFileTime int64) int64 {
+	return (windowsFileTime / 1e7) - 11644473600
+}
+
+// GenBackgroundActivitiesModerator generates the information about the background activities moderator
+// The background activities moderator is a service that controls the background activities of the system
+func GenBackgroundActivitiesModerator() ([]BackgroundActivitiesModerator, error) {
 	var results []BackgroundActivitiesModerator
 
 	// Open the BAM registry key
-	bamKey, err := registry.OpenKey(registry.LOCAL_MACHINE, bamRegPath, registry.READ)
+	bamKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyBam, registry.READ)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open BAM registry key: %w", err)
 	}
@@ -51,6 +57,11 @@ func GenerateBackgroundActivitiesModerator() ([]BackgroundActivitiesModerator, e
 				continue
 			}
 
+			entry := BackgroundActivitiesModerator{
+				Path: name,
+				SID:  userKey,
+			}
+
 			// Read the binary data
 			data, _, err := userBamKey.GetBinaryValue(name)
 			if err != nil {
@@ -58,28 +69,18 @@ func GenerateBackgroundActivitiesModerator() ([]BackgroundActivitiesModerator, e
 			}
 
 			// Convert the first 8 bytes to Windows FILETIME
-			if len(data) >= 8 {
-				entry := BackgroundActivitiesModerator{
-					Path: name,
-					SID:  userKey,
-				}
-
-				// Convert Windows FILETIME to Unix timestamp
-				// Windows FILETIME is a 64-bit value representing the number of 100-nanosecond intervals since January 1, 1601 UTC
+			if len(data) < 8 {
+				entry.LastExecutionTime = 0
+			} else {
 				fileTime := int64(
-					uint64(data[0]) | uint64(data[1])<<8 |
-						uint64(data[2])<<16 | uint64(data[3])<<24 |
-						uint64(data[4])<<32 | uint64(data[5])<<40 |
-						uint64(data[6])<<48 | uint64(data[7])<<56,
+					uint64(data[0]) | uint64(data[1])<<8 | uint64(data[2])<<16 | uint64(data[3])<<24 |
+						uint64(data[4])<<32 | uint64(data[5])<<40 | uint64(data[6])<<48 | uint64(data[7])<<56,
 				)
 
-				// Convert to Unix timestamp (seconds since epoch)
-				// First convert to nanoseconds and adjust for Windows epoch (1601) to Unix epoch (1970)
-				unixNano := (fileTime - 116444736000000000) * 100
-				entry.LastExecutionTime = unixNano / 1000000000 // Convert to seconds
-
-				results = append(results, entry)
+				entry.LastExecutionTime = fileTimeToUnix(fileTime)
 			}
+
+			results = append(results, entry)
 		}
 	}
 

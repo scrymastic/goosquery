@@ -2,7 +2,6 @@ package routes
 
 import (
 	"fmt"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -21,18 +20,11 @@ type Route struct {
 	Type        string `json:"type"`
 }
 
-var (
-	procGetIpForwardTable2  uintptr
-	procFreeMibTable        uintptr
-	procGetIpInterfaceEntry uintptr
-	procGetAdaptersInfo     uintptr
-)
-
 type _in_addr struct {
 	_ [4]byte
 }
 
-type _SOCKADDR_IN struct {
+type SOCKADDR_IN struct {
 	SinFamily uint16
 	SinPort   uint16
 	SinAddr   _in_addr
@@ -43,29 +35,29 @@ type _in6_addr struct {
 	_ [16]byte
 }
 
-type _SOCKADDR_IN6 struct {
+type SOCKADDR_IN6 struct {
 	Sin6Family uint16
 	Sin6Port   uint16
 	Sin6Addr   _in6_addr
 	Sin6Zero   [8]byte
 }
 
-type _SOCKADDR_INET struct {
-	Ipv4     _SOCKADDR_IN
-	Ipv6     _SOCKADDR_IN6
+type SOCKADDR_INET struct {
+	Ipv4     SOCKADDR_IN
+	Ipv6     SOCKADDR_IN6
 	SiFamily uint16
 }
 
-type _IP_ADDRESS_PREFIX struct {
-	Prefix       _SOCKADDR_INET
+type IP_ADDRESS_PREFIX struct {
+	Prefix       SOCKADDR_INET
 	PrefixLength uint8
 }
 
 type _MIB_IPFORWARD_ROW2 struct {
 	InterfaceLuid        windows.LUID
 	InterfaceIndex       uint32
-	DestinationPrefix    _IP_ADDRESS_PREFIX
-	NextHop              _SOCKADDR_INET
+	DestinationPrefix    IP_ADDRESS_PREFIX
+	NextHop              SOCKADDR_INET
 	SitePrefixLength     uint8
 	ValidLifetime        uint32
 	PreferredLifetime    uint32
@@ -79,7 +71,7 @@ type _MIB_IPFORWARD_ROW2 struct {
 	Origin               uint32
 }
 
-type _MIB_IPFORWARD_TABLE2 struct {
+type MIB_IPFORWARD_TABLE2 struct {
 	NumEntries uint32
 	Table      [5]_MIB_IPFORWARD_ROW2
 }
@@ -120,55 +112,30 @@ func getAdapterAddressMapping() (map[uint32]*windows.IpAdapterInfo, error) {
 
 // GenRoutes returns all routes on the system
 func GenRoutes() ([]Route, error) {
-	modIphlpapi, err := windows.LoadLibrary("iphlpapi.dll")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load iphlpapi.dll: %v", err)
-	}
-	defer windows.FreeLibrary(modIphlpapi)
-
-	procGetIpForwardTable2, err = windows.GetProcAddress(modIphlpapi, "GetIpForwardTable2")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find GetIpForwardTable2: %v", err)
-	}
-
-	procFreeMibTable, err = windows.GetProcAddress(modIphlpapi, "FreeMibTable")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find FreeMibTable: %v", err)
-	}
-
-	procGetIpInterfaceEntry, err = windows.GetProcAddress(modIphlpapi, "GetIpInterfaceEntry")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find GetIpInterfaceEntry: %v", err)
-	}
-
-	procGetAdaptersInfo, err = windows.GetProcAddress(modIphlpapi, "GetAdaptersInfo")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find GetAdaptersInfo: %v", err)
-	}
+	modIphlpapi := windows.NewLazyDLL("iphlpapi.dll")
+	procGetIpForwardTable2 := modIphlpapi.NewProc("GetIpForwardTable2")
+	procFreeMibTable := modIphlpapi.NewProc("FreeMibTable")
+	// procGetIpInterfaceEntry := modIphlpapi.NewProc("GetIpInterfaceEntry")
+	// procGetAdaptersInfo := modIphlpapi.NewProc("GetAdaptersInfo")
 
 	var routes []Route
-	var ipTable _MIB_IPFORWARD_TABLE2
+	var ipTable MIB_IPFORWARD_TABLE2
 
 	// Get the IP forwarding table
-	ret, _, _ := syscall.SyscallN(procGetIpForwardTable2,
+	ret, _, _ := procGetIpForwardTable2.Call(
 		uintptr(windows.AF_UNSPEC),
 		uintptr(unsafe.Pointer(&ipTable)),
 	)
 	if windows.Errno(ret) != windows.NO_ERROR {
 		return nil, fmt.Errorf("GetIpForwardTable2 failed: %v", ret)
 	}
-	defer syscall.SyscallN(procFreeMibTable, uintptr(unsafe.Pointer(&ipTable)))
+	defer procFreeMibTable.Call(uintptr(unsafe.Pointer(&ipTable)))
 
-	// // Get adapter information
-	// adapters, err := getAdapterAddressMapping()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get adapter mapping: %v", err)
-	// }
-
-	// // Process each route
-	// for i := 0; i < int(ipTable.NumEntries); i++ {
-	// 	currentRow := &ipTable.Table[i]
-	// }
+	// Get adapter information
+	_, err := getAdapterAddressMapping()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get adapter mapping: %v", err)
+	}
 
 	return routes, nil
 }

@@ -21,7 +21,7 @@ type Time struct {
 	Timestamp     string `json:"timestamp"`
 	Datetime      string `json:"datetime"`
 	ISO8601       string `json:"iso_8601"`
-	WinTimestamp  *int64 `json:"win_timestamp,omitempty"` // Only populated on Windows
+	WinTimestamp  *int64 `json:"win_timestamp,omitempty"`
 }
 
 const (

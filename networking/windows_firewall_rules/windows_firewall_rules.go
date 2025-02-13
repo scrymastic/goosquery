@@ -153,10 +153,6 @@ func renderFirewallRule(ruleDisp *ole.IDispatch) (*WindowsFirewallRules, error) 
 	}
 
 	// Depending on the protocol, decide whether to show ports or ICMP types.
-	// In the C++ sample, if (rule.protocol != NET_FW_IP_VERSION_V4 &&
-	// rule.protocol != NET_FW_IP_VERSION_V6) then ports are used;
-	// otherwise, icmp_types_codes are used.
-	// Here we assume that if the protocol is "ICMP", we use IcmpTypesAndCodes.
 	if protocolVal != NET_FW_IP_VERSION_V4 && protocolVal != NET_FW_IP_VERSION_V6 {
 		// Get LocalPorts.
 		if s, err := getStringProp("LocalPorts"); err != nil {

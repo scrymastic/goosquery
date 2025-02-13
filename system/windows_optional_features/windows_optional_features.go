@@ -1,8 +1,6 @@
 package windows_optional_features
 
 import (
-	"fmt"
-
 	"github.com/StackExchange/wmi"
 )
 
@@ -14,7 +12,7 @@ type WindowsOptionalFeature struct {
 	StateName string `json:"state_name"`
 }
 
-type win32_OptionalFeature struct {
+type Win32_OptionalFeature struct {
 	Name         string
 	Caption      string
 	InstallState uint32
@@ -33,14 +31,10 @@ func getDismPackageFeatureStateName(state uint32) string {
 
 // GenWinOptionalFeatures queries the Windows optional features and returns them as a slice of Feature
 func GenWinOptionalFeatures() ([]WindowsOptionalFeature, error) {
-	var features []win32_OptionalFeature
+	var features []Win32_OptionalFeature
 	query := "SELECT Caption, Name, InstallState FROM Win32_OptionalFeature"
 	if err := wmi.Query(query, &features); err != nil {
 		return nil, err
-	}
-
-	if len(features) == 0 {
-		return nil, fmt.Errorf("no optional features found")
 	}
 
 	var results []WindowsOptionalFeature

@@ -24,10 +24,10 @@ type ChassisInfo struct {
 }
 
 // Select some fields from Win32_SystemEnclosure
-type win32_SystemEnclosure struct {
+type Win32_SystemEnclosure struct {
 	AudibleAlarm      bool
 	BreachDescription string
-	ChassisTypes      []int16 // WMI returns this as UInt16Array but Go WMI library requires []int16
+	ChassisTypes      []int16 // WMI returns this as UInt16Array but Go WMI raises an error if use uint16
 	Description       string
 	LockPresent       bool
 	Manufacturer      string
@@ -107,14 +107,10 @@ func getSecurityBreachStatus(breach uint16) string {
 }
 
 func GenChassisInfo() ([]ChassisInfo, error) {
-	var enclosures []win32_SystemEnclosure
+	var enclosures []Win32_SystemEnclosure
 	query := "SELECT * FROM Win32_SystemEnclosure"
 	if err := wmi.Query(query, &enclosures); err != nil {
 		return nil, fmt.Errorf("failed to query chassis info: %w", err)
-	}
-
-	if len(enclosures) == 0 {
-		return nil, fmt.Errorf("no chassis information retrieved")
 	}
 
 	chassisInfo := make([]ChassisInfo, 0, len(enclosures))

@@ -7,7 +7,7 @@ import (
 )
 
 func TestGenFile(t *testing.T) {
-	fileInfo, err := GenFile("C:\\users\\sonx\\.projects\\go-osquery\\file\\file.go")
+	fileInfo, err := GenFile("C:\\users\\sonx\\.projects\\goosquery\\utility\\file\\file.go")
 	if err != nil {
 		t.Fatalf("Failed to get file information: %v", err)
 	}
@@ -21,7 +21,7 @@ func TestGenFile(t *testing.T) {
 }
 
 func TestGetFileStat(t *testing.T) {
-	fileStat, err := GetFileStat("C:\\users\\sonx\\.projects\\go-osquery\\file\\file.go")
+	fileStat, err := GetFileStat("C:\\users\\sonx\\.projects\\goosquery\\utility\\file\\file.go")
 	if err != nil {
 		t.Fatalf("Failed to get file stat: %v", err)
 	}

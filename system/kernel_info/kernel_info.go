@@ -26,7 +26,7 @@ func LOWORD(l uint32) uint16 {
 }
 
 func getSystemRoot() (string, error) {
-	dir, err := windows.GetSystemWindowsDirectory()
+	dir, err := windows.GetWindowsDirectory()
 	if err != nil {
 		return "C:\\Windows", err
 	}

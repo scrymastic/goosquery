@@ -8,25 +8,21 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// _DNS_CACHE_ENTRY represents the Windows DNS cache entry structure
-// https://github.com/malcomvetter/DnsCache/blob/master/DnsCache/DnsCache.cpp
-type _DNS_CACHE_ENTRY struct {
-	pNext       *_DNS_CACHE_ENTRY
-	pszName     *uint16
-	wType       uint16
-	wDataLength uint16
-	dwFlags     uint32
-}
-
 type DNSCache struct {
 	Name  string `json:"name"`
 	Type  string `json:"type"`
 	Flags uint32 `json:"flags"`
 }
 
-var (
-	procDnsGetCacheDataTable uintptr
-)
+// DNS_CACHE_ENTRY represents the Windows DNS cache entry structure
+// https://github.com/malcomvetter/DnsCache/blob/master/DnsCache/DnsCache.cpp
+type DNS_CACHE_ENTRY struct {
+	pNext       *DNS_CACHE_ENTRY
+	pszName     *uint16
+	wType       uint16
+	wDataLength uint16
+	dwFlags     uint32
+}
 
 var (
 	dnsTypeMap = map[uint16]string{
@@ -81,24 +77,13 @@ var (
 )
 
 func GenDNSCache() ([]DNSCache, error) {
-	// Load dnsapi.dll
-	modDnsapi, err := syscall.LoadLibrary("dnsapi.dll")
-	if err != nil {
-		return nil, fmt.Errorf("error loading dnsapi.dll: %v", err)
-	}
-	defer syscall.FreeLibrary(modDnsapi)
-
-	// Get the DnsGetCacheDataTable function
-	procDnsGetCacheDataTable, err = syscall.GetProcAddress(modDnsapi, "DnsGetCacheDataTable")
-	if err != nil {
-		return nil, fmt.Errorf("error getting DnsGetCacheDataTable function: %v", err)
-	}
+	procDnsGetCacheDataTable := windows.NewLazySystemDLL("dnsapi.dll").NewProc("DnsGetCacheDataTable")
 
 	// Allocate memory for the first entry
-	entry := &_DNS_CACHE_ENTRY{}
+	entry := &DNS_CACHE_ENTRY{}
 
 	// Call DnsGetCacheDataTable using SyscallN
-	if ret, _, err := syscall.SyscallN(procDnsGetCacheDataTable,
+	if ret, _, err := procDnsGetCacheDataTable.Call(
 		uintptr(unsafe.Pointer(&entry)),
 	); err != syscall.Errno(0) {
 		return nil, fmt.Errorf("error calling DnsGetCacheDataTable: %v", ret)

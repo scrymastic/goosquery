@@ -7,7 +7,7 @@ import (
 )
 
 func TestBackgroundActivitiesModerator(t *testing.T) {
-	results, err := GenerateBackgroundActivitiesModerator()
+	results, err := GenBackgroundActivitiesModerator()
 	if err != nil {
 		t.Errorf("Error generating background activities moderator: %v", err)
 	}

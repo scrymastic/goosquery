@@ -36,10 +36,6 @@ func GenWMIEventFilters() ([]WMIEventFilter, error) {
 
 	// Missing __CLASS and __RELPATH fields
 
-	if len(filters) == 0 {
-		return nil, fmt.Errorf("no WMI event filters found")
-	}
-
 	filterInfo := make([]WMIEventFilter, 0, len(filters))
 	for _, filter := range filters {
 		info := WMIEventFilter{

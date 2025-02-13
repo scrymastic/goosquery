@@ -32,7 +32,7 @@ type MemoryDevice struct {
 	ConfiguredVoltage    uint32 `json:"configured_voltage"`
 }
 
-type win32_PhysicalMemory struct {
+type Win32_PhysicalMemory struct {
 	FormFactor           int16
 	TotalWidth           int16
 	DataWidth            int16
@@ -135,7 +135,7 @@ func getMemorySize(capacityStr string) uint32 {
 
 // GenMemoryDevices retrieves information about physical memory devices
 func GenMemoryDevices() ([]MemoryDevice, error) {
-	var wmiDevices []win32_PhysicalMemory
+	var wmiDevices []Win32_PhysicalMemory
 	var devices []MemoryDevice
 
 	// WMI query to get physical memory information

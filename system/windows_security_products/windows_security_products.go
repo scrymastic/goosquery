@@ -9,7 +9,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const S_OK = 0
 const CLSCTX_ALL = 23 // CLSCTX_INPROC_SERVER | CLSCTX_INPROC_HANDLER | CLSCTX_LOCAL_SERVER | CLSCTX_REMOTE_SERVER
 
 // Security provider types
@@ -85,20 +84,13 @@ type IWSCProductListVtbl struct {
 }
 
 var (
-	modole32          *windows.LazyDLL
-	modoleaut32       *windows.LazyDLL
-	procSysFreeString *windows.LazyProc
-)
-
-func init() {
-	modole32 = windows.NewLazySystemDLL("ole32.dll")
+	modole32    = windows.NewLazySystemDLL("ole32.dll")
 	modoleaut32 = windows.NewLazySystemDLL("oleaut32.dll")
-	procSysFreeString = modoleaut32.NewProc("SysFreeString")
-}
+)
 
 func SysFreeString(v *uint16) {
 	if v != nil {
-		procSysFreeString.Call(uintptr(unsafe.Pointer(v)))
+		modoleaut32.NewProc("SysFreeString").Call(uintptr(unsafe.Pointer(v)))
 	}
 }
 
@@ -144,7 +136,7 @@ func getSecurityProducts(providerType int) ([]WindowsSecurityProduct, error) {
 		uintptr(unsafe.Pointer(&IID_IWSCProductList)),
 		uintptr(unsafe.Pointer(&productList)))
 
-	if hr != uintptr(S_OK) {
+	if hr != uintptr(windows.S_OK) {
 		return nil, fmt.Errorf("failed to create WSCProductList instance: %v", hr)
 	}
 	defer productList.Release()
@@ -157,7 +149,7 @@ func getSecurityProducts(providerType int) ([]WindowsSecurityProduct, error) {
 		uintptr(providerType),
 		0)
 
-	if hr != uintptr(S_OK) {
+	if hr != uintptr(windows.S_OK) {
 		return nil, fmt.Errorf("failed to initialize product list: %v", hr)
 	}
 
@@ -170,7 +162,7 @@ func getSecurityProducts(providerType int) ([]WindowsSecurityProduct, error) {
 		uintptr(unsafe.Pointer(&count)),
 		0)
 
-	if hr != uintptr(S_OK) {
+	if hr != uintptr(windows.S_OK) {
 		return nil, fmt.Errorf("failed to get product count: %v", hr)
 	}
 
@@ -200,7 +192,7 @@ func getProductInfo(productList *IWSCProductList, index int32, providerType int)
 		uintptr(index),
 		uintptr(unsafe.Pointer(&wsProduct)))
 
-	if hr != uintptr(S_OK) {
+	if hr != uintptr(windows.S_OK) {
 		return product, fmt.Errorf("failed to get product item: %v", hr)
 	}
 
@@ -213,7 +205,7 @@ func getProductInfo(productList *IWSCProductList, index int32, providerType int)
 		uintptr(unsafe.Pointer(&name)),
 		0)
 
-	if hr == uintptr(S_OK) {
+	if hr == uintptr(windows.S_OK) {
 		product.Name = windows.UTF16PtrToString(name)
 		SysFreeString(name)
 	}
@@ -227,7 +219,7 @@ func getProductInfo(productList *IWSCProductList, index int32, providerType int)
 		uintptr(unsafe.Pointer(&state)),
 		0)
 
-	if hr == uintptr(S_OK) {
+	if hr == uintptr(windows.S_OK) {
 		if stateStr, ok := securityProviderStates[int(state)]; ok {
 			product.State = stateStr
 		} else {
@@ -244,7 +236,7 @@ func getProductInfo(productList *IWSCProductList, index int32, providerType int)
 		uintptr(unsafe.Pointer(&path)),
 		0)
 
-	if hr == uintptr(S_OK) {
+	if hr == uintptr(windows.S_OK) {
 		product.RemediationPath = windows.UTF16PtrToString(path)
 		SysFreeString(path)
 	}
@@ -258,7 +250,7 @@ func getProductInfo(productList *IWSCProductList, index int32, providerType int)
 		uintptr(unsafe.Pointer(&sigStatus)),
 		0)
 
-	if hr == uintptr(S_OK) {
+	if hr == uintptr(windows.S_OK) {
 		if sigStatus == WSC_SECURITY_PRODUCT_UP_TO_DATE {
 			product.SignaturesUpToDate = 1
 		} else {
@@ -275,7 +267,7 @@ func getProductInfo(productList *IWSCProductList, index int32, providerType int)
 		uintptr(unsafe.Pointer(&timestamp)),
 		0)
 
-	if hr == uintptr(S_OK) {
+	if hr == uintptr(windows.S_OK) {
 		timestampStr := windows.UTF16PtrToString(timestamp)
 		if t, err := time.Parse(time.RFC1123, timestampStr); err == nil {
 			product.StateTimestamp = t.Format(time.RFC1123)
