@@ -38,7 +38,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | chocolatey_packages              | ⏳      |
 | chrome_extension_content_scripts | ⏳      |
 | chrome_extensions                | ⏳      |
-| connectivity                     | 🛠️      |
+| connectivity                     | 🧪      |
 | cpu_info                         | ✅      |
 | cpuid                            | ⏳      |
 | curl                             | ⏳      |
