@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"encoding/hex"
 	"fmt"
 	"unsafe"
 
@@ -20,65 +21,72 @@ type Route struct {
 	Type        string `json:"type"`
 }
 
-type _in_addr struct {
-	_ [4]byte
-}
-
 type SOCKADDR_IN struct {
 	SinFamily uint16
 	SinPort   uint16
-	SinAddr   _in_addr
+	SinAddr   [4]byte
 	SinZero   [8]byte
-}
-
-type _in6_addr struct {
-	_ [16]byte
 }
 
 type SOCKADDR_IN6 struct {
 	Sin6Family uint16
 	Sin6Port   uint16
-	Sin6Addr   _in6_addr
+	Sin6Addr   [16]byte
 	Sin6Zero   [8]byte
 }
 
-type SOCKADDR_INET struct {
-	Ipv4     SOCKADDR_IN
-	Ipv6     SOCKADDR_IN6
-	SiFamily uint16
+// type SOCKADDR_INET struct {
+// 	Ipv4     SOCKADDR_IN
+// 	Ipv6     SOCKADDR_IN6
+// 	SiFamily uint16
+// }
+
+type SOCKADDR_INET [28]byte
+
+func (s *SOCKADDR_INET) GetFamily() uint16 {
+	return *(*uint16)(unsafe.Pointer(&s[0]))
+}
+
+func (s *SOCKADDR_INET) GetIpv4() SOCKADDR_IN {
+	return *(*SOCKADDR_IN)(unsafe.Pointer(&s[0]))
+}
+
+func (s *SOCKADDR_INET) GetIpv6() SOCKADDR_IN6 {
+	return *(*SOCKADDR_IN6)(unsafe.Pointer(&s[0]))
 }
 
 type IP_ADDRESS_PREFIX struct {
-	Prefix       SOCKADDR_INET
+	Prefix       [28]byte
 	PrefixLength uint8
 }
 
-type _MIB_IPFORWARD_ROW2 struct {
+type MIB_IPFORWARD_ROW2 struct {
 	InterfaceLuid        windows.LUID
 	InterfaceIndex       uint32
 	DestinationPrefix    IP_ADDRESS_PREFIX
-	NextHop              SOCKADDR_INET
+	NextHop              [16]byte
 	SitePrefixLength     uint8
+	_                    [3]byte
 	ValidLifetime        uint32
 	PreferredLifetime    uint32
 	Metric               uint32
-	Protocol             uint32
-	Loopback             bool
-	AutoconfigureAddress bool
-	Publish              bool
-	Immortal             bool
+	Protocol             [4]byte
+	Loopback             uint8
+	_                    [3]byte
+	AutoconfigureAddress uint8
+	_                    [3]byte
+	Publish              uint8
+	_                    [3]byte
+	Immortal             uint8
+	_                    [3]byte
 	Age                  uint32
-	Origin               uint32
+	Origin               [4]byte
 }
 
 type MIB_IPFORWARD_TABLE2 struct {
 	NumEntries uint32
-	Table      [5]_MIB_IPFORWARD_ROW2
-}
-
-type adapterInfo struct {
-	windows.IpAdapterInfo
-	Next *adapterInfo
+	_          [4]byte // padding
+	Table      [1]MIB_IPFORWARD_ROW2
 }
 
 // getAdapterAddressMapping returns a map of adapter indices to their information
@@ -119,17 +127,17 @@ func GenRoutes() ([]Route, error) {
 	// procGetAdaptersInfo := modIphlpapi.NewProc("GetAdaptersInfo")
 
 	var routes []Route
-	var ipTable MIB_IPFORWARD_TABLE2
+	var ipTablePtr *MIB_IPFORWARD_TABLE2
 
 	// Get the IP forwarding table
 	ret, _, _ := procGetIpForwardTable2.Call(
 		uintptr(windows.AF_UNSPEC),
-		uintptr(unsafe.Pointer(&ipTable)),
+		uintptr(unsafe.Pointer(&ipTablePtr)),
 	)
 	if windows.Errno(ret) != windows.NO_ERROR {
 		return nil, fmt.Errorf("GetIpForwardTable2 failed: %v", ret)
 	}
-	defer procFreeMibTable.Call(uintptr(unsafe.Pointer(&ipTable)))
+	defer procFreeMibTable.Call(uintptr(unsafe.Pointer(ipTablePtr)))
 
 	// Get adapter information
 	_, err := getAdapterAddressMapping()
@@ -137,5 +145,24 @@ func GenRoutes() ([]Route, error) {
 		return nil, fmt.Errorf("failed to get adapter mapping: %v", err)
 	}
 
+	// cast ipTablePtr to MIB_IPFORWARD_TABLE2 struct
+	numEntries := ipTablePtr.NumEntries
+	table := unsafe.Slice((*MIB_IPFORWARD_ROW2)(unsafe.Pointer(&ipTablePtr.Table[0])), numEntries)
+
+	for _, row := range table {
+		fmt.Printf("Index: %v\n", row.InterfaceIndex)
+		var actualInterface MIB_IPINTERFACE_ROW
+		// actualInterface.Family = row.DestinationPrefix.Prefix.SiFamily
+		actualInterface.InterfaceLuid = row.InterfaceLuid
+		actualInterface.InterfaceIndex = row.InterfaceIndex
+
+		// result := GetIpInterfaceEntry(&actualInterface)
+	}
 	return routes, nil
+}
+
+func HexDump(pointer unsafe.Pointer, size uint32) {
+	data := unsafe.Slice((*byte)(pointer), size)
+	hexDump := hex.Dump(data)
+	fmt.Println(hexDump)
 }

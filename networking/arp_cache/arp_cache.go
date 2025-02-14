@@ -7,6 +7,14 @@ import (
 	"github.com/StackExchange/wmi"
 )
 
+// ARPCache represents a single entry in the ARP cache.
+type ARPCache struct {
+	Address   string `json:"address"`
+	MAC       string `json:"mac"`
+	Interface string `json:"interface"`
+	Permanent bool   `json:"permanent"`
+}
+
 // MSFT_NetNeighbor represents the WMI MSFT_NetNeighbor class structure.
 type MSFT_NetNeighbor struct {
 	AddressFamily    uint16
@@ -16,14 +24,6 @@ type MSFT_NetNeighbor struct {
 	LinkLayerAddress string
 	State            uint8
 	Store            uint8
-}
-
-// ARPCache represents a single entry in the ARP cache.
-type ARPCache struct {
-	Address   string `json:"address"`
-	MAC       string `json:"mac"`
-	Interface string `json:"interface"`
-	Permanent bool   `json:"permanent"`
 }
 
 const (
