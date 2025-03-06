@@ -27,7 +27,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 ## Installation
 
 ```bash
-go get github.com/yourusername/goosquery
+go get github.com/scrymastic/goosquery
 ```
 
 ## Usage
@@ -38,7 +38,7 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "github.com/yourusername/goosquery/system/os_version"
+    "github.com/scrymastic/goosquery/system/os_version"
 )
 
 func main() {
