@@ -27,7 +27,7 @@ func getSystemRoot() string {
 func parseHostsFile(path string) ([]HostEntry, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
@@ -69,7 +69,7 @@ func parseHostsFile(path string) ([]HostEntry, error) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to scan file: %v", err)
 	}
 
 	return entries, nil

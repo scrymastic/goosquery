@@ -25,7 +25,7 @@ type Driver struct {
 	Manufacturer string `json:"manufacturer"`
 	DriverKey    string `json:"driver_key"`
 	Date         int64  `json:"date"`
-	Signed       bool   `json:"signed"`
+	Signed       int32  `json:"signed"`
 }
 
 type partialDevInfo struct {
@@ -94,6 +94,13 @@ var (
 		PID:   2,
 	}
 )
+
+func boolToInt32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
+}
 
 // ===================================================================================================
 // From sys/windows
@@ -348,7 +355,7 @@ func GenDrivers() ([]Driver, error) {
 			Version:      wmiDriver.DriverVersion,
 			Manufacturer: wmiDriver.Manufacturer,
 			Provider:     wmiDriver.DriverProviderName,
-			Signed:       wmiDriver.IsSigned,
+			Signed:       boolToInt32(wmiDriver.IsSigned),
 		}
 
 		infPath, err := getInfPath(wmiDriver.InfName)

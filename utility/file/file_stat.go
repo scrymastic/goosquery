@@ -45,7 +45,7 @@ type FileStat struct {
 // 	DWORD         FileAttributes;
 //   } FILE_BASIC_INFO, *PFILE_BASIC_INFO;
 
-type _FILE_BASIC_INFO struct {
+type FILE_BASIC_INFO struct {
 	CreationTime   windows.Filetime
 	LastAccessTime windows.Filetime
 	LastWriteTime  windows.Filetime
@@ -54,12 +54,25 @@ type _FILE_BASIC_INFO struct {
 	_              [4]byte
 }
 
+type LANGANDCODEPAGE struct {
+	WLanguage uint16
+	WCodePage uint16
+}
+
 var (
 	modAdvapi32           = windows.NewLazySystemDLL("advapi32.dll")
 	procGetSecurityInfo   = modAdvapi32.NewProc("GetSecurityInfo")
 	modKernel32           = windows.NewLazySystemDLL("kernel32.dll")
 	procGetFileType       = modKernel32.NewProc("GetFileType")
 	procGetDiskFreeSpaceW = modKernel32.NewProc("GetDiskFreeSpaceW")
+	// Api-ms-win-core-version-l1-1-0.dll
+	modApiMsWinCoreVersionL110    = windows.NewLazySystemDLL("Api-ms-win-core-version-l1-1-0.dll")
+	procGetFileVersionInfoSizeExW = modApiMsWinCoreVersionL110.NewProc("GetFileVersionInfoSizeExW")
+	procGetFileVersionInfoExW     = modApiMsWinCoreVersionL110.NewProc("GetFileVersionInfoExW")
+)
+
+const (
+	FILE_VER_GET_NEUTRAL = 0x02
 )
 
 var driveLetters = []string{
@@ -82,7 +95,7 @@ func getRidFromSid(sid *windows.SID) int64 {
 }
 
 // Helper function to get file type string
-func getFileTypeString(fileType uint32, attributes uint32) string {
+func getFileTypeString(fileType uint32, attributes uint32, hFile windows.Handle) string {
 	switch fileType {
 	case windows.FILE_TYPE_CHAR:
 		return "character"
@@ -99,7 +112,10 @@ func getFileTypeString(fileType uint32, attributes uint32) string {
 		}
 		return "disk"
 	case windows.FILE_TYPE_PIPE:
-		return "pipe or socket"
+		if windows.GetNamedPipeInfo(hFile, nil, nil, nil, nil) != nil {
+			return "socket"
+		}
+		return "pipe"
 	default:
 		return "unknown"
 	}
@@ -150,6 +166,110 @@ func getFileAttributesString(attrs uint32) string {
 	return result.String()
 }
 
+func getVersionInfo(path string) (string, string, error) {
+	var handle windows.Handle
+	verSize, err := windows.GetFileVersionInfoSize(path, &handle)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get file version info size: %v", err)
+	}
+
+	verInfo := make([]byte, verSize)
+	err = windows.GetFileVersionInfo(path, uint32(handle), verSize, unsafe.Pointer(&verInfo[0]))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get file version info: %v", err)
+	}
+
+	var verInfoPtr *windows.VS_FIXEDFILEINFO
+	verInfoSize := unsafe.Sizeof(verInfoPtr)
+	err = windows.VerQueryValue(unsafe.Pointer(&verInfo[0]), "\\", unsafe.Pointer(&verInfoPtr), (*uint32)(unsafe.Pointer(&verInfoSize)))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get file version info: %v", err)
+	}
+
+	productVersion := fmt.Sprintf("%d.%d.%d.%d",
+		HIWORD(verInfoPtr.ProductVersionMS),
+		LOWORD(verInfoPtr.ProductVersionMS),
+		HIWORD(verInfoPtr.ProductVersionLS),
+		LOWORD(verInfoPtr.ProductVersionLS),
+	)
+
+	fileVersion := fmt.Sprintf("%d.%d.%d.%d",
+		HIWORD(verInfoPtr.FileVersionMS),
+		LOWORD(verInfoPtr.FileVersionMS),
+		HIWORD(verInfoPtr.FileVersionLS),
+		LOWORD(verInfoPtr.FileVersionLS),
+	)
+
+	return productVersion, fileVersion, nil
+}
+
+func getLanguagesAndCodepages(versionInfo *byte) ([]LANGANDCODEPAGE, error) {
+	var langAndCodePagePtr *LANGANDCODEPAGE
+
+	var verInfoSize uint32
+
+	err := windows.VerQueryValue(unsafe.Pointer(versionInfo), "\\VarFileInfo\\Translation", unsafe.Pointer(&langAndCodePagePtr), &verInfoSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file version info: %v", err)
+	}
+
+	// Cast langAndCodePagePtr to LANGANDCODEPAGE Array
+	langAndCodePage := unsafe.Slice(langAndCodePagePtr, int(verInfoSize)/int(unsafe.Sizeof(LANGANDCODEPAGE{})))
+
+	return langAndCodePage, nil
+}
+
+func getOriginalFilenameForCodepage(versionInfo *byte, langAndCodePage *LANGANDCODEPAGE) (string, error) {
+	// Construct wstring L"\\StringFileInfo\\%04x%04x\\OriginalFilename",
+	wstring := fmt.Sprintf("\\StringFileInfo\\%04X%04X\\OriginalFilename", langAndCodePage.WLanguage, langAndCodePage.WCodePage)
+
+	buffer := make([]uint16, 50)
+	bufferSize := uint32(len(buffer) * 2)
+
+	windows.VerQueryValue(unsafe.Pointer(versionInfo), wstring, unsafe.Pointer(&buffer), &bufferSize)
+	return windows.UTF16PtrToString(&buffer[0]), nil
+}
+
+func getOriginalFilename(path string) (string, error) {
+	ret, _, err := procGetFileVersionInfoSizeExW.Call(
+		uintptr(FILE_VER_GET_NEUTRAL),
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(path))),
+		uintptr(0),
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("failed to get file version info size: %v", err)
+	}
+	verSize := uint32(ret)
+
+	verInfo := make([]byte, verSize)
+	ret, _, err = procGetFileVersionInfoExW.Call(
+		uintptr(FILE_VER_GET_NEUTRAL),
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(path))),
+		uintptr(0),
+		uintptr(verSize),
+		uintptr(unsafe.Pointer(&verInfo[0])),
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("failed to get file version info: %v", err)
+	}
+
+	langAndCodePage, err := getLanguagesAndCodepages(&verInfo[0])
+	if err != nil {
+		return "", fmt.Errorf("failed to get languages and code pages: %v", err)
+	}
+
+	for _, langAndCodePage := range langAndCodePage {
+		// Get original filename for each language and code page
+		// Stop on first successful read
+		originalFilename, err := getOriginalFilenameForCodepage(&verInfo[0], &langAndCodePage)
+		if err == nil {
+			return originalFilename, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to get original filename")
+}
+
 // GetFileStat retrieves detailed file information
 func GetFileStat(path string) (*FileStat, error) {
 	fileStat := &FileStat{}
@@ -159,14 +279,14 @@ func GetFileStat(path string) (*FileStat, error) {
 		return nil, fmt.Errorf("failed to get file info: %w", err)
 	}
 
-	FLAG_AND_ATTRIBUTES := windows.FILE_ATTRIBUTE_ARCHIVE |
+	FLAGS_AND_ATTRIBUTES := windows.FILE_ATTRIBUTE_ARCHIVE |
 		windows.FILE_ATTRIBUTE_ENCRYPTED | windows.FILE_ATTRIBUTE_HIDDEN |
 		windows.FILE_ATTRIBUTE_NORMAL | windows.FILE_ATTRIBUTE_OFFLINE |
 		windows.FILE_ATTRIBUTE_READONLY | windows.FILE_ATTRIBUTE_SYSTEM |
 		windows.FILE_ATTRIBUTE_TEMPORARY
 
 	if fileInfo.IsDir() {
-		FLAG_AND_ATTRIBUTES |= windows.FILE_FLAG_BACKUP_SEMANTICS
+		FLAGS_AND_ATTRIBUTES |= windows.FILE_FLAG_BACKUP_SEMANTICS
 	}
 
 	fileStat.Path = path
@@ -184,7 +304,7 @@ func GetFileStat(path string) (*FileStat, error) {
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
 		nil,
 		windows.OPEN_EXISTING,
-		uint32(FLAG_AND_ATTRIBUTES),
+		uint32(FLAGS_AND_ATTRIBUTES),
 		windows.Handle(0),
 	)
 	if hFile == windows.InvalidHandle {
@@ -237,14 +357,8 @@ func GetFileStat(path string) (*FileStat, error) {
 	if err != windows.ERROR_SUCCESS {
 		return nil, fmt.Errorf("failed to get file type: %w", err)
 	}
-	fileStat.Type = getFileTypeString(uint32(fileType), byHandleFileInfo.FileAttributes)
-	if fileStat.Type == "pipe or socket" {
-		if windows.GetNamedPipeInfo(hFile, nil, nil, nil, nil) != nil {
-			fileStat.Type = "socket"
-		} else {
-			fileStat.Type = "pipe"
-		}
-	}
+	fileStat.Type = getFileTypeString(uint32(fileType), byHandleFileInfo.FileAttributes, hFile)
+
 	// Extract drive letter from path
 	driveLetter := filepath.VolumeName(path)
 	// Check if drive letter is in driveLetters
@@ -262,7 +376,7 @@ func GetFileStat(path string) (*FileStat, error) {
 		}
 		fileStat.BlockSize = int32(bytesPerSect)
 	}
-	basicInfo := make([]byte, unsafe.Sizeof(_FILE_BASIC_INFO{}))
+	basicInfo := make([]byte, unsafe.Sizeof(FILE_BASIC_INFO{}))
 	err = windows.GetFileInformationByHandleEx(
 		hFile,
 		windows.FileBasicInfo,
@@ -272,8 +386,25 @@ func GetFileStat(path string) (*FileStat, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get file basic info: %w", err)
 	}
+	// Cast basicInfo to FILE_BASIC_INFO
+	basicInfoPtr := (*FILE_BASIC_INFO)(unsafe.Pointer(&basicInfo[0]))
 
-	fileStat.Ctime = (*windows.Filetime)(unsafe.Pointer(&basicInfo[0])).Nanoseconds() / 1e9
+	fileStat.Ctime = basicInfoPtr.ChangeTime.Nanoseconds() / 1e9
+
+	productVersion, fileVersion, err := getVersionInfo(path)
+	if err != nil {
+		// Log error
+		fmt.Printf("failed to get version info: %v", err)
+	}
+	fileStat.ProductVersion = productVersion
+	fileStat.FileVersion = fileVersion
+
+	originalFilename, err := getOriginalFilename(path)
+	if err != nil {
+		// Log error
+		fmt.Printf("failed to get original filename: %v", err)
+	}
+	fileStat.OriginalFilename = originalFilename
 
 	return fileStat, nil
 }

@@ -27,6 +27,7 @@ type FileInfo struct {
 	HardLinks              int32  `json:"hard_links"`
 	Symlink                int32  `json:"symlink"`
 	Type                   string `json:"type"`
+	SymlinkTargetPath      string `json:"symlink_target_path"`
 	Attributes             string `json:"attributes"`
 	VolumeSerial           string `json:"volume_serial"`
 	FileID                 string `json:"file_id"`

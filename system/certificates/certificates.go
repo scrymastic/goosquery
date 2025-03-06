@@ -7,22 +7,22 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"goosquery/system/users"
-
 	"golang.org/x/sys/windows"
+
+	"github.com/scrymastic/goosquery/system/users"
 )
 
 type Certificate struct {
 	CommonName       string `json:"common_name"`
 	Subject          string `json:"subject"`
 	Issuer           string `json:"issuer"`
-	CA               bool   `json:"ca"`
-	SelfSigned       bool   `json:"self_signed"`
+	CA               int32  `json:"ca"`
+	SelfSigned       int32  `json:"self_signed"`
 	NotValidBefore   int64  `json:"not_valid_before"`
 	NotValidAfter    int64  `json:"not_valid_after"`
 	SigningAlgorithm string `json:"signing_algorithm"`
 	KeyAlgorithm     string `json:"key_algorithm"`
-	KeyStrength      uint32 `json:"key_strength"`
+	KeyStrength      string `json:"key_strength"`
 	KeyUsage         string `json:"key_usage"`
 	SubjectKeyID     string `json:"subject_key_id"`
 	AuthorityKeyID   string `json:"authority_key_id"`

@@ -24,30 +24,30 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 |----------------------------------|---------|
 | appcompat_shims                  | 🧪      |
 | arp_cache                        | 🧪      |
-| authenticode                     | 🛠️      |
+| authenticode                     | ✅      |
 | autoexec                         | ⏳      |
 | azure_instance_metadata          | ⏳      |
 | azure_instance_tags              | ⏳      |
 | background_activities_moderator  | 🧪      |
-| battery                          | ⏳      |
-| bitlocker_info                   | 🧪      |
+| battery                          | ⛔      |
+| bitlocker_info                   | ✅      |
 | carbon_black_info                | ⏳      |
 | carves                           | ⏳      |
 | certificates                     | 🛠️      |
 | chassis_info                     | ✅      |
-| chocolatey_packages              | ⏳      |
+| chocolatey_packages              | ✅      |
 | chrome_extension_content_scripts | ⏳      |
 | chrome_extensions                | ⏳      |
-| connectivity                     | 🧪      |
+| connectivity                     | ✅      |
 | cpu_info                         | ✅      |
 | cpuid                            | ⏳      |
-| curl                             | ⏳      |
+| curl                             | ✅      |
 | curl_certificate                 | ⏳      |
-| default_environment              | 🧪      |
+| default_environment              | ✅      |
 | deviceguard_status               | ✅      |
 | disk_info                        | ✅      |
 | dns_cache                        | ✅      |
-| drivers                          | 🧪      |
+| drivers                          | ✅      |
 | ec2_instance_metadata            | ⏳      |
 | ec2_instance_tags                | ⏳      |
 | etc_hosts                        | ✅      |
@@ -56,7 +56,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | file                             | 🛠️      |
 | firefox_addons                   | ⏳      |
 | groups                           | ⏳      |
-| hash                             | ⏳      |
+| hash                             | ✅      |
 | ie_extensions                    | ⏳      |
 | intel_me_info                    | ⏳      |
 | interface_addresses              | ✅      |
@@ -73,7 +73,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 | ntfs_acl_permissions             | ⏳      |
 | ntfs_journal_events              | ⏳      |
 | office_mru                       | ⏳      |
-| os_version                       | 🧪      |
+| os_version                       | ✅      |
 | osquery_events                   | 🗑️      |
 | osquery_extensions               | 🗑️      |
 | osquery_flags                    | 🗑️      |

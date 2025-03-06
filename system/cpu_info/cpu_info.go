@@ -2,6 +2,7 @@ package cpu_info
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/StackExchange/wmi"
 )
@@ -28,16 +29,16 @@ type CPUInfo struct {
 	DeviceID          string `json:"device_id"`
 	Model             string `json:"model"`
 	Manufacturer      string `json:"manufacturer"`
-	ProcessorType     uint16 `json:"processor_type"`
-	CPUStatus         uint16 `json:"cpu_status"`
-	NumCores          uint32 `json:"number_of_cores"`
-	LogicalProcessors uint32 `json:"logical_processors"`
-	AddressWidth      uint16 `json:"address_width"`
-	CurrentClockSpeed uint32 `json:"current_clock_speed"`
-	MaxClockSpeed     uint32 `json:"max_clock_speed"`
+	ProcessorType     string `json:"processor_type"`
+	CPUStatus         int32  `json:"cpu_status"`
+	NumCores          string `json:"number_of_cores"`
+	LogicalProcessors int32  `json:"logical_processors"`
+	AddressWidth      string `json:"address_width"`
+	CurrentClockSpeed int32  `json:"current_clock_speed"`
+	MaxClockSpeed     int32  `json:"max_clock_speed"`
 	SocketDesignation string `json:"socket_designation"`
-	Availability      uint16 `json:"availability"`
-	LoadPercentage    uint16 `json:"load_percentage"`
+	Availability      string `json:"availability"`
+	LoadPercentage    int32  `json:"load_percentage"`
 }
 
 // GenCPUInfo retrieves CPU information using WMI query
@@ -45,7 +46,7 @@ func GenCPUInfo() ([]CPUInfo, error) {
 	var processors []Win32_Processor
 	query := "SELECT * FROM Win32_Processor"
 	if err := wmi.Query(query, &processors); err != nil {
-		return nil, fmt.Errorf("failed to query CPU info: %w", err)
+		return nil, fmt.Errorf("failed to query Win32_Processor: %w", err)
 	}
 
 	cpuInfo := make([]CPUInfo, 0, len(processors))
@@ -54,16 +55,16 @@ func GenCPUInfo() ([]CPUInfo, error) {
 			DeviceID:          proc.DeviceID,
 			Model:             proc.Name,
 			Manufacturer:      proc.Manufacturer,
-			ProcessorType:     proc.ProcessorType,
-			CPUStatus:         proc.CPUStatus,
-			NumCores:          proc.NumberOfCores,
-			LogicalProcessors: proc.NumberOfLogicalProcessors,
-			AddressWidth:      proc.AddressWidth,
-			CurrentClockSpeed: proc.CurrentClockSpeed,
-			MaxClockSpeed:     proc.MaxClockSpeed,
+			ProcessorType:     strconv.Itoa(int(proc.ProcessorType)),
+			CPUStatus:         int32(proc.CPUStatus),
+			NumCores:          strconv.Itoa(int(proc.NumberOfCores)),
+			LogicalProcessors: int32(proc.NumberOfLogicalProcessors),
+			AddressWidth:      strconv.Itoa(int(proc.AddressWidth)),
+			CurrentClockSpeed: int32(proc.CurrentClockSpeed),
+			MaxClockSpeed:     int32(proc.MaxClockSpeed),
 			SocketDesignation: proc.SocketDesignation,
-			Availability:      proc.Availability,
-			LoadPercentage:    proc.LoadPercentage,
+			Availability:      strconv.Itoa(int(proc.Availability)),
+			LoadPercentage:    int32(proc.LoadPercentage),
 		}
 		cpuInfo = append(cpuInfo, info)
 	}

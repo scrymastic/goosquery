@@ -11,7 +11,7 @@ import (
 type DNSCache struct {
 	Name  string `json:"name"`
 	Type  string `json:"type"`
-	Flags uint32 `json:"flags"`
+	Flags int32  `json:"flags"`
 }
 
 // DNS_CACHE_ENTRY represents the Windows DNS cache entry structure
@@ -83,10 +83,10 @@ func GenDNSCache() ([]DNSCache, error) {
 	entry := &DNS_CACHE_ENTRY{}
 
 	// Call DnsGetCacheDataTable using SyscallN
-	if ret, _, err := procDnsGetCacheDataTable.Call(
+	if _, _, err := procDnsGetCacheDataTable.Call(
 		uintptr(unsafe.Pointer(&entry)),
 	); err != syscall.Errno(0) {
-		return nil, fmt.Errorf("error calling DnsGetCacheDataTable: %v", ret)
+		return nil, fmt.Errorf("error calling DnsGetCacheDataTable: %v", err)
 	}
 
 	var dnsCache []DNSCache
@@ -101,7 +101,7 @@ func GenDNSCache() ([]DNSCache, error) {
 		dnsCache = append(dnsCache, DNSCache{
 			Name:  windows.UTF16PtrToString(entry.pszName),
 			Type:  dnsType,
-			Flags: entry.dwFlags,
+			Flags: int32(entry.dwFlags),
 		})
 
 		entry = entry.pNext

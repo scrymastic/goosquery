@@ -12,7 +12,7 @@ type ARPCache struct {
 	Address   string `json:"address"`
 	MAC       string `json:"mac"`
 	Interface string `json:"interface"`
-	Permanent bool   `json:"permanent"`
+	Permanent string `json:"permanent"`
 }
 
 // MSFT_NetNeighbor represents the WMI MSFT_NetNeighbor class structure.
@@ -39,7 +39,7 @@ func GenARPCache() ([]ARPCache, error) {
 	query := "SELECT * FROM MSFT_NetNeighbor"
 	namespace := `ROOT\StandardCimv2`
 	if err := wmi.QueryNamespace(query, &neighbors, namespace); err != nil {
-		return nil, fmt.Errorf("failed to query WMI for ARP entries: %w", err)
+		return nil, fmt.Errorf("failed to query MSFT_NetNeighbor: %w", err)
 	}
 
 	entries := make([]ARPCache, 0, len(neighbors))
@@ -56,7 +56,7 @@ func GenARPCache() ([]ARPCache, error) {
 			Address:   n.IPAddress,
 			MAC:       strings.ReplaceAll(n.LinkLayerAddress, "-", ":"),
 			Interface: n.InterfaceAlias,
-			Permanent: n.State == PermanentState,
+			Permanent: map[bool]string{true: "1", false: "0"}[n.State == PermanentState],
 		})
 	}
 

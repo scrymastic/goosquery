@@ -1,12 +1,14 @@
 package disk_info
 
 import (
+	"fmt"
+
 	"github.com/StackExchange/wmi"
 )
 
 type DiskInfo struct {
-	Partitions    uint32 `json:"partitions"`
-	DiskIndex     uint32 `json:"disk_index"`
+	Partitions    int32  `json:"partitions"`
+	DiskIndex     int32  `json:"disk_index"`
 	Type          string `json:"type"`
 	ID            string `json:"id"`
 	PnpDeviceID   string `json:"pnp_device_id"`
@@ -38,15 +40,15 @@ func GenDiskInfo() ([]DiskInfo, error) {
 	query := "SELECT * FROM Win32_DiskDrive"
 
 	if err := wmi.Query(query, &diskDrives); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to query Win32_DiskDrive: %s, %v", query, err)
 	}
 
 	var results []DiskInfo
 
 	for _, disk := range diskDrives {
 		result := DiskInfo{
-			Partitions:    disk.Partitions,
-			DiskIndex:     disk.Index,
+			Partitions:    int32(disk.Partitions),
+			DiskIndex:     int32(disk.Index),
 			Type:          disk.InterfaceType,
 			ID:            disk.DeviceID,
 			PnpDeviceID:   disk.PNPDeviceID,

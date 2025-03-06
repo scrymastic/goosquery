@@ -8,11 +8,11 @@ import (
 )
 
 type ChassisInfo struct {
-	AudibleAlarm      bool   `json:"audible_alarm"`
+	AudibleAlarm      string `json:"audible_alarm"`
 	BreachDescription string `json:"breach_description"`
 	ChassisTypes      string `json:"chassis_types"`
 	Description       string `json:"description"`
-	Lock              bool   `json:"lock"`
+	Lock              string `json:"lock"`
 	Manufacturer      string `json:"manufacturer"`
 	Model             string `json:"model"`
 	SecurityBreach    string `json:"security_breach"`
@@ -20,7 +20,7 @@ type ChassisInfo struct {
 	SMBIOSTag         string `json:"smbios_tag"`
 	SKU               string `json:"sku"`
 	Status            string `json:"status"`
-	VisibleAlarm      bool   `json:"visible_alarm"`
+	VisibleAlarm      string `json:"visible_alarm"`
 }
 
 // Select some fields from Win32_SystemEnclosure
@@ -110,17 +110,17 @@ func GenChassisInfo() ([]ChassisInfo, error) {
 	var enclosures []Win32_SystemEnclosure
 	query := "SELECT * FROM Win32_SystemEnclosure"
 	if err := wmi.Query(query, &enclosures); err != nil {
-		return nil, fmt.Errorf("failed to query chassis info: %w", err)
+		return nil, fmt.Errorf("failed to query Win32_SystemEnclosure: %v", err)
 	}
 
 	chassisInfo := make([]ChassisInfo, 0, len(enclosures))
 	for _, enclosure := range enclosures {
 		info := ChassisInfo{
-			AudibleAlarm:      enclosure.AudibleAlarm,
+			AudibleAlarm:      map[bool]string{true: "True", false: "False"}[enclosure.AudibleAlarm],
 			BreachDescription: enclosure.BreachDescription,
 			ChassisTypes:      strings.Join(getChassisTypeStrings(enclosure.ChassisTypes), ","),
 			Description:       enclosure.Description,
-			Lock:              enclosure.LockPresent,
+			Lock:              map[bool]string{true: "True", false: "False"}[enclosure.LockPresent],
 			Manufacturer:      enclosure.Manufacturer,
 			Model:             enclosure.Model,
 			SecurityBreach:    getSecurityBreachStatus(enclosure.SecurityBreach),
@@ -128,7 +128,7 @@ func GenChassisInfo() ([]ChassisInfo, error) {
 			SMBIOSTag:         enclosure.SMBIOSAssetTag,
 			SKU:               enclosure.SKU,
 			Status:            enclosure.Status,
-			VisibleAlarm:      enclosure.VisibleAlarm,
+			VisibleAlarm:      map[bool]string{true: "True", false: "False"}[enclosure.VisibleAlarm],
 		}
 		chassisInfo = append(chassisInfo, info)
 	}

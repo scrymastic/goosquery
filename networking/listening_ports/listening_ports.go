@@ -2,7 +2,7 @@ package listening_ports
 
 import (
 	"fmt"
-	"goosquery/networking/process_open_sockets"
+	"github.com/scrymastic/goosquery/networking/process_open_sockets"
 	"syscall"
 )
 

@@ -10,12 +10,12 @@ import (
 // DeviceGuardStatus represents the Device Guard security status information
 type DeviceGuardStatus struct {
 	Version            string `json:"version"`
-	InstanceID         string `json:"instance_id"`
+	InstanceID         string `json:"instance_identifier"`
 	VBSStatus          string `json:"vbs_status"`
-	CodeIntegrityMode  string `json:"code_integrity_mode"`
-	ConfiguredServices string `json:"configured_services"`
-	RunningServices    string `json:"running_services"`
-	UMCIMode           string `json:"umci_mode"`
+	CodeIntegrityMode  string `json:"code_integrity_policy_enforcement_status"`
+	ConfiguredServices string `json:"configured_security_services"`
+	RunningServices    string `json:"running_security_services"`
+	UMCIMode           string `json:"umci_policy_status"`
 }
 
 // Win32_DeviceGuard represents the WMI Win32_DeviceGuard class structure
@@ -74,7 +74,7 @@ func GenDeviceguardStatus() ([]DeviceGuardStatus, error) {
 	query := "SELECT * FROM Win32_DeviceGuard"
 	namespace := `ROOT\MICROSOFT\WINDOWS\DEVICEGUARD`
 	if err := wmi.QueryNamespace(query, &guards, namespace); err != nil {
-		return nil, fmt.Errorf("failed to query Device Guard status: %w", err)
+		return nil, fmt.Errorf("failed to query Win32_DeviceGuard: %v", err)
 	}
 
 	status := make([]DeviceGuardStatus, 0, len(guards))

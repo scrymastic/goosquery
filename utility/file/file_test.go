@@ -21,7 +21,7 @@ func TestGenFile(t *testing.T) {
 }
 
 func TestGetFileStat(t *testing.T) {
-	fileStat, err := GetFileStat("C:\\users\\sonx\\.projects\\goosquery\\utility\\file\\file.go")
+	fileStat, err := GetFileStat("C:\\windows\\system32\\ntoskrnl.exe")
 	if err != nil {
 		t.Fatalf("Failed to get file stat: %v", err)
 	}

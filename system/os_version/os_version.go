@@ -22,16 +22,16 @@ type Win32_OperatingSystem struct {
 type OSVersion struct {
 	Name         string `json:"name"`
 	Version      string `json:"version"`
-	Major        uint64 `json:"major"`
-	Minor        uint64 `json:"minor"`
-	Patch        uint64 `json:"patch"`
+	Major        int32  `json:"major"`
+	Minor        int32  `json:"minor"`
+	Patch        int32  `json:"patch"`
 	Build        string `json:"build"`
 	Platform     string `json:"platform"`
 	PlatformLike string `json:"platform_like"`
 	Codename     string `json:"codename"`
 	Arch         string `json:"arch"`
 	InstallDate  int64  `json:"install_date"`
-	Revision     uint64 `json:"revision"`
+	Revision     int32  `json:"revision"`
 }
 
 // GenOSVersion retrieves the Windows operating system version information
@@ -56,10 +56,12 @@ func GenOSVersion() (*OSVersion, error) {
 	// Parse version components
 	parts := strings.Split(winOS[0].Version, ".")
 	if len(parts) >= 1 {
-		osVersion.Major, _ = strconv.ParseUint(parts[0], 10, 64)
+		major, _ := strconv.ParseInt(parts[0], 10, 32)
+		osVersion.Major = int32(major)
 	}
 	if len(parts) >= 2 {
-		osVersion.Minor, _ = strconv.ParseUint(parts[1], 10, 64)
+		minor, _ := strconv.ParseInt(parts[1], 10, 32)
+		osVersion.Minor = int32(minor)
 	}
 	if len(parts) >= 3 {
 		osVersion.Build = parts[2]
@@ -75,12 +77,13 @@ func GenOSVersion() (*OSVersion, error) {
 
 		// Get UBR (Update Build Revision)
 		if ubr, _, err := k.GetIntegerValue("UBR"); err == nil {
-			osVersion.Revision = ubr
+			osVersion.Revision = int32(ubr)
 		}
 
 		// Get DisplayVersion for patch if available (Windows 10 and later)
 		if displayVersion, _, err := k.GetStringValue("DisplayVersion"); err == nil {
-			osVersion.Patch, _ = strconv.ParseUint(displayVersion, 10, 64)
+			patch, _ := strconv.ParseUint(displayVersion, 10, 32)
+			osVersion.Patch = int32(patch)
 		}
 	}
 

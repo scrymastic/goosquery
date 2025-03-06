@@ -3,6 +3,7 @@ package routes
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -11,13 +12,13 @@ import (
 // Route represents a single route entry
 type Route struct {
 	Destination string `json:"destination"`
-	Netmask     int    `json:"netmask"`
+	Netmask     uint32 `json:"netmask"`
 	Gateway     string `json:"gateway"`
 	Source      string `json:"source"`
-	Flags       int    `json:"flags"`
+	Flags       uint32 `json:"flags"`
 	Interface   string `json:"interface"`
-	MTU         int    `json:"mtu"`
-	Metric      int    `json:"metric"`
+	MTU         uint32 `json:"mtu"`
+	Metric      uint32 `json:"metric"`
 	Type        string `json:"type"`
 }
 
@@ -56,15 +57,16 @@ func (s *SOCKADDR_INET) GetIpv6() SOCKADDR_IN6 {
 }
 
 type IP_ADDRESS_PREFIX struct {
-	Prefix       [28]byte
+	Prefix       SOCKADDR_INET
 	PrefixLength uint8
+	_            [3]byte
 }
 
 type MIB_IPFORWARD_ROW2 struct {
 	InterfaceLuid        windows.LUID
 	InterfaceIndex       uint32
 	DestinationPrefix    IP_ADDRESS_PREFIX
-	NextHop              [16]byte
+	NextHop              SOCKADDR_INET
 	SitePrefixLength     uint8
 	_                    [3]byte
 	ValidLifetime        uint32
@@ -72,13 +74,9 @@ type MIB_IPFORWARD_ROW2 struct {
 	Metric               uint32
 	Protocol             [4]byte
 	Loopback             uint8
-	_                    [3]byte
 	AutoconfigureAddress uint8
-	_                    [3]byte
 	Publish              uint8
-	_                    [3]byte
 	Immortal             uint8
-	_                    [3]byte
 	Age                  uint32
 	Origin               [4]byte
 }
@@ -88,6 +86,11 @@ type MIB_IPFORWARD_TABLE2 struct {
 	_          [4]byte // padding
 	Table      [1]MIB_IPFORWARD_ROW2
 }
+
+const (
+	INET_ADDRSTRLEN  = 22
+	INET6_ADDRSTRLEN = 65
+)
 
 // getAdapterAddressMapping returns a map of adapter indices to their information
 func getAdapterAddressMapping() (map[uint32]*windows.IpAdapterInfo, error) {
@@ -123,8 +126,9 @@ func GenRoutes() ([]Route, error) {
 	modIphlpapi := windows.NewLazyDLL("iphlpapi.dll")
 	procGetIpForwardTable2 := modIphlpapi.NewProc("GetIpForwardTable2")
 	procFreeMibTable := modIphlpapi.NewProc("FreeMibTable")
-	// procGetIpInterfaceEntry := modIphlpapi.NewProc("GetIpInterfaceEntry")
-	// procGetAdaptersInfo := modIphlpapi.NewProc("GetAdaptersInfo")
+	procGetIpInterfaceEntry := modIphlpapi.NewProc("GetIpInterfaceEntry")
+	modWs2_32 := windows.NewLazyDLL("ws2_32.dll")
+	procInetNtopW := modWs2_32.NewProc("InetNtopW")
 
 	var routes []Route
 	var ipTablePtr *MIB_IPFORWARD_TABLE2
@@ -139,24 +143,108 @@ func GenRoutes() ([]Route, error) {
 	}
 	defer procFreeMibTable.Call(uintptr(unsafe.Pointer(ipTablePtr)))
 
-	// Get adapter information
-	_, err := getAdapterAddressMapping()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get adapter mapping: %v", err)
-	}
-
 	// cast ipTablePtr to MIB_IPFORWARD_TABLE2 struct
 	numEntries := ipTablePtr.NumEntries
 	table := unsafe.Slice((*MIB_IPFORWARD_ROW2)(unsafe.Pointer(&ipTablePtr.Table[0])), numEntries)
 
-	for _, row := range table {
-		fmt.Printf("Index: %v\n", row.InterfaceIndex)
+	for _, currRow := range table {
+		// fmt.Printf("Index: %v\n", row.InterfaceIndex)
+		var route Route
 		var actualInterface MIB_IPINTERFACE_ROW
-		// actualInterface.Family = row.DestinationPrefix.Prefix.SiFamily
-		actualInterface.InterfaceLuid = row.InterfaceLuid
-		actualInterface.InterfaceIndex = row.InterfaceIndex
+		var interfaceIpAddress string
+		actualInterface.Family = currRow.DestinationPrefix.Prefix.GetFamily()
+		actualInterface.InterfaceLuid = currRow.InterfaceLuid
+		actualInterface.InterfaceIndex = currRow.InterfaceIndex
 
-		// result := GetIpInterfaceEntry(&actualInterface)
+		ret, _, _ := procGetIpInterfaceEntry.Call(
+			uintptr(unsafe.Pointer(&actualInterface)),
+		)
+		if windows.Errno(ret) != windows.NO_ERROR {
+			// return nil, fmt.Errorf("GetIpInterfaceEntry failed: %v", ret)
+			route.Metric = uint32(math.MaxUint32)
+			route.MTU = uint32(math.MaxUint32)
+		} else {
+			route.Metric = actualInterface.Metric
+			route.MTU = actualInterface.NlMtu
+		}
+
+		addrFamily := actualInterface.Family
+
+		if addrFamily == windows.AF_INET6 {
+			route.Type = "local"
+			ipAddress := currRow.DestinationPrefix.Prefix.GetIpv6().Sin6Addr
+			gateway := currRow.NextHop.GetIpv6().Sin6Addr
+			buffer := make([]uint16, INET6_ADDRSTRLEN)
+
+			ret, _, _ := procInetNtopW.Call(
+				uintptr(addrFamily),
+				uintptr(unsafe.Pointer(&ipAddress)),
+				uintptr(unsafe.Pointer(&buffer[0])),
+				uintptr(INET6_ADDRSTRLEN),
+			)
+
+			if ret != 0 {
+				route.Destination = windows.UTF16ToString(buffer)
+			}
+
+			ret, _, _ = procInetNtopW.Call(
+				uintptr(addrFamily),
+				uintptr(unsafe.Pointer(&gateway)),
+				uintptr(unsafe.Pointer(&buffer[0])),
+				uintptr(INET6_ADDRSTRLEN),
+			)
+
+			if ret != 0 {
+				route.Gateway = windows.UTF16ToString(buffer)
+			}
+
+		} else if addrFamily == windows.AF_INET {
+			route.Type = "global"
+			ipAddress := currRow.DestinationPrefix.Prefix.GetIpv4().SinAddr
+			gateway := currRow.NextHop.GetIpv4().SinAddr
+			buffer := make([]uint16, INET_ADDRSTRLEN)
+
+			ret, _, _ = procInetNtopW.Call(
+				uintptr(addrFamily),
+				uintptr(unsafe.Pointer(&ipAddress)),
+				uintptr(unsafe.Pointer(&buffer[0])),
+				uintptr(INET_ADDRSTRLEN),
+			)
+
+			if ret != 0 {
+				route.Destination = windows.UTF16ToString(buffer)
+			}
+
+			adapters, err := getAdapterAddressMapping()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get adapter mapping: %v", err)
+			}
+			if actualAdapter, ok := adapters[currRow.InterfaceIndex]; ok {
+				interfaceIpAddress = string(actualAdapter.IpAddressList.IpAddress.String[:])
+				route.Gateway = string(actualAdapter.GatewayList.IpAddress.String[:])
+			} else {
+				interfaceIpAddress = "127.0.0.1"
+				ret, _, _ = procInetNtopW.Call(
+					uintptr(addrFamily),
+					uintptr(unsafe.Pointer(&gateway)),
+					uintptr(unsafe.Pointer(&buffer[0])),
+					uintptr(INET_ADDRSTRLEN),
+				)
+				if ret != 0 {
+					route.Gateway = windows.UTF16ToString(buffer)
+				}
+			}
+		}
+
+		route.Interface = interfaceIpAddress
+		route.Netmask = uint32(currRow.DestinationPrefix.PrefixLength)
+		// TODO: add flags
+		route.Flags = 0
+
+		// print route
+		fmt.Printf("Route: %+v\n", route)
+		routes = append(routes, route)
+
 	}
 	return routes, nil
 }

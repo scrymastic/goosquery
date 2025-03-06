@@ -11,12 +11,12 @@ type BitLockerVolume struct {
 	DeviceID            string `json:"device_id"`
 	DriveLetter         string `json:"drive_letter"`
 	PersistentVolumeID  string `json:"persistent_volume_id"`
-	ConversionStatus    uint32 `json:"conversion_status"`
-	ProtectionStatus    uint32 `json:"protection_status"`
+	ConversionStatus    int32  `json:"conversion_status"`
+	ProtectionStatus    int32  `json:"protection_status"`
 	EncryptionMethod    string `json:"encryption_method"`
-	Version             uint32 `json:"version"`
-	PercentageEncrypted uint32 `json:"percentage_encrypted"`
-	LockStatus          uint32 `json:"lock_status"`
+	Version             int32  `json:"version"`
+	PercentageEncrypted int32  `json:"percentage_encrypted"`
+	LockStatus          int32  `json:"lock_status"`
 }
 
 // Win32_EncryptableVolume represents the WMI class structure
@@ -53,7 +53,7 @@ func getWMIValue(deviceID string, methodName string) (uint32, error) {
 	var value uint32
 	_, err := wmi.CallMethod([]interface{}{}, deviceID, methodName, []interface{}{&value})
 	if err != nil {
-		return 0, fmt.Errorf("failed to call %s: %v", methodName, err)
+		return 0, fmt.Errorf("CallMethod: failed to call %s: %v", methodName, err)
 	}
 	return value, nil
 }
@@ -67,7 +67,7 @@ func GenBitLockerInfo() ([]BitLockerVolume, error) {
 	namespace := "ROOT\\CIMV2\\Security\\MicrosoftVolumeEncryption"
 	err := wmi.QueryNamespace(query, &encryptableVolumes, namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query WMI: %v", err)
+		return nil, fmt.Errorf("QueryNamespace: failed to query Win32_EncryptableVolume: %v", err)
 	}
 
 	// Convert WMI results to BitLockerVolume structs
@@ -93,12 +93,12 @@ func GenBitLockerInfo() ([]BitLockerVolume, error) {
 			DeviceID:            vol.DeviceID,
 			DriveLetter:         vol.DriveLetter,
 			PersistentVolumeID:  vol.PersistentVolumeID,
-			ConversionStatus:    uint32(vol.ConversionStatus),
-			ProtectionStatus:    uint32(vol.ProtectionStatus),
+			ConversionStatus:    vol.ConversionStatus,
+			ProtectionStatus:    vol.ProtectionStatus,
 			EncryptionMethod:    getEncryptionMethodString(vol.EncryptionMethod),
-			Version:             version,
-			PercentageEncrypted: percentageEncrypted,
-			LockStatus:          lockStatus,
+			Version:             int32(version),
+			PercentageEncrypted: int32(percentageEncrypted),
+			LockStatus:          int32(lockStatus),
 		}
 		results = append(results, volume)
 	}

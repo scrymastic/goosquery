@@ -10,12 +10,19 @@ import (
 type DefaultEnvironment struct {
 	Variable string
 	Value    string
-	Expand   bool
+	Expand   int32
 }
 
 const (
 	regKeyEnvironment = `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`
 )
+
+func boolToInt32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
+}
 
 // GenDefaultEnvironments retrieves system environment variables from the Windows Registry
 func GenDefaultEnvironments() ([]DefaultEnvironment, error) {
@@ -27,21 +34,21 @@ func GenDefaultEnvironments() ([]DefaultEnvironment, error) {
 		registry.QUERY_VALUE,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("error opening registry key: %w", err)
+		return nil, fmt.Errorf("error opening registry key: %s, %v", regKeyEnvironment, err)
 	}
 	defer key.Close()
 
 	// Get all value names under the key
 	valueNames, err := key.ReadValueNames(-1)
 	if err != nil {
-		return nil, fmt.Errorf("error reading value names: %w", err)
+		return nil, fmt.Errorf("error reading value names: %s, %v", regKeyEnvironment, err)
 	}
 
 	// Iterate through each value
 	for _, name := range valueNames {
 		value, valueType, err := key.GetStringValue(name)
 		if err != nil {
-			log.Printf("Error reading value for %s: %v", name, err)
+			log.Printf("Error reading value for %s: %s, %v", name, regKeyEnvironment, err)
 			continue
 		}
 
@@ -49,7 +56,7 @@ func GenDefaultEnvironments() ([]DefaultEnvironment, error) {
 		envVar := DefaultEnvironment{
 			Variable: name,
 			Value:    value,
-			Expand:   valueType == registry.EXPAND_SZ,
+			Expand:   boolToInt32(valueType == registry.EXPAND_SZ),
 		}
 		results = append(results, envVar)
 	}

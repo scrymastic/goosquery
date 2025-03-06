@@ -1,6 +1,6 @@
 package user_groups
 
-import "goosquery/system/users"
+import "github.com/scrymastic/goosquery/system/users"
 
 type UserGroup struct {
 	UID int64 `json:"uid"`

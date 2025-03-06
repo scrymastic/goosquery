@@ -135,10 +135,7 @@ func getUserHomeDir(sid string) (string, error) {
 	}
 
 	// Convert to UTF16 pointer for windows API
-	src, err := windows.UTF16PtrFromString(profilePath)
-	if err != nil {
-		return "", err
-	}
+	src := windows.StringToUTF16Ptr(profilePath)
 
 	// Get required buffer size
 	n, err := windows.ExpandEnvironmentStrings(src, nil, 0)
@@ -256,7 +253,7 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 	for _, profileSid := range subkeys {
 		user := User{}
 
-		profileSidPtr, _ := windows.UTF16PtrFromString(profileSid)
+		profileSidPtr := windows.StringToUTF16Ptr(profileSid)
 
 		var sid *windows.SID
 

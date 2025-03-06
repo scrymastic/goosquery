@@ -2,10 +2,12 @@ package background_activities_moderator
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/sys/windows/registry"
 )
 
+// "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\bam\\%%\\%%"
 const regKeyBam = `SYSTEM\CurrentControlSet\Services\bam\State\UserSettings`
 
 type BackgroundActivitiesModerator struct {
@@ -27,28 +29,32 @@ func GenBackgroundActivitiesModerator() ([]BackgroundActivitiesModerator, error)
 	// Open the BAM registry key
 	bamKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyBam, registry.READ)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open BAM registry key: %w", err)
+		return nil, fmt.Errorf("failed to open registry key: %s, %v", regKeyBam, err)
 	}
 	defer bamKey.Close()
 
 	// List all subkeys (user SIDs)
 	userKeys, err := bamKey.ReadSubKeyNames(-1)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read BAM subkeys: %w", err)
+		return nil, fmt.Errorf("failed to read BAM subkeys: %v", err)
 	}
 
 	for _, userKey := range userKeys {
+		// If not starts with S-1, continue
+		if !strings.HasPrefix(userKey, "S-1") {
+			continue
+		}
 
 		// Open the user's BAM registry key
 		userBamKey, err := registry.OpenKey(bamKey, userKey, registry.READ)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open user BAM registry key: %w", err)
+			return nil, fmt.Errorf("failed to open user BAM registry key: %s, %v", userKey, err)
 		}
 		defer userBamKey.Close()
 
 		valueNames, err := userBamKey.ReadValueNames(-1)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read user BAM values: %w", err)
+			return nil, fmt.Errorf("failed to read user BAM values: %v", err)
 		}
 
 		for _, name := range valueNames {
