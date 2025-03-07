@@ -1,16 +1,15 @@
-<h1 align="center" style="font-size: 2.5em;">goosquery</h1>
+<div align="center">
 
-<p align="center">
-  <a href="https://goreportcard.com/report/github.com/scrymastic/goosquery">
-    <img src="https://goreportcard.com/badge/github.com/scrymastic/goosquery" alt="Go Report Card">
-  </a>
-  <a href="https://pkg.go.dev/github.com/scrymastic/goosquery">
-    <img src="https://pkg.go.dev/badge/github.com/scrymastic/goosquery.svg" alt="Go Reference">
-  </a>
-  <a href="https://github.com/scrymastic/goosquery/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License">
-  </a>
-</p>
+<h1 align="center" style="font-family: 'Segoe UI', sans-serif; font-size: 60px;">
+  goosquery
+</h1>
+
+![Go Report Card](https://goreportcard.com/badge/github.com/scrymastic/goosquery)
+![Go Reference](https://pkg.go.dev/badge/github.com/scrymastic/goosquery.svg)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+
+</div>
 
 Go osquery with JSON output, currently working on Windows.
 
@@ -27,7 +26,7 @@ The goal is to provide a lightweight, portable, and easy-to-use version of osque
 ## Installation
 
 ```bash
-go get github.com/yourusername/goosquery
+go get github.com/scrymastic/goosquery
 ```
 
 ## Usage
@@ -38,7 +37,7 @@ package main
 import (
     "encoding/json"
     "fmt"
-    "github.com/yourusername/goosquery/system/os_version"
+    "github.com/scrymastic/goosquery/system/os_version"
 )
 
 func main() {
