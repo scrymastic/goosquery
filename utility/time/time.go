@@ -9,12 +9,12 @@ import (
 // Time represents the system time information matching osquery's time table schema
 type Time struct {
 	Weekday       string `json:"weekday"`
-	Year          int    `json:"year"`
-	Month         int    `json:"month"`
-	Day           int    `json:"day"`
-	Hour          int    `json:"hour"`
-	Minutes       int    `json:"minutes"`
-	Seconds       int    `json:"seconds"`
+	Year          int32  `json:"year"`
+	Month         int32  `json:"month"`
+	Day           int32  `json:"day"`
+	Hour          int32  `json:"hour"`
+	Minutes       int32  `json:"minutes"`
+	Seconds       int32  `json:"seconds"`
 	Timezone      string `json:"timezone"`
 	LocalTimezone string `json:"local_timezone"`
 	UnixTime      int64  `json:"unix_time"`
@@ -35,12 +35,12 @@ func GenTime() ([]Time, error) {
 
 	result := Time{
 		Weekday:   utcNow.Weekday().String(),
-		Year:      utcNow.Year(),
-		Month:     int(utcNow.Month()),
-		Day:       utcNow.Day(),
-		Hour:      utcNow.Hour(),
-		Minutes:   utcNow.Minute(),
-		Seconds:   utcNow.Second(),
+		Year:      int32(utcNow.Year()),
+		Month:     int32(utcNow.Month()),
+		Day:       int32(utcNow.Day()),
+		Hour:      int32(utcNow.Hour()),
+		Minutes:   int32(utcNow.Minute()),
+		Seconds:   int32(utcNow.Second()),
 		Timezone:  "UTC",
 		UnixTime:  utcNow.Unix(),
 		Timestamp: utcNow.Format("Mon Jan 2 15:04:05 2006 UTC"),

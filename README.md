@@ -124,7 +124,7 @@ func main() {
 | etc_hosts                        | ✅      |
 | etc_protocols                    | ✅      |
 | etc_services                     | ✅      |
-| file                             | 🛠️      |
+| file                             | 🧪      |
 | firefox_addons                   | ⏳      |
 | groups                           | ⏳      |
 | hash                             | ✅      |
@@ -191,7 +191,7 @@ func main() {
 | windows_events                   | ⏳      |
 | windows_firewall_rules           | 🧪      |
 | windows_optional_features        | ✅      |
-| windows_search                   | ⏳      |
+| windows_search                   | ⛔      |
 | windows_security_center          | 🧪      |
 | windows_security_products        | 🛠️      |
 | windows_update_history           | 🛠️      |

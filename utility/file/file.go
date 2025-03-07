@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"golang.org/x/sys/windows"
+	// "golang.org/x/sys/windows"
 )
 
 // FileInfo represents the schema for file information
@@ -57,82 +56,43 @@ func GenFile(path string) (*FileInfo, error) {
 		Mode:      info.Mode().String(),
 	}
 
-	// Check if it's a symlink
-	if info.Mode()&os.ModeSymlink != 0 {
-		fileInfo.Symlink = 1
-	}
-
-	// Get file type
-	switch {
-	case info.Mode().IsRegular():
-		fileInfo.Type = "regular"
-	case info.Mode().IsDir():
-		fileInfo.Type = "directory"
-	case info.Mode()&os.ModeSymlink != 0:
-		fileInfo.Type = "symlink"
-	default:
-		fileInfo.Type = "unknown"
-	}
-
-	err = populateFileInfo(fileInfo, path)
-
-	return fileInfo, err
-}
-
-func populateFileInfo(fi *FileInfo, path string) error {
-	handle, err := windows.CreateFile(
-		windows.StringToUTF16Ptr(path),
-		windows.GENERIC_READ,
-		windows.FILE_SHARE_READ,
-		nil,
-		windows.OPEN_EXISTING,
-		windows.FILE_ATTRIBUTE_NORMAL,
-		0,
-	)
+	// Get file stat
+	fileStat, err := GetFileStat(path)
 	if err != nil {
-		return err
-	}
-	defer windows.CloseHandle(handle)
-
-	var fileInfo windows.ByHandleFileInformation
-	if err := windows.GetFileInformationByHandle(handle, &fileInfo); err != nil {
-		return err
+		return nil, fmt.Errorf("failed to get file stat: %w", err)
 	}
 
-	fi.Inode = int64(fileInfo.FileIndexHigh)<<32 | int64(fileInfo.FileIndexLow)
-	fi.HardLinks = int32(fileInfo.NumberOfLinks)
+	fileInfo.Symlink = fileStat.Symlink
+	fileInfo.FileID = fileStat.FileID
+	fileInfo.Inode = fileStat.Inode
+	fileInfo.UID = fileStat.UID
+	fileInfo.GID = fileStat.GID
+	fileInfo.Mode = fileStat.Mode
+	fileInfo.Device = fileStat.Device
+	fileInfo.Size = fileStat.Size
+	fileInfo.BlockSize = fileStat.BlockSize
+	fileInfo.Atime = fileStat.Atime
+	fileInfo.Mtime = fileStat.Mtime
+	fileInfo.Ctime = fileStat.Ctime
+	fileInfo.Btime = fileStat.Btime
+	fileInfo.HardLinks = fileStat.HardLinks
+	fileInfo.Type = fileStat.Type
+	fileInfo.Attributes = fileStat.Attributes
+	fileInfo.VolumeSerial = fileStat.VolumeSerial
+	fileInfo.FileVersion = fileStat.FileVersion
+	fileInfo.ProductVersion = fileStat.ProductVersion
+	fileInfo.OriginalFilename = fileStat.OriginalFilename
 
-	// Convert Windows time to Unix timestamp
-	fi.Ctime = windowsTimeToUnix(fileInfo.CreationTime)
-	fi.Atime = windowsTimeToUnix(fileInfo.LastAccessTime)
-	fi.Mtime = windowsTimeToUnix(fileInfo.LastWriteTime)
-	fi.Btime = fi.Ctime
-
-	// Get file attributes
-	fi.Attributes = getWindowsFileAttributes(fileInfo.FileAttributes)
-
-	return nil
-}
-
-func windowsTimeToUnix(t windows.Filetime) int64 {
-	// Windows FILETIME is in 100-nanosecond intervals since January 1, 1601
-	// Need to convert to Unix timestamp (seconds since January 1, 1970)
-	return t.Nanoseconds() / 1e9
-}
-
-func getWindowsFileAttributes(attrs uint32) string {
-	var result string
-	if attrs&windows.FILE_ATTRIBUTE_ARCHIVE != 0 {
-		result += "A"
+	// Parse shortcut data
+	lnkData, err := ParseLnkData(path)
+	if err == nil {
+		fileInfo.ShortcutTargetPath = lnkData.TargetPath
+		fileInfo.ShortcutTargetType = lnkData.TargetType
+		fileInfo.ShortcutTargetLocation = lnkData.TargetLocation
+		fileInfo.ShortcutStartIn = lnkData.StartIn
+		fileInfo.ShortcutRun = lnkData.Run
+		fileInfo.ShortcutComment = lnkData.Comment
 	}
-	if attrs&windows.FILE_ATTRIBUTE_HIDDEN != 0 {
-		result += "H"
-	}
-	if attrs&windows.FILE_ATTRIBUTE_READONLY != 0 {
-		result += "R"
-	}
-	if attrs&windows.FILE_ATTRIBUTE_SYSTEM != 0 {
-		result += "S"
-	}
-	return result
+
+	return fileInfo, nil
 }
