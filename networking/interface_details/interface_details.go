@@ -13,30 +13,30 @@ import (
 type InterfaceDetail struct {
 	Interface                  string `json:"interface"`
 	MAC                        string `json:"mac"`
-	Type                       uint32 `json:"type"`
-	MTU                        uint32 `json:"mtu"`
-	Metric                     uint32 `json:"metric"`
-	Flags                      uint32 `json:"flags"`
-	IPackets                   uint64 `json:"ipackets"`
-	OPackets                   uint64 `json:"opackets"`
-	IBytes                     uint64 `json:"ibytes"`
-	OBytes                     uint64 `json:"obytes"`
-	IErrors                    uint64 `json:"ierrors"`
-	OErrors                    uint64 `json:"oerrors"`
-	IDrops                     uint64 `json:"idrops"`
-	ODrops                     uint64 `json:"odrops"`
-	Collisions                 uint64 `json:"collisions"`
-	LastChange                 uint64 `json:"last_change"`
+	Type                       int32  `json:"type"`
+	MTU                        int32  `json:"mtu"`
+	Metric                     int32  `json:"metric"`
+	Flags                      int32  `json:"flags"`
+	IPackets                   int64  `json:"ipackets"`
+	OPackets                   int64  `json:"opackets"`
+	IBytes                     int64  `json:"ibytes"`
+	OBytes                     int64  `json:"obytes"`
+	IErrors                    int64  `json:"ierrors"`
+	OErrors                    int64  `json:"oerrors"`
+	IDrops                     int64  `json:"idrops"`
+	ODrops                     int64  `json:"odrops"`
+	Collisions                 int64  `json:"collisions"`
+	LastChange                 int64  `json:"last_change"`
 	FriendlyName               string `json:"friendly_name"`
 	Description                string `json:"description"`
 	Manufacturer               string `json:"manufacturer"`
 	ConnectionID               string `json:"connection_id"`
 	ConnectionStatus           string `json:"connection_status"`
-	Enabled                    bool   `json:"enabled"`
-	PhysicalAdapter            bool   `json:"physical_adapter"`
-	Speed                      uint64 `json:"speed"`
+	Enabled                    int32  `json:"enabled"`
+	PhysicalAdapter            int32  `json:"physical_adapter"`
+	Speed                      int32  `json:"speed"`
 	Service                    string `json:"service"`
-	DHCPEnabled                bool   `json:"dhcp_enabled"`
+	DHCPEnabled                int32  `json:"dhcp_enabled"`
 	DHCPLeaseExpires           string `json:"dhcp_lease_expires"`
 	DHCPLeaseObtained          string `json:"dhcp_lease_obtained"`
 	DHCPServer                 string `json:"dhcp_server"`
@@ -44,6 +44,13 @@ type InterfaceDetail struct {
 	DNSDomainSuffixSearchOrder string `json:"dns_domain_suffix_search_order"`
 	DNSHostName                string `json:"dns_host_name"`
 	DNSServerSearchOrder       string `json:"dns_server_search_order"`
+}
+
+func boolToInt32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func getInterfaceStats(detail *InterfaceDetail) error {
@@ -65,14 +72,14 @@ func getInterfaceStats(detail *InterfaceDetail) error {
 	}
 
 	if len(dst) > 0 {
-		detail.IPackets, _ = strconv.ParseUint(dst[0].PacketsReceivedPerSec, 10, 64)
-		detail.OPackets, _ = strconv.ParseUint(dst[0].PacketsSentPerSec, 10, 64)
-		detail.IBytes, _ = strconv.ParseUint(dst[0].BytesReceivedPerSec, 10, 64)
-		detail.OBytes, _ = strconv.ParseUint(dst[0].BytesSentPerSec, 10, 64)
-		detail.IErrors, _ = strconv.ParseUint(dst[0].PacketsReceivedErrors, 10, 64)
-		detail.OErrors, _ = strconv.ParseUint(dst[0].PacketsOutboundErrors, 10, 64)
-		detail.IDrops, _ = strconv.ParseUint(dst[0].PacketsReceivedDiscarded, 10, 64)
-		detail.ODrops, _ = strconv.ParseUint(dst[0].PacketsOutboundDiscarded, 10, 64)
+		detail.IPackets, _ = strconv.ParseInt(dst[0].PacketsReceivedPerSec, 10, 64)
+		detail.OPackets, _ = strconv.ParseInt(dst[0].PacketsSentPerSec, 10, 64)
+		detail.IBytes, _ = strconv.ParseInt(dst[0].BytesReceivedPerSec, 10, 64)
+		detail.OBytes, _ = strconv.ParseInt(dst[0].BytesSentPerSec, 10, 64)
+		detail.IErrors, _ = strconv.ParseInt(dst[0].PacketsReceivedErrors, 10, 64)
+		detail.OErrors, _ = strconv.ParseInt(dst[0].PacketsOutboundErrors, 10, 64)
+		detail.IDrops, _ = strconv.ParseInt(dst[0].PacketsReceivedDiscarded, 10, 64)
+		detail.ODrops, _ = strconv.ParseInt(dst[0].PacketsOutboundDiscarded, 10, 64)
 	}
 
 	return nil
@@ -100,10 +107,10 @@ func getAdapterDetails(detail *InterfaceDetail) error {
 		detail.Manufacturer = dst[0].Manufacturer
 		detail.ConnectionID = dst[0].NetConnectionID
 		detail.ConnectionStatus = strconv.FormatUint(uint64(dst[0].NetConnectionStatus), 10)
-		detail.Enabled = dst[0].NetEnabled
-		detail.PhysicalAdapter = dst[0].PhysicalAdapter
+		detail.Enabled = boolToInt32(dst[0].NetEnabled)
+		detail.PhysicalAdapter = boolToInt32(dst[0].PhysicalAdapter)
 		detail.Service = dst[0].ServiceName
-		detail.Speed = uint64(dst[0].Speed)
+		detail.Speed = int32(dst[0].Speed)
 	}
 
 	return nil
@@ -129,7 +136,7 @@ func getDHCPAndDNSInfo(detail *InterfaceDetail) error {
 	}
 
 	if len(dst) > 0 {
-		detail.DHCPEnabled = dst[0].DHCPEnabled
+		detail.DHCPEnabled = boolToInt32(dst[0].DHCPEnabled)
 		detail.DHCPLeaseExpires = dst[0].DHCPLeaseExpires
 		detail.DHCPLeaseObtained = dst[0].DHCPLeaseObtained
 		detail.DHCPServer = dst[0].DHCPServer
@@ -179,13 +186,13 @@ func GenInterfaceDetails() ([]InterfaceDetail, error) {
 	for current != nil {
 		detail := InterfaceDetail{
 			Interface:   strconv.FormatInt(int64(current.IfIndex), 10),
-			MTU:         uint32(current.Mtu),
-			Type:        uint32(current.IfType),
+			MTU:         int32(current.Mtu),
+			Type:        int32(current.IfType),
 			Description: windows.UTF16PtrToString(current.Description),
-			Flags:       uint32(current.Flags),
-			Metric:      uint32(current.Ipv4Metric),
-			LastChange:  uint64(0),
-			Collisions:  uint64(0),
+			Flags:       int32(current.Flags),
+			Metric:      int32(current.Ipv4Metric),
+			LastChange:  int64(-1),
+			Collisions:  int64(-1),
 		}
 
 		// Convert physical address (MAC) to string

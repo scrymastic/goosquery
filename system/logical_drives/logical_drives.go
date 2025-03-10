@@ -4,6 +4,16 @@ import (
 	"github.com/StackExchange/wmi"
 )
 
+type LogicalDrive struct {
+	DeviceID      string `json:"device_id"`
+	Type          string `json:"type"`
+	Description   string `json:"description"`
+	FreeSpace     int64  `json:"free_space"`
+	Size          int64  `json:"size"`
+	FileSystem    string `json:"file_system"`
+	BootPartition int32  `json:"boot_partition"`
+}
+
 type Win32_LogicalDisk struct {
 	DeviceID    string
 	Description string
@@ -14,16 +24,6 @@ type Win32_LogicalDisk struct {
 
 type Win32_BootConfiguration struct {
 	BootDirectory string
-}
-
-type LogicalDrive struct {
-	DeviceID      string `json:"device_id"`
-	Type          string `json:"type"`
-	Description   string `json:"description"`
-	FreeSpace     uint64 `json:"free_space"`
-	Size          uint64 `json:"size"`
-	FileSystem    string `json:"file_system"`
-	BootPartition int    `json:"boot_partition"`
 }
 
 func GenLogicalDrives() ([]LogicalDrive, error) {
@@ -56,10 +56,10 @@ func GenLogicalDrives() ([]LogicalDrive, error) {
 
 		// Convert nullable uint64 to int64
 		if disk.FreeSpace != nil {
-			drive.FreeSpace = uint64(*disk.FreeSpace)
+			drive.FreeSpace = int64(*disk.FreeSpace)
 		}
 		if disk.Size != nil {
-			drive.Size = uint64(*disk.Size)
+			drive.Size = int64(*disk.Size)
 		}
 
 		// Set boot partition

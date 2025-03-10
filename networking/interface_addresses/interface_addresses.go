@@ -1,6 +1,7 @@
 package interface_addresses
 
 import (
+	"fmt"
 	"net"
 	"syscall"
 	"unsafe"
@@ -10,7 +11,7 @@ import (
 
 // InterfaceAddress represents a network interface address
 type InterfaceAddress struct {
-	Interface    uint32 `json:"interface"`
+	Interface    string `json:"interface"`
 	Address      string `json:"address"`
 	Mask         string `json:"mask"`
 	Broadcast    string `json:"broadcast"`
@@ -60,7 +61,7 @@ func calculateBroadcast(ip net.IP, prefixLength uint8) string {
 func processUnicastAddress(addr *windows.IpAdapterAddresses, unicastAddr *windows.IpAdapterUnicastAddress) (ifaceAddr InterfaceAddress, isOk bool) {
 
 	// Set interface index and friendly name
-	ifaceAddr.Interface = addr.IfIndex
+	ifaceAddr.Interface = fmt.Sprintf("%d", addr.IfIndex)
 	ifaceAddr.FriendlyName = windows.UTF16PtrToString(addr.FriendlyName)
 
 	// Get the IP address from the unicast address

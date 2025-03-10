@@ -2,19 +2,19 @@ package logon_sessions
 
 import (
 	"fmt"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
+// LogonSession represents a Windows logon session
 type LogonSession struct {
-	LogonID               uint32 `json:"logon_id"`
+	LogonID               int32  `json:"logon_id"`
 	User                  string `json:"user"`
 	LogonDomain           string `json:"logon_domain"`
 	AuthenticationPackage string `json:"authentication_package"`
 	LogonType             string `json:"logon_type"`
-	SessionID             uint32 `json:"session_id"`
+	SessionID             int32  `json:"session_id"`
 	LogonSID              string `json:"logon_sid"`
 	LogonTime             int64  `json:"logon_time"`
 	LogonServer           string `json:"logon_server"`
@@ -26,50 +26,7 @@ type LogonSession struct {
 	HomeDirectoryDrive    string `json:"home_directory_drive"`
 }
 
-var (
-	procLsaEnumerateLogonSessions uintptr
-	procLsaGetLogonSessionData    uintptr
-	procLsaFreeReturnBuffer       uintptr
-)
-
-type _LUID struct {
-	LowPart  uint32
-	HighPart int32
-}
-
-type _LSA_LAST_INTER_LOGON_INFO struct {
-	LastSuccessfulLogon                int64
-	LastFailedLogon                    int64
-	FailedAttemptCountSinceLastSuccess int32
-}
-
-type _SECURITY_LOGON_SESSION_DATA struct {
-	Size                  uint32
-	LogonId               _LUID
-	UserName              windows.NTUnicodeString
-	LogonDomain           windows.NTUnicodeString
-	AuthenticationPackage windows.NTUnicodeString
-	LogonType             uint32
-	Session               uint32
-	Sid                   *windows.SID
-	LogonTime             int64
-	LogonServer           windows.NTUnicodeString
-	DnsDomainName         windows.NTUnicodeString
-	Upn                   windows.NTUnicodeString
-	UserFlags             uint32
-	LastLogonInfo         _LSA_LAST_INTER_LOGON_INFO
-	LogonScript           windows.NTUnicodeString
-	ProfilePath           windows.NTUnicodeString
-	HomeDirectory         windows.NTUnicodeString
-	HomeDirectoryDrive    windows.NTUnicodeString
-	LogoffTime            int64
-	KickOffTime           int64
-	PasswordLastSet       int64
-	PasswordCanChange     int64
-	PasswordMustChange    int64
-}
-
-var securityLogonTypes = map[uint32]string{
+var logonTypes = map[uint32]string{
 	0:  "Undefined Logon Type",
 	2:  "Interactive",
 	3:  "Network",
@@ -85,86 +42,77 @@ var securityLogonTypes = map[uint32]string{
 	13: "Cached Unlock",
 }
 
-const (
-	WINDOWS_TICK      = 100         // nanoseconds
-	SEC_TO_UNIX_EPOCH = 11644473600 // seconds between 1601 and 1970
-)
+type SECURITY_LOGON_SESSION_DATA struct {
+	Size                  uint32
+	LogonID               windows.LUID
+	UserName              windows.NTUnicodeString
+	LogonDomain           windows.NTUnicodeString
+	AuthenticationPackage windows.NTUnicodeString
+	LogonType             uint32
+	Session               uint32
+	Sid                   *windows.SID
+	LogonTime             windows.Filetime
+	LogonServer           windows.NTUnicodeString
+	DnsDomainName         windows.NTUnicodeString
+	Upn                   windows.NTUnicodeString
+}
 
 func GenLogonSessions() ([]LogonSession, error) {
 	var sessionCount uint32
-	var sessions *_LUID
+	var sessionListPtr *windows.LUID
 
 	// Load secur32.dll
-	secur32, err := windows.LoadLibrary("secur32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("error loading secur32.dll: %v", err)
-	}
-	defer windows.FreeLibrary(secur32)
+	modSecur32 := windows.NewLazySystemDLL("secur32.dll")
+	procLsaEnumerateLogonSessions := modSecur32.NewProc("LsaEnumerateLogonSessions")
+	procLsaGetLogonSessionData := modSecur32.NewProc("LsaGetLogonSessionData")
+	procLsaFreeReturnBuffer := modSecur32.NewProc("LsaFreeReturnBuffer")
 
-	// Get the LsaEnumerateLogonSessions function
-	if procLsaEnumerateLogonSessions, err = windows.GetProcAddress(secur32, "LsaEnumerateLogonSessions"); err != nil {
-		return nil, fmt.Errorf("error getting LsaEnumerateLogonSessions function: %v", err)
-	}
-
-	// Get the LsaGetLogonSessionData function
-	if procLsaGetLogonSessionData, err = windows.GetProcAddress(secur32, "LsaGetLogonSessionData"); err != nil {
-		return nil, fmt.Errorf("error getting LsaGetLogonSessionData function: %v", err)
-	}
-
-	// Get the LsaFreeReturnBuffer function
-	if procLsaFreeReturnBuffer, err = windows.GetProcAddress(secur32, "LsaFreeReturnBuffer"); err != nil {
-		return nil, fmt.Errorf("error getting LsaFreeReturnBuffer function: %v", err)
-	}
-
-	// Call LsaEnumerateLogonSessions to get the number of logon sessions
-	if ret, _, _ := syscall.SyscallN(uintptr(procLsaEnumerateLogonSessions),
+	// Enumerate logon sessions
+	ret, _, _ := procLsaEnumerateLogonSessions.Call(
 		uintptr(unsafe.Pointer(&sessionCount)),
-		uintptr(unsafe.Pointer(&sessions)),
-	); syscall.Errno(ret) != windows.ERROR_SUCCESS {
-		return nil, fmt.Errorf("error calling LsaEnumerateLogonSessions: %v", ret)
-	}
-
-	defer syscall.SyscallN(uintptr(procLsaFreeReturnBuffer),
-		uintptr(unsafe.Pointer(sessions)),
+		uintptr(unsafe.Pointer(&sessionListPtr)),
 	)
+	if ret != 0 { // STATUS_SUCCESS = 0
+		return nil, fmt.Errorf("failed to enumerate logon sessions: %x", ret)
+	}
+	// Free the session list
+	defer procLsaFreeReturnBuffer.Call(uintptr(unsafe.Pointer(sessionListPtr)))
 
-	sessionsSlice := unsafe.Slice(sessions, sessionCount)
+	sessionList := unsafe.Slice((*windows.LUID)(unsafe.Pointer(sessionListPtr)), sessionCount)
 
-	var logonSessions []LogonSession
+	var sessions []LogonSession
+
 	for i := uint32(0); i < sessionCount; i++ {
-		var sessionData *_SECURITY_LOGON_SESSION_DATA
-		if ret, _, _ := syscall.SyscallN(uintptr(procLsaGetLogonSessionData),
-			uintptr(unsafe.Pointer(&sessionsSlice[i])),
-			uintptr(unsafe.Pointer(&sessionData)),
-		); syscall.Errno(ret) != windows.ERROR_SUCCESS {
-			return nil, fmt.Errorf("error calling LsaGetLogonSessionData: %v", ret)
+		var sessionDataPtr *SECURITY_LOGON_SESSION_DATA
+		ret, _, _ := procLsaGetLogonSessionData.Call(
+			uintptr(unsafe.Pointer(&sessionList[i])),
+			uintptr(unsafe.Pointer(&sessionDataPtr)),
+		)
+		if ret != 0 {
+			fmt.Printf("LsaGetLogonSessionData failed: %x\n", ret)
+			continue
 		}
 
-		securityLogonType := securityLogonTypes[sessionData.LogonType]
-		if securityLogonType == "" {
-			securityLogonType = fmt.Sprintf("Unknown (%d)", sessionData.LogonType)
-		}
+		sessionData := (*SECURITY_LOGON_SESSION_DATA)(unsafe.Pointer(sessionDataPtr))
 
-		logonSession := LogonSession{
-			LogonID:               sessionData.LogonId.LowPart,
-			User:                  windows.UTF16PtrToString(sessionData.UserName.Buffer),
-			LogonDomain:           windows.UTF16PtrToString(sessionData.LogonDomain.Buffer),
-			AuthenticationPackage: windows.UTF16PtrToString(sessionData.AuthenticationPackage.Buffer),
-			LogonType:             securityLogonType,
-			SessionID:             sessionData.Session,
+		session := LogonSession{
+			LogonID:               int32(sessionData.LogonID.LowPart),
+			User:                  sessionData.UserName.String(),
+			LogonDomain:           sessionData.LogonDomain.String(),
+			AuthenticationPackage: sessionData.AuthenticationPackage.String(),
+			LogonType:             logonTypes[sessionData.LogonType],
+			SessionID:             int32(sessionData.Session),
 			LogonSID:              sessionData.Sid.String(),
-			LogonTime:             int64((uint64(sessionData.LogonTime)*WINDOWS_TICK)/1e9) - SEC_TO_UNIX_EPOCH,
-			LogonServer:           windows.UTF16PtrToString(sessionData.LogonServer.Buffer),
-			DnsDomainName:         windows.UTF16PtrToString(sessionData.DnsDomainName.Buffer),
-			UPN:                   windows.UTF16PtrToString(sessionData.Upn.Buffer),
-			LogonScript:           windows.UTF16PtrToString(sessionData.LogonScript.Buffer),
-			ProfilePath:           windows.UTF16PtrToString(sessionData.ProfilePath.Buffer),
-			HomeDirectory:         windows.UTF16PtrToString(sessionData.HomeDirectory.Buffer),
-			HomeDirectoryDrive:    windows.UTF16PtrToString(sessionData.HomeDirectoryDrive.Buffer),
+			LogonTime:             int64(sessionData.LogonTime.Nanoseconds() / 1e9),
+			LogonServer:           sessionData.LogonServer.String(),
+			DnsDomainName:         sessionData.DnsDomainName.String(),
+			UPN:                   sessionData.Upn.String(),
 		}
 
-		logonSessions = append(logonSessions, logonSession)
+		sessions = append(sessions, session)
+		procLsaFreeReturnBuffer.Call(uintptr(unsafe.Pointer(sessionDataPtr)))
+
 	}
 
-	return logonSessions, nil
+	return sessions, nil
 }

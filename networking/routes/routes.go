@@ -3,7 +3,6 @@ package routes
 import (
 	"encoding/hex"
 	"fmt"
-	"math"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -12,13 +11,13 @@ import (
 // Route represents a single route entry
 type Route struct {
 	Destination string `json:"destination"`
-	Netmask     uint32 `json:"netmask"`
+	Netmask     int32  `json:"netmask"`
 	Gateway     string `json:"gateway"`
 	Source      string `json:"source"`
-	Flags       uint32 `json:"flags"`
+	Flags       int32  `json:"flags"`
 	Interface   string `json:"interface"`
-	MTU         uint32 `json:"mtu"`
-	Metric      uint32 `json:"metric"`
+	MTU         int32  `json:"mtu"`
+	Metric      int32  `json:"metric"`
 	Type        string `json:"type"`
 }
 
@@ -35,12 +34,6 @@ type SOCKADDR_IN6 struct {
 	Sin6Addr   [16]byte
 	Sin6Zero   [8]byte
 }
-
-// type SOCKADDR_INET struct {
-// 	Ipv4     SOCKADDR_IN
-// 	Ipv6     SOCKADDR_IN6
-// 	SiFamily uint16
-// }
 
 type SOCKADDR_INET [28]byte
 
@@ -63,22 +56,21 @@ type IP_ADDRESS_PREFIX struct {
 }
 
 type MIB_IPFORWARD_ROW2 struct {
-	InterfaceLuid        windows.LUID
+	InterfaceLuid        uint64
 	InterfaceIndex       uint32
 	DestinationPrefix    IP_ADDRESS_PREFIX
 	NextHop              SOCKADDR_INET
 	SitePrefixLength     uint8
-	_                    [3]byte
 	ValidLifetime        uint32
 	PreferredLifetime    uint32
 	Metric               uint32
-	Protocol             [4]byte
+	Protocol             uint32
 	Loopback             uint8
 	AutoconfigureAddress uint8
 	Publish              uint8
 	Immortal             uint8
 	Age                  uint32
-	Origin               [4]byte
+	Origin               uint32
 }
 
 type MIB_IPFORWARD_TABLE2 struct {
@@ -121,13 +113,30 @@ func getAdapterAddressMapping() (map[uint32]*windows.IpAdapterInfo, error) {
 	return result, nil
 }
 
+// cStringToGoString converts a null-terminated C string to a Go string
+func cStringToGoString(cString []byte) string {
+	// Find the null terminator
+	end := 0
+	for i, b := range cString {
+		if b == 0 {
+			end = i
+			break
+		}
+	}
+	// If no null terminator found, use the whole string
+	if end == 0 && len(cString) > 0 && cString[0] != 0 {
+		end = len(cString)
+	}
+	return string(cString[:end])
+}
+
 // GenRoutes returns all routes on the system
 func GenRoutes() ([]Route, error) {
-	modIphlpapi := windows.NewLazyDLL("iphlpapi.dll")
+	modIphlpapi := windows.NewLazySystemDLL("iphlpapi.dll")
 	procGetIpForwardTable2 := modIphlpapi.NewProc("GetIpForwardTable2")
 	procFreeMibTable := modIphlpapi.NewProc("FreeMibTable")
 	procGetIpInterfaceEntry := modIphlpapi.NewProc("GetIpInterfaceEntry")
-	modWs2_32 := windows.NewLazyDLL("ws2_32.dll")
+	modWs2_32 := windows.NewLazySystemDLL("ws2_32.dll")
 	procInetNtopW := modWs2_32.NewProc("InetNtopW")
 
 	var routes []Route
@@ -150,7 +159,7 @@ func GenRoutes() ([]Route, error) {
 	for _, currRow := range table {
 		// fmt.Printf("Index: %v\n", row.InterfaceIndex)
 		var route Route
-		var actualInterface MIB_IPINTERFACE_ROW
+		var actualInterface windows.MibIpInterfaceRow
 		var interfaceIpAddress string
 		actualInterface.Family = currRow.DestinationPrefix.Prefix.GetFamily()
 		actualInterface.InterfaceLuid = currRow.InterfaceLuid
@@ -161,11 +170,11 @@ func GenRoutes() ([]Route, error) {
 		)
 		if windows.Errno(ret) != windows.NO_ERROR {
 			// return nil, fmt.Errorf("GetIpInterfaceEntry failed: %v", ret)
-			route.Metric = uint32(math.MaxUint32)
-			route.MTU = uint32(math.MaxUint32)
+			route.Metric = -1
+			route.MTU = -1
 		} else {
-			route.Metric = actualInterface.Metric
-			route.MTU = actualInterface.NlMtu
+			route.Metric = int32(actualInterface.Metric + currRow.Metric)
+			route.MTU = int32(actualInterface.NlMtu)
 		}
 
 		addrFamily := actualInterface.Family
@@ -199,7 +208,6 @@ func GenRoutes() ([]Route, error) {
 			}
 
 		} else if addrFamily == windows.AF_INET {
-			route.Type = "global"
 			ipAddress := currRow.DestinationPrefix.Prefix.GetIpv4().SinAddr
 			gateway := currRow.NextHop.GetIpv4().SinAddr
 			buffer := make([]uint16, INET_ADDRSTRLEN)
@@ -220,8 +228,8 @@ func GenRoutes() ([]Route, error) {
 				return nil, fmt.Errorf("failed to get adapter mapping: %v", err)
 			}
 			if actualAdapter, ok := adapters[currRow.InterfaceIndex]; ok {
-				interfaceIpAddress = string(actualAdapter.IpAddressList.IpAddress.String[:])
-				route.Gateway = string(actualAdapter.GatewayList.IpAddress.String[:])
+				interfaceIpAddress = cStringToGoString(actualAdapter.IpAddressList.IpAddress.String[:])
+				route.Gateway = cStringToGoString(actualAdapter.GatewayList.IpAddress.String[:])
 			} else {
 				interfaceIpAddress = "127.0.0.1"
 				ret, _, _ = procInetNtopW.Call(
@@ -234,17 +242,17 @@ func GenRoutes() ([]Route, error) {
 					route.Gateway = windows.UTF16ToString(buffer)
 				}
 			}
+			if currRow.Loopback == 1 {
+				route.Type = "local"
+			} else {
+				route.Type = "remote"
+			}
 		}
 
 		route.Interface = interfaceIpAddress
-		route.Netmask = uint32(currRow.DestinationPrefix.PrefixLength)
-		// TODO: add flags
-		route.Flags = 0
-
-		// print route
-		fmt.Printf("Route: %+v\n", route)
+		route.Netmask = int32(currRow.DestinationPrefix.PrefixLength)
+		route.Flags = -1
 		routes = append(routes, route)
-
 	}
 	return routes, nil
 }

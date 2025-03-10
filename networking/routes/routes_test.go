@@ -18,6 +18,7 @@ func TestGetRoutes(t *testing.T) {
 		t.Fatalf("Failed to marshal routes to JSON: %v", err)
 	}
 	fmt.Printf("Routes Results:\n%s\n", string(jsonData))
+	fmt.Printf("Total routes: %d\n", len(routes))
 }
 
 // func TestMIB_IPINTERFACE_ROW(t *testing.T) {

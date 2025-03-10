@@ -8,13 +8,13 @@ import (
 
 // ListeningPort represents a single listening port entry
 type ListeningPort struct {
-	PID      uint32 `json:"pid"`
-	Port     uint32 `json:"port"`
-	Protocol uint32 `json:"protocol"`
-	Family   uint32 `json:"family"`
+	PID      int32  `json:"pid"`
+	Port     int32  `json:"port"`
+	Protocol int32  `json:"protocol"`
+	Family   int32  `json:"family"`
 	Address  string `json:"address"`
-	FD       uint32 `json:"fd"`
-	Socket   uint32 `json:"socket"`
+	FD       int64  `json:"fd"`
+	Socket   int64  `json:"socket"`
 	Path     string `json:"path"`
 }
 
@@ -39,11 +39,11 @@ func GenListeningPorts() ([]ListeningPort, error) {
 		}
 
 		port := ListeningPort{
-			PID:      socket.PID,
-			Protocol: socket.Proto,
-			Family:   socket.Family,
-			FD:       socket.FD,
-			Socket:   socket.Socket,
+			PID:      int32(socket.PID),
+			Protocol: int32(socket.Proto),
+			Family:   int32(socket.Family),
+			FD:       int64(socket.FD),
+			Socket:   int64(socket.Socket),
 			Path:     socket.Path,
 		}
 
@@ -52,7 +52,7 @@ func GenListeningPorts() ([]ListeningPort, error) {
 			port.Port = 0
 		} else {
 			port.Address = socket.LocalAddress
-			port.Port = socket.LocalPort
+			port.Port = int32(socket.LocalPort)
 		}
 
 		results = append(results, port)

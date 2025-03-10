@@ -1,61 +1,70 @@
-package windows
+package logged_in_users
 
 import (
 	"fmt"
-	"net"
-	"syscall"
+	"log"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
 
-// Windows API constants
+var (
+	modWtsapi32              = windows.NewLazySystemDLL("wtsapi32.dll")
+	procWtsEnumerateSessions = modWtsapi32.NewProc("WTSEnumerateSessionsExW")
+	procWtsQuerySessionInfo  = modWtsapi32.NewProc("WTSQuerySessionInformationW")
+	procWtsFreeMemory        = modWtsapi32.NewProc("WTSFreeMemory")
+	procWtsFreeMemoryEx      = modWtsapi32.NewProc("WTSFreeMemoryExW")
+	modAdvapi32              = windows.NewLazySystemDLL("advapi32.dll")
+	procGetSidByName         = modAdvapi32.NewProc("LookupAccountNameW")
+)
+
 const (
 	WTS_CURRENT_SERVER_HANDLE = 0
-	WTSSessionInfo            = 5
-	WTSClientInfo             = 8
-	WTSClientName             = 10
-	WTSTypeSessionInfoLevel1  = 1
-	AF_INET                   = 2
-	AF_INET6                  = 23
-	AF_UNSPEC                 = 0
-	CLIENTADDRESS_LENGTH      = 31
+	WTSActive                 = 0
+
+	WTSSessionInfo = 0x18
+	WTSClientInfo  = 0x17
 )
 
-var (
-	procWTSEnumerateSessionsExW     uintptr
-	procWTSFreeMemoryEx             uintptr
-	procWTSQuerySessionInformationW uintptr
-	procWTSFreeMemory               uintptr
-	procLookupAccountNameW          uintptr
-)
-
-// _WTS_SESSION_INFO_1W contains information about a Terminal Services session
-// typedef struct _WTS_SESSION_INFO_1W {
-// 	DWORD                  ExecEnvId;
-// 	WTS_CONNECTSTATE_CLASS State;
-// 	DWORD                  SessionId;
-// 	LPWSTR                 pSessionName;
-// 	LPWSTR                 pHostName;
-// 	LPWSTR                 pUserName;
-// 	LPWSTR                 pDomainName;
-// 	LPWSTR                 pFarmName;
-//   } WTS_SESSION_INFO_1W, *PWTS_SESSION_INFO_1W;
-
-type _WTS_SESSION_INFO_1W struct {
-	ExecEnvId    uint32
-	State        uint32
-	SessionId    uint32
-	pSessionName *uint16
-	pHostName    *uint16
-	pUserName    *uint16
-	pDomain      *uint16
-	pFarmName    *uint16
+var sessionStates = map[int32]string{
+	0: "active",
+	1: "connected",
+	2: "connectquery",
+	3: "shadow",
+	4: "disconnected",
+	5: "idle",
+	6: "listen",
+	7: "reset",
+	8: "down",
+	9: "init",
 }
 
-// _WTSINFO contains information about a Terminal Services session
-type _WTSINFOW struct {
-	State              uint32
+type LoggedInUser struct {
+	User         string `json:"user"`
+	Type         string `json:"type"`
+	Tty          string `json:"tty"`
+	Host         string `json:"host"`
+	Time         int64  `json:"time"`
+	Pid          int32  `json:"pid"`
+	Sid          string `json:"sid"`
+	RegistryHive string `json:"registry_hive"`
+}
+
+// WTS_SESSION_INFO_1W structure
+type WTS_SESSION_INFO_1W struct {
+	ExecEnvId   uint32
+	State       int32
+	SessionId   uint32
+	SessionName *uint16
+	HostName    *uint16
+	UserName    *uint16
+	DomainName  *uint16
+	FarmName    *uint16
+}
+
+// WTSINFOW structure
+type WTSINFOW struct {
+	State              int32
 	SessionId          uint32
 	IncomingBytes      uint32
 	OutgoingBytes      uint32
@@ -66,247 +75,171 @@ type _WTSINFOW struct {
 	WinStationName     [32]uint16
 	Domain             [17]uint16
 	UserName           [21]uint16
-	ConnectTime        windows.Filetime
-	DisconnectTime     windows.Filetime
-	LastInputTime      windows.Filetime
-	LogonTime          windows.Filetime
-	CurrentTime        windows.Filetime
+	ConnectTime        int64
+	DisconnectTime     int64
+	LastInputTime      int64
+	LogonTime          int64
+	CurrentTime        int64
 }
 
-// _WTSCLIENT contains information about a Terminal Services client
-type _WTSCLIENT struct {
-	ClientName          [32]uint16
-	Domain              [17]uint16
+// WTSCLIENTW structure
+type WTSCLIENTW struct {
+	ClientName          [21]uint16
+	Domain              [18]uint16
 	UserName            [21]uint16
-	WorkDirectory       [260]uint16
-	InitialProgram      [260]uint16
+	WorkDirectory       [261]uint16
+	InitialProgram      [261]uint16
 	EncryptionLevel     byte
 	ClientAddressFamily uint32
 	ClientAddress       [31]uint16
+	HRes                uint16
+	VRes                uint16
+	ColorDepth          uint16
+	ClientDirectory     [261]uint16
+	ClientBuildNumber   uint32
 	ClientHardwareId    uint32
 	ClientProductId     uint16
 	OutBufCountHost     uint16
 	OutBufCountClient   uint16
 	OutBufLength        uint16
-	DeviceId            [32]uint16
+	DeviceId            [261]uint16
 }
 
-// LoggedInUser represents a logged-in user on the system
-type LoggedInUser struct {
-	User         string
-	Type         string
-	Tty          string
-	Host         string
-	Time         int64
-	Pid          int
-	Sid          string
-	RegistryHive string
+func filetimeToUnix(filetime int64) int64 {
+	// Convert Windows FILETIME (100-nanosecond intervals since January 1, 1601 UTC)
+	// to Unix time (seconds since January 1, 1970 UTC)
+	return (filetime - 116444736000000000) / 10000000
 }
 
-// sessionStates maps WTS states to their string representations
-var sessionStates = map[int]string{
-	windows.WTSActive:       "active",
-	windows.WTSDisconnected: "disconnected",
-	windows.WTSConnected:    "connected",
-	windows.WTSConnectQuery: "connectquery",
-	windows.WTSShadow:       "shadow",
-	windows.WTSIdle:         "idle",
-	windows.WTSListen:       "listen",
-	windows.WTSReset:        "reset",
-	windows.WTSDown:         "down",
-	windows.WTSInit:         "init",
+func getSid(domain, username string) (string, error) {
+	var sidSize uint32
+	var domainSize uint32
+	var sidUse uint32
+
+	// First call to get required buffer sizes
+	// domainPtr, _ := syscall.UTF16PtrFromString(domain)
+	usernamePtr, _ := windows.UTF16PtrFromString(username)
+	_, _, err := procGetSidByName.Call(
+		0, // lpSystemName (NULL for local system)
+		uintptr(unsafe.Pointer(usernamePtr)),
+		0, // Sid buffer (NULL for size query)
+		uintptr(unsafe.Pointer(&sidSize)),
+		0, // ReferencedDomainName (NULL for size query)
+		uintptr(unsafe.Pointer(&domainSize)),
+		uintptr(unsafe.Pointer(&sidUse)),
+	)
+
+	if sidSize == 0 {
+		return "", fmt.Errorf("failed to get SID size: %v", err)
+	}
+
+	// Allocate buffers
+	sid := make([]byte, sidSize)
+	referencedDomain := make([]uint16, domainSize)
+
+	// Second call to get the actual SID
+	ret, _, err := procGetSidByName.Call(
+		0,
+		uintptr(unsafe.Pointer(usernamePtr)),
+		uintptr(unsafe.Pointer(&sid[0])),
+		uintptr(unsafe.Pointer(&sidSize)),
+		uintptr(unsafe.Pointer(&referencedDomain[0])),
+		uintptr(unsafe.Pointer(&domainSize)),
+		uintptr(unsafe.Pointer(&sidUse)),
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("failed to get SID: %v", err)
+	}
+
+	// Convert SID to string
+	var sidString *uint16
+	modAdvapi32.NewProc("ConvertSidToStringSidW").Call(
+		uintptr(unsafe.Pointer(&sid[0])),
+		uintptr(unsafe.Pointer(&sidString)),
+	)
+	defer windows.LocalFree(windows.Handle(unsafe.Pointer(sidString)))
+	return windows.UTF16PtrToString(sidString), nil
 }
 
-// Convert Windows FILETIME to Unix timestamp
-func fileTimeToUnixTime(ft windows.Filetime) int64 {
-	// Convert to int64 for nanoseconds calculation
-	nsec := int64(ft.HighDateTime)<<32 + int64(ft.LowDateTime)
-	// Adjust from Windows epoch to Unix epoch
-	nsec = (nsec - 116444736000000000) * 100
-	return nsec / 1e9 // Convert to seconds
-}
-
-// GenLoggedInUsers returns information about logged-in users
 func GenLoggedInUsers() ([]LoggedInUser, error) {
-	modWtsapi32, err := windows.LoadLibrary("wtsapi32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load wtsapi32.dll: %w", err)
-	}
-	defer windows.FreeLibrary(modWtsapi32)
-
-	modAdvapi32, err := windows.LoadLibrary("advapi32.dll")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load advapi32.dll: %w", err)
-	}
-	defer windows.FreeLibrary(modAdvapi32)
-
-	procWTSEnumerateSessionsExW, err = windows.GetProcAddress(modWtsapi32, "WTSEnumerateSessionsExW")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get WTSEnumerateSessionsExW: %w", err)
-	}
-
-	procWTSFreeMemory, err = windows.GetProcAddress(modWtsapi32, "WTSFreeMemory")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get WTSFreeMemory: %w", err)
-	}
-
-	procWTSQuerySessionInformationW, err = windows.GetProcAddress(modWtsapi32, "WTSQuerySessionInformationW")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get WTSQuerySessionInformationW: %w", err)
-	}
-
-	procLookupAccountNameW, err = windows.GetProcAddress(modAdvapi32, "LookupAccountNameW")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get LookupAccountNameW: %w", err)
-	}
-
 	var users []LoggedInUser
+	var count uint32
+	var pSessionInfo *WTS_SESSION_INFO_1W
 	level := uint32(1)
-	count := uint32(0)
-	var sessions *_WTS_SESSION_INFO_1W
 
-	ret, _, err := syscall.SyscallN(procWTSEnumerateSessionsExW,
+	// Enumerate sessions
+	ret, _, err := procWtsEnumerateSessions.Call(
 		uintptr(WTS_CURRENT_SERVER_HANDLE),
 		uintptr(unsafe.Pointer(&level)),
 		0,
-		uintptr(unsafe.Pointer(&sessions)),
+		uintptr(unsafe.Pointer(&pSessionInfo)),
 		uintptr(unsafe.Pointer(&count)),
 	)
-
 	if ret == 0 {
-		return nil, fmt.Errorf("failed to enumerate sessions: %w", err)
+		return nil, fmt.Errorf("failed to enumerate sessions: %v", err)
 	}
+	defer procWtsFreeMemoryEx.Call(1, uintptr(unsafe.Pointer(pSessionInfo)), uintptr(count))
 
-	defer syscall.SyscallN(procWTSFreeMemoryEx,
-		uintptr(WTSTypeSessionInfoLevel1),
-		uintptr(unsafe.Pointer(sessions)),
-		uintptr(count))
+	sessions := unsafe.Slice((*WTS_SESSION_INFO_1W)(unsafe.Pointer(pSessionInfo)), count)
 
-	// Convert sessions pointer to slice
-	sessionSlice := unsafe.Slice(sessions, count)
-
-	for i := uint32(0); i < count; i++ {
-		session := sessionSlice[i]
-		// Skip non-active sessions and session 0 (system session)
-		if session.State != windows.WTSActive || session.SessionId == 0 {
+	for _, session := range sessions {
+		if session.State != WTSActive || session.SessionId == 0 {
 			continue
 		}
 
-		var sessionInfo *_WTSINFOW
+		user := LoggedInUser{
+			Pid: -1, // Default PID as in osquery
+		}
+
+		// Get session info
+		var sessionInfo *WTSINFOW
 		var bytesRet uint32
-		ret, _, err = syscall.SyscallN(procWTSQuerySessionInformationW,
+		ret, _, _ := procWtsQuerySessionInfo.Call(
 			uintptr(WTS_CURRENT_SERVER_HANDLE),
 			uintptr(session.SessionId),
 			uintptr(WTSSessionInfo),
 			uintptr(unsafe.Pointer(&sessionInfo)),
 			uintptr(unsafe.Pointer(&bytesRet)),
 		)
-		if ret == 0 || sessionInfo == nil {
-			continue
+		if ret != 0 {
+			wts := (*WTSINFOW)(unsafe.Pointer(sessionInfo))
+			user.User = windows.UTF16PtrToString(session.UserName)
+			user.Type = sessionStates[session.State]
+			user.Tty = windows.UTF16PtrToString(session.SessionName)
+			if wts.ConnectTime != 0 {
+				user.Time = filetimeToUnix(wts.ConnectTime)
+			}
+			procWtsFreeMemory.Call(uintptr(unsafe.Pointer(sessionInfo)))
 		}
 
-		user := LoggedInUser{
-			User: windows.UTF16ToString(sessionInfo.UserName[:]),
-			Type: sessionStates[int(session.State)],
-			Tty:  windows.UTF16PtrToString(session.pSessionName),
-			Time: fileTimeToUnixTime(sessionInfo.ConnectTime),
-			Pid:  -1,
-		}
-
-		// Get client information
-		var clientInfo *_WTSCLIENT
-		ret, _, _ = syscall.SyscallN(procWTSQuerySessionInformationW,
+		// Get client info
+		var clientInfo *WTSCLIENTW
+		ret, _, _ = procWtsQuerySessionInfo.Call(
 			uintptr(WTS_CURRENT_SERVER_HANDLE),
 			uintptr(session.SessionId),
 			uintptr(WTSClientInfo),
 			uintptr(unsafe.Pointer(&clientInfo)),
 			uintptr(unsafe.Pointer(&bytesRet)),
 		)
+		if ret != 0 {
+			client := (*WTSCLIENTW)(unsafe.Pointer(clientInfo))
+			user.Host = windows.UTF16ToString(client.ClientName[:])
+			procWtsFreeMemory.Call(uintptr(unsafe.Pointer(clientInfo)))
+		}
 
-		if ret != 0 && clientInfo != nil {
-			switch clientInfo.ClientAddressFamily {
-			case AF_INET:
-				// Convert byte array to IPv4 address
-				addr := clientInfo.ClientAddress[:4]
-				user.Host = fmt.Sprintf("%d.%d.%d.%d", addr[0], addr[1], addr[2], addr[3])
-			case AF_INET6:
-				// Convert uint16 array to bytes for IPv6 address
-				addr := make([]byte, 16)
-				for i := 0; i < 16; i++ {
-					addr[i] = byte(clientInfo.ClientAddress[i])
-				}
-				user.Host = net.IP(addr).String()
-			case AF_UNSPEC:
-				var clientName *uint16
-				ret, _, _ = syscall.SyscallN(procWTSQuerySessionInformationW,
-					uintptr(WTS_CURRENT_SERVER_HANDLE),
-					uintptr(session.SessionId),
-					uintptr(WTSClientName),
-					uintptr(unsafe.Pointer(&clientName)),
-					uintptr(unsafe.Pointer(&bytesRet)),
-				)
-				if ret != 0 && clientName != nil {
-					user.Host = windows.UTF16PtrToString(clientName)
-					syscall.SyscallN(procWTSFreeMemory, uintptr(unsafe.Pointer(clientName)))
-				}
+		// Get SID
+		if user.User != "" {
+			domain := windows.UTF16PtrToString(session.DomainName)
+			if sid, err := getSid(domain, user.User); err == nil {
+				user.Sid = sid
+				user.RegistryHive = "HKEY_USERS\\" + sid
+			} else {
+				log.Printf("Failed to get SID for %s: %v", user.User, err)
 			}
-			syscall.SyscallN(procWTSFreeMemory, uintptr(unsafe.Pointer(clientInfo)))
 		}
 
-		// Get user SID
-		domainUser := windows.UTF16ToString(sessionInfo.Domain[:]) + "\\" + windows.UTF16ToString(sessionInfo.UserName[:])
-		sid, err := getSidFromAccountName(domainUser)
-		if err == nil {
-			user.Sid = sid.String()
-			user.RegistryHive = "HKEY_USERS\\" + user.Sid
-		}
-
-		syscall.SyscallN(procWTSFreeMemory, uintptr(unsafe.Pointer(sessionInfo)))
 		users = append(users, user)
 	}
 
 	return users, nil
-}
-
-// getSidFromAccountName converts a username to a SID
-func getSidFromAccountName(accountName string) (*windows.SID, error) {
-	var sidSize uint32
-	var domainSize uint32
-	var sidUse uint32
-
-	// First call to determine the buffer sizes
-	ret, _, err := syscall.SyscallN(procLookupAccountNameW,
-		0,
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(accountName))),
-		0,
-		uintptr(unsafe.Pointer(&sidSize)),
-		0,
-		uintptr(unsafe.Pointer(&domainSize)),
-		uintptr(unsafe.Pointer(&sidUse)),
-	)
-
-	if ret == 0 && err != windows.ERROR_INSUFFICIENT_BUFFER {
-		return nil, fmt.Errorf("LookupAccountNameW failed: %w", err)
-	}
-
-	// Allocate buffers
-	sid := make([]byte, sidSize)
-	domain := make([]uint16, domainSize)
-
-	// Second call to actually retrieve the SID
-	ret, _, err = syscall.SyscallN(procLookupAccountNameW,
-		0,
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(accountName))),
-		uintptr(unsafe.Pointer(&sid[0])),
-		uintptr(unsafe.Pointer(&sidSize)),
-		uintptr(unsafe.Pointer(&domain[0])),
-		uintptr(unsafe.Pointer(&domainSize)),
-		uintptr(unsafe.Pointer(&sidUse)),
-	)
-
-	if ret == 0 {
-		return nil, err
-	}
-
-	return (*windows.SID)(unsafe.Pointer(&sid[0])), nil
 }

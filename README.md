@@ -124,23 +124,23 @@ func main() {
 | etc_hosts                        | ✅      |
 | etc_protocols                    | ✅      |
 | etc_services                     | ✅      |
-| file                             | 🧪      |
+| file                             | ✅      |
 | firefox_addons                   | ⏳      |
-| groups                           | ⏳      |
+| groups                           | ✅      |
 | hash                             | ✅      |
 | ie_extensions                    | ⏳      |
 | intel_me_info                    | ⏳      |
 | interface_addresses              | ✅      |
-| interface_details                | 🧪      |
+| interface_details                | ✅      |
 | kernel_info                      | ✅      |
 | kva_speculative_info             | ✅      |
 | listening_ports                  | ✅      |
-| logged_in_users                  | 🛠️      |
+| logged_in_users                  | ✅      |
 | logical_drives                   | ✅      |
-| logon_sessions                   | 🧪      |
+| logon_sessions                   | ✅      |
 | memory_devices                   | 🧪      |
 | npm_packages                     | ⏳      |
-| ntdomains                        | ⏳      |
+| ntdomains                        | ✅      |
 | ntfs_acl_permissions             | ⏳      |
 | ntfs_journal_events              | ⏳      |
 | office_mru                       | ⏳      |
@@ -165,7 +165,7 @@ func main() {
 | programs                         | 🧪      |
 | python_packages                  | 🧪      |
 | registry                         | 🧪      |
-| routes                           | 🛠️      |
+| routes                           | 🧪      |
 | scheduled_tasks                  | 🧪      |
 | secureboot                       | ⏳      |
 | security_profile_info            | 🛠️      |
@@ -179,7 +179,7 @@ func main() {
 | time                             | ✅      |
 | tpm_info                         | ⏳      |
 | uptime                           | ✅      |
-| user_groups                      | 🛠️      |
+| user_groups                      | 🧪      |
 | user_ssh_keys                    | ⏳      |
 | userassist                       | ⏳      |
 | users                            | ✅      |
