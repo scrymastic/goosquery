@@ -1,35 +1,51 @@
 <div align="center">
 
-<h1 align="center" style="font-family: 'Segoe UI', sans-serif; font-size: 60px;">
-  goosquery
+<h1 align="center" style="font-family: 'Segoe UI', sans-serif; font-size: 72px; font-style: italic; font-weight: bold; margin-bottom: 20px;">
+  <span style="color: #0066cc;">GO</span><span style="color: #eeeeee;">OSQUERY</span>
 </h1>
 
-![Go Report Card](https://goreportcard.com/badge/github.com/scrymastic/goosquery)
-![Go Reference](https://pkg.go.dev/badge/github.com/scrymastic/goosquery.svg)
-![License](https://img.shields.io/badge/license-MIT-blue)
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
+<p align="center">
+  <a href="https://goreportcard.com/report/github.com/scrymastic/goosquery">
+    <img src="https://goreportcard.com/badge/github.com/scrymastic/goosquery" alt="Go Report Card" />
+  </a>
+  <a href="https://pkg.go.dev/github.com/scrymastic/goosquery">
+    <img src="https://pkg.go.dev/badge/github.com/scrymastic/goosquery.svg" alt="Go Reference" />
+  </a>
+  <a href="https://github.com/scrymastic/goosquery/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
+  </a>
+  <a href="#">
+    <img src="https://img.shields.io/badge/platform-Windows-blue" alt="Platform" />
+  </a>
+</p>
+
+<p align="center">
+  <b>Go osquery with JSON output, currently working on Windows.</b>
+</p>
 
 </div>
 
-Go osquery with JSON output, currently working on Windows.
+<p align="center">
+  The goal is to provide a lightweight, portable, and easy-to-use version of osquery that can be integrated into other projects.
+</p>
 
-The goal is to provide a lightweight, portable, and easy-to-use version of osquery that can be integrated into other projects.
+---
 
-## Features
+## ✨ Features
 
-- Lightweight and portable implementation
-- JSON output for easy parsing
-- Windows-specific system information
-- Modular table implementation
-- Easy integration with other Go projects
+- 🚀 Lightweight and portable implementation
+- 📊 JSON output for easy parsing
+- 🖥️ Windows-specific system information
+- 🧩 Modular table implementation
+- 🔌 Easy integration with other Go projects
 
-## Installation
+## 📦 Installation
 
 ```bash
 go get github.com/scrymastic/goosquery
 ```
 
-## Usage
+## 🚀 Usage
 
 ```go
 package main
@@ -58,7 +74,7 @@ func main() {
 }
 ```
 
-## Example Output
+## 📋 Example Output
 
 ```json
 {
@@ -77,19 +93,56 @@ func main() {
 }
 ```
 
-## Status
+## 📊 Implementation Status
 
-| Status       | Icon | Description                                                                 |
-|--------------|------|-----------------------------------------------------------------------------|
-| Not Started  | ⏳   | Work has not begun on this table yet.                                       |
-| In Progress  | 🛠️   | Actively being developed.                                                   |
-| Completed    | ✅   | Fully implemented and tested.                                               |
-| Testing      | 🧪   | Development is done, but under testing for bugs or issues.                  |
-| Blocked      | ⛔   | Development is paused due to dependencies, blockers, or technical issues.   |
-| Planned      | 🗓️   | Table is planned for future implementation but hasn’t started yet.          |
-| Deprecated   | 🗑️   | This table is no longer relevant or supported in this implementation.       |
+<table>
+  <tr>
+    <th>Status</th>
+    <th>Icon</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>Not Started</td>
+    <td align="center">⏳</td>
+    <td>Work has not begun on this table yet.</td>
+  </tr>
+  <tr>
+    <td>In Progress</td>
+    <td align="center">🛠️</td>
+    <td>Actively being developed.</td>
+  </tr>
+  <tr>
+    <td>Completed</td>
+    <td align="center">✅</td>
+    <td>Fully implemented and tested.</td>
+  </tr>
+  <tr>
+    <td>Testing</td>
+    <td align="center">🧪</td>
+    <td>Development is done, but under testing for bugs or issues.</td>
+  </tr>
+  <tr>
+    <td>Blocked</td>
+    <td align="center">⛔</td>
+    <td>Development is paused due to dependencies, blockers, or technical issues.</td>
+  </tr>
+  <tr>
+    <td>Planned</td>
+    <td align="center">🗓️</td>
+    <td>Table is planned for future implementation but hasn't started yet.</td>
+  </tr>
+  <tr>
+    <td>Deprecated</td>
+    <td align="center">🗑️</td>
+    <td>This table is no longer relevant or supported in this implementation.</td>
+  </tr>
+</table>
 
-## Table
+## 📑 Tables
+
+<details>
+<summary><b>Click to expand table list</b></summary>
+<br>
 
 | Table Name                       | Status  |
 |----------------------------------|---------|
@@ -203,3 +256,12 @@ func main() {
 | yara                             | ⛔      |
 | yara_events                      | ⛔      |
 | ycloud_instance_metadata         | ⛔      |
+</details>
+
+<div align="center">
+  <p>
+    <a href="https://github.com/scrymastic/goosquery/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/scrymastic/goosquery/issues">Request Feature</a>
+  </p>
+</div>
