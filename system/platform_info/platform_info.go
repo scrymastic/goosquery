@@ -3,6 +3,7 @@ package platform_info
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"unsafe"
 
 	"github.com/StackExchange/wmi"
@@ -39,7 +40,7 @@ func GetFirmwareType() (FirmwareType, error) {
 		return FirmwareTypeUnknown, fmt.Errorf("GetFirmwareType failed: %v", err)
 	}
 
-	fmt.Printf("firmwareType: %v\n", firmwareType)
+	// fmt.Printf("firmwareType: %v\n", firmwareType)
 
 	switch firmwareType {
 	case 1:
@@ -77,6 +78,22 @@ func GetFirmwareTypeDescription(kind FirmwareType) string {
 	}
 }
 
+// formatISO8601Date converts a WMI date string (like "20240604000000.000000+000")
+// to a more readable format (like "2024-06-04")
+func formatISO8601Date(wmiDate string) string {
+	// Use regex to extract the date part (first 8 characters)
+	re := regexp.MustCompile(`^(\d{4})(\d{2})(\d{2})`)
+	matches := re.FindStringSubmatch(wmiDate)
+
+	if len(matches) == 4 {
+		// Format as YYYY-MM-DD
+		return fmt.Sprintf("%s-%s-%s", matches[1], matches[2], matches[3])
+	}
+
+	// Return original if parsing fails
+	return wmiDate
+}
+
 // GenPlatformInfo retrieves system BIOS and firmware information
 func GenPlatformInfo() ([]PlatformInfo, error) {
 	var info []PlatformInfo
@@ -104,7 +121,7 @@ func GenPlatformInfo() ([]PlatformInfo, error) {
 		Vendor:       result.Manufacturer,
 		Version:      result.SMBIOSBIOSVersion,
 		Revision:     fmt.Sprintf("%d.%d", uint8(result.SystemBiosMajorVersion), uint8(result.SystemBiosMinorVersion)),
-		Date:         result.ReleaseDate,
+		Date:         formatISO8601Date(result.ReleaseDate),
 		Extra:        "",
 		FirmwareType: "unknown",
 	}

@@ -77,7 +77,11 @@ var (
 )
 
 func GenDNSCache() ([]DNSCache, error) {
-	procDnsGetCacheDataTable := windows.NewLazySystemDLL("dnsapi.dll").NewProc("DnsGetCacheDataTable")
+	modDnsapi := windows.NewLazySystemDLL("dnsapi.dll")
+	if modDnsapi.Load() != nil {
+		return nil, fmt.Errorf("failed to load dnsapi.dll")
+	}
+	procDnsGetCacheDataTable := modDnsapi.NewProc("DnsGetCacheDataTable")
 
 	// Allocate memory for the first entry
 	entry := &DNS_CACHE_ENTRY{}

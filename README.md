@@ -1,99 +1,64 @@
 <div align="center">
 
-<h1 align="center" style="font-family: 'Segoe UI', sans-serif; font-size: 72px; font-style: italic; font-weight: bold; margin-bottom: 20px;">
-  <span style="color: #0066cc;">GO</span><span style="color: #eeeeee;">OSQUERY</span>
-</h1>
+# <span style="font-weight: bold; font-size: 1.5em;">GOOSQUERY</span>
+<img src="https://img.shields.io/badge/Go-1.18+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version" />
+<img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Platform" />
+<img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License" />
 
-<p align="center">
-  <a href="https://goreportcard.com/report/github.com/scrymastic/goosquery">
-    <img src="https://goreportcard.com/badge/github.com/scrymastic/goosquery" alt="Go Report Card" />
-  </a>
-  <a href="https://pkg.go.dev/github.com/scrymastic/goosquery">
-    <img src="https://pkg.go.dev/badge/github.com/scrymastic/goosquery.svg" alt="Go Reference" />
-  </a>
-  <a href="https://github.com/scrymastic/goosquery/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-  </a>
-  <a href="#">
-    <img src="https://img.shields.io/badge/platform-Windows-blue" alt="Platform" />
-  </a>
-</p>
-
-<p align="center">
-  <b>Go osquery with JSON output, currently working on Windows.</b>
-</p>
+### Windows System Information Collector
 
 </div>
 
-<p align="center">
-  The goal is to provide a lightweight, portable, and easy-to-use version of osquery that can be integrated into other projects.
-</p>
+Goosquery is a Go-based system information collection tool inspired by OSQuery. It provides a unified interface to collect various system information from Windows systems.
 
----
+## Features
 
-## ✨ Features
+- Collects system information from various sources
+- Organizes data into JSON format for easy analysis
+- Provides benchmarking capabilities to measure performance
+- Logs all operations for debugging and auditing
+- Modular design with clean separation of concerns
 
-- 🚀 Lightweight and portable implementation
-- 📊 JSON output for easy parsing
-- 🖥️ Windows-specific system information
-- 🧩 Modular table implementation
-- 🔌 Easy integration with other Go projects
+## Usage
 
-## 📦 Installation
+### Basic Usage
 
 ```bash
-go get github.com/scrymastic/goosquery
+# Run with default output directory (reports)
+goosquery
+
+# Specify a custom output directory
+goosquery /path/to/output
 ```
 
-## 🚀 Usage
+### Options
 
-```go
-package main
-
-import (
-    "encoding/json"
-    "fmt"
-    "github.com/scrymastic/goosquery/system/os_version"
-)
-
-func main() {
-    // Get OS version information
-    osInfo, err := os_version.GenOSVersion()
-    if err != nil {
-        fmt.Println("Error:", err)
-        return
-    }
-
-    // Print as JSON
-    jsonData, err := json.MarshalIndent(osInfo, "", "  ")
-    if err != nil {
-        fmt.Println("Error:", err)
-        return
-    }
-    fmt.Println(string(jsonData))
-}
+```bash
+# Display help information
+goosquery --help
 ```
 
-## 📋 Example Output
+## Output
 
-```json
-{
-  "name": "Microsoft Windows 10 Pro",
-  "version": "10.0.19041",
-  "major": 10,
-  "minor": 0,
-  "patch": 19041,
-  "build": "19041",
-  "platform": "windows",
-  "platform_like": "windows",
-  "codename": "Microsoft Windows 10 Pro",
-  "arch": "64-bit",
-  "install_date": 1596240000,
-  "revision": 928
-}
-```
+Goosquery generates the following output:
 
-## 📊 Implementation Status
+- JSON files for each collector's data
+- A compressed zip file containing all collected data
+- Detailed logging information
+
+## Development
+
+### Adding a New Collector
+
+1. Create a new package in the appropriate directory (networking, system, or utility)
+2. Implement the collector function with the standard Gen* naming convention
+3. Add the type and function to the corresponding main package file (networking.go, system.go, or utility.go)
+4. Add the collector to the collectors list in main.go
+
+### Implementation Status
+
+<details>
+<summary><strong>Status Legend</strong></summary>
 
 <table>
   <tr>
@@ -137,12 +102,10 @@ func main() {
     <td>This table is no longer relevant or supported in this implementation.</td>
   </tr>
 </table>
-
-## 📑 Tables
+</details>
 
 <details>
-<summary><b>Click to expand table list</b></summary>
-<br>
+<summary><strong>Tables Implementation Status</strong></summary>
 
 | Table Name                       | Status  |
 |----------------------------------|---------|
@@ -191,7 +154,7 @@ func main() {
 | logged_in_users                  | ✅      |
 | logical_drives                   | ✅      |
 | logon_sessions                   | ✅      |
-| memory_devices                   | 🧪      |
+| memory_devices                   | ✅      |
 | npm_packages                     | ⏳      |
 | ntdomains                        | ✅      |
 | ntfs_acl_permissions             | ⏳      |
@@ -258,10 +221,11 @@ func main() {
 | ycloud_instance_metadata         | ⛔      |
 </details>
 
-<div align="center">
-  <p>
-    <a href="https://github.com/scrymastic/goosquery/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/scrymastic/goosquery/issues">Request Feature</a>
-  </p>
-</div>
+## Requirements
+
+- Go 1.18 or higher
+- Windows operating system
+
+## License
+
+MIT

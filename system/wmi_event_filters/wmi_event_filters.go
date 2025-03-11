@@ -46,7 +46,7 @@ func GenWMIEventFilters() ([]WMIEventFilter, error) {
 			RelativePath:  filter.__RELPATH,
 		}
 		filterInfo = append(filterInfo, info)
-		fmt.Printf("Raw WMI Object: %+v\n", filter)
+		// fmt.Printf("Raw WMI Object: %+v\n", filter)
 	}
 
 	return filterInfo, nil

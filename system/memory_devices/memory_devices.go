@@ -13,23 +13,23 @@ type MemoryDevice struct {
 	Handle               string `json:"handle"`
 	ArrayHandle          string `json:"array_handle"`
 	FormFactor           string `json:"form_factor"`
-	TotalWidth           uint16 `json:"total_width"`
-	DataWidth            uint16 `json:"data_width"`
-	Size                 uint32 `json:"size"`
-	Set                  uint32 `json:"set"`
+	TotalWidth           int32  `json:"total_width"`
+	DataWidth            int32  `json:"data_width"`
+	Size                 int32  `json:"size"`
+	Set                  int32  `json:"set"`
 	DeviceLocator        string `json:"device_locator"`
 	BankLocator          string `json:"bank_locator"`
 	MemoryType           string `json:"memory_type"`
 	MemoryTypeDetails    string `json:"memory_type_details"`
-	MaxSpeed             uint32 `json:"max_speed"`
-	ConfiguredClockSpeed uint32 `json:"configured_clock_speed"`
+	MaxSpeed             int32  `json:"max_speed"`
+	ConfiguredClockSpeed int32  `json:"configured_clock_speed"`
 	Manufacturer         string `json:"manufacturer"`
 	SerialNumber         string `json:"serial_number"`
 	AssetTag             string `json:"asset_tag"`
 	PartNumber           string `json:"part_number"`
-	MinVoltage           uint32 `json:"min_voltage"`
-	MaxVoltage           uint32 `json:"max_voltage"`
-	ConfiguredVoltage    uint32 `json:"configured_voltage"`
+	MinVoltage           int32  `json:"min_voltage"`
+	MaxVoltage           int32  `json:"max_voltage"`
+	ConfiguredVoltage    int32  `json:"configured_voltage"`
 }
 
 type Win32_PhysicalMemory struct {
@@ -150,22 +150,22 @@ func GenMemoryDevices() ([]MemoryDevice, error) {
 	for _, result := range wmiDevices {
 		device := MemoryDevice{
 			FormFactor:           getFormFactor(int64(result.FormFactor)),
-			TotalWidth:           uint16(result.TotalWidth),
-			DataWidth:            uint16(result.DataWidth),
-			Size:                 getMemorySize(result.Capacity),
+			TotalWidth:           int32(result.TotalWidth),
+			DataWidth:            int32(result.DataWidth),
+			Size:                 int32(getMemorySize(result.Capacity)),
 			DeviceLocator:        result.DeviceLocator,
 			BankLocator:          result.BankLabel,
 			MemoryType:           getMemoryType(int64(result.MemoryType)),
 			MemoryTypeDetails:    getMemoryTypeDetails(int64(result.TypeDetail)),
-			MaxSpeed:             uint32(result.Speed),
-			ConfiguredClockSpeed: uint32(result.ConfiguredClockSpeed),
+			MaxSpeed:             int32(result.Speed),
+			ConfiguredClockSpeed: int32(result.ConfiguredClockSpeed),
 			Manufacturer:         result.Manufacturer,
 			SerialNumber:         result.SerialNumber,
 			AssetTag:             result.Tag,
 			PartNumber:           result.PartNumber,
-			MinVoltage:           uint32(result.MinVoltage),
-			MaxVoltage:           uint32(result.MaxVoltage),
-			ConfiguredVoltage:    uint32(result.ConfiguredVoltage),
+			MinVoltage:           int32(result.MinVoltage),
+			MaxVoltage:           int32(result.MaxVoltage),
+			ConfiguredVoltage:    int32(result.ConfiguredVoltage),
 			Handle:               "",
 			ArrayHandle:          "",
 			Set:                  0,

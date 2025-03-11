@@ -38,7 +38,7 @@ func GenAppCompatShims() ([]AppCompatShim, error) {
 	// Query installed SDBs
 	sdbKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyInstalledSDB, registry.READ)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open registry key: %s, %v", regKeyInstalledSDB, err)
+		return nil, fmt.Errorf("failed to open InstalledSDB key, %v", err)
 	}
 	defer sdbKey.Close()
 
@@ -91,7 +91,7 @@ func GenAppCompatShims() ([]AppCompatShim, error) {
 	// Query custom shims
 	customKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyCustomSDB, registry.READ)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open registry key: %s, %v", regKeyCustomSDB, err)
+		return nil, fmt.Errorf("failed to open CustomSDB key, %v", err)
 	}
 	defer customKey.Close()
 

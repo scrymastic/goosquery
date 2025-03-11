@@ -3,7 +3,6 @@ package security_profile_info
 import (
 	"fmt"
 	"reflect"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -111,24 +110,12 @@ func isValidSceProfileData(profileData uintptr) error {
 
 func GenSecurityProfileInfo() ([]SecurityProfileInfo, error) {
 	var profileInfo []SecurityProfileInfo
-	modScecli, err := windows.LoadLibrary("scecli.dll")
-	if err != nil {
-		return nil, fmt.Errorf("failed to load scecli.dll: %w", err)
-	}
-	defer windows.FreeLibrary(modScecli)
-
-	procSceFreeMemory, err := windows.GetProcAddress(modScecli, "SceFreeMemory")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get SceFreeMemory: %w", err)
-	}
-
-	procSceGetSecProfileInfo, err := windows.GetProcAddress(modScecli, "SceGetSecurityProfileInfo")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get SceGetSecurityProfileInfo: %w", err)
-	}
+	modScecli := windows.NewLazySystemDLL("scecli.dll")
+	procSceFreeMemory := modScecli.NewProc("SceFreeMemory")
+	procSceGetSecProfileInfo := modScecli.NewProc("SceGetSecurityProfileInfo")
 
 	var profileDataPtr uintptr
-	ret, _, err := syscall.SyscallN(procSceGetSecProfileInfo,
+	ret, _, err := procSceGetSecProfileInfo.Call(
 		0, // NULL for system
 		uintptr(kSceSystemFlag),
 		uintptr(kSceAreaAllFlag),
@@ -138,7 +125,7 @@ func GenSecurityProfileInfo() ([]SecurityProfileInfo, error) {
 
 	if ret != 0 {
 		if err != nil {
-			return nil, fmt.Errorf("failed to get security profile info: %w", err)
+			return nil, fmt.Errorf("failed to get security profile info: %v", err)
 		}
 		return nil, fmt.Errorf("failed to get security profile info: unknown error")
 	}
@@ -147,13 +134,13 @@ func GenSecurityProfileInfo() ([]SecurityProfileInfo, error) {
 		return nil, fmt.Errorf("security profile data pointer is null")
 	}
 
-	defer syscall.SyscallN(procSceFreeMemory,
+	defer procSceFreeMemory.Call(
 		profileDataPtr,
 		uintptr(kSceAreaAllFlag),
 	)
 
 	if err := isValidSceProfileData(profileDataPtr); err != nil {
-		return nil, fmt.Errorf("invalid security profile data: %w", err)
+		return nil, fmt.Errorf("invalid security profile data: %v", err)
 	}
 
 	// Cast profileDataPtr to sceProfileInfo

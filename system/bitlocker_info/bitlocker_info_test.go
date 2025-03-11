@@ -7,7 +7,7 @@ import (
 )
 
 func TestGetBitLockerInfo(t *testing.T) {
-	volumes, err := GenBitLockerInfo()
+	volumes, err := GenBitlockerInfo()
 	if err != nil {
 		t.Fatalf("Failed to get BitLocker volumes: %v", err)
 	}

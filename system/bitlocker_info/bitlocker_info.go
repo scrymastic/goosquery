@@ -6,8 +6,8 @@ import (
 	"github.com/StackExchange/wmi"
 )
 
-// BitLockerVolume represents information about a BitLocker encrypted volume
-type BitLockerVolume struct {
+// BitlockerInfo represents information about a BitLocker encrypted volume
+type BitlockerInfo struct {
 	DeviceID            string `json:"device_id"`
 	DriveLetter         string `json:"drive_letter"`
 	PersistentVolumeID  string `json:"persistent_volume_id"`
@@ -58,8 +58,8 @@ func getWMIValue(deviceID string, methodName string) (uint32, error) {
 	return value, nil
 }
 
-// GenBitLockerInfo retrieves BitLocker information for all encryptable volumes
-func GenBitLockerInfo() ([]BitLockerVolume, error) {
+// GenBitlockerInfo retrieves BitLocker information for all encryptable volumes
+func GenBitlockerInfo() ([]BitlockerInfo, error) {
 	// Set up WMI query
 	var encryptableVolumes []Win32_EncryptableVolume
 
@@ -71,7 +71,7 @@ func GenBitLockerInfo() ([]BitLockerVolume, error) {
 	}
 
 	// Convert WMI results to BitLockerVolume structs
-	var results []BitLockerVolume
+	var results []BitlockerInfo
 	for _, vol := range encryptableVolumes {
 		// Get values using WMI methods
 		version, err := getWMIValue(vol.DeviceID, "GetVersion")
@@ -89,7 +89,7 @@ func GenBitLockerInfo() ([]BitLockerVolume, error) {
 			lockStatus = 0 // Use default if method fails
 		}
 
-		volume := BitLockerVolume{
+		volume := BitlockerInfo{
 			DeviceID:            vol.DeviceID,
 			DriveLetter:         vol.DriveLetter,
 			PersistentVolumeID:  vol.PersistentVolumeID,

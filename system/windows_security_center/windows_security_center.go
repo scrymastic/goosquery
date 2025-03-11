@@ -44,9 +44,19 @@ var providerStates = map[uint32]string{
 	WSC_SECURITY_PROVIDER_HEALTH_SNOOZE:       "Snoozed",
 }
 
-func getProductHealth(productName uint32) string {
+var (
+	procWscGetSecurityProviderHealth *windows.LazyProc
+)
+
+func init() {
 	modWscapi := windows.NewLazySystemDLL("wscapi.dll")
-	procWscGetSecurityProviderHealth := modWscapi.NewProc("WscGetSecurityProviderHealth")
+	if modWscapi.Load() != nil {
+		return
+	}
+	procWscGetSecurityProviderHealth = modWscapi.NewProc("WscGetSecurityProviderHealth")
+}
+
+func getProductHealth(productName uint32) string {
 	var health uint32
 	ret, _, _ := procWscGetSecurityProviderHealth.Call(
 		uintptr(productName),
@@ -119,6 +129,9 @@ func getWindowsUpdateHealth() string {
 	return productHealth
 }
 func GenWindowsSecurityCenter() ([]WindowsSecurityCenter, error) {
+	if procWscGetSecurityProviderHealth == nil {
+		return nil, fmt.Errorf("failed to initialize wscapi.dll")
+	}
 
 	// Get Windows Security Center info
 	result := []WindowsSecurityCenter{

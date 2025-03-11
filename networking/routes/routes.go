@@ -133,10 +133,16 @@ func cStringToGoString(cString []byte) string {
 // GenRoutes returns all routes on the system
 func GenRoutes() ([]Route, error) {
 	modIphlpapi := windows.NewLazySystemDLL("iphlpapi.dll")
+	if modIphlpapi.Load() != nil {
+		return nil, fmt.Errorf("failed to load iphlpapi.dll")
+	}
 	procGetIpForwardTable2 := modIphlpapi.NewProc("GetIpForwardTable2")
 	procFreeMibTable := modIphlpapi.NewProc("FreeMibTable")
 	procGetIpInterfaceEntry := modIphlpapi.NewProc("GetIpInterfaceEntry")
 	modWs2_32 := windows.NewLazySystemDLL("ws2_32.dll")
+	if modWs2_32.Load() != nil {
+		return nil, fmt.Errorf("failed to load ws2_32.dll")
+	}
 	procInetNtopW := modWs2_32.NewProc("InetNtopW")
 
 	var routes []Route

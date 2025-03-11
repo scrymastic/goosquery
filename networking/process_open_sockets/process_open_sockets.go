@@ -59,10 +59,19 @@ type MIB_UDP6ROW_OWNER_PID struct {
 }
 
 var (
-	modIphlpapi             = windows.NewLazySystemDLL("iphlpapi.dll")
+	procGetExtendedTcpTable *windows.LazyProc
+	procGetExtendedUdpTable *windows.LazyProc
+)
+
+func init() {
+	modIphlpapi := windows.NewLazySystemDLL("iphlpapi.dll")
+	if modIphlpapi.Load() != nil {
+		return
+	}
 	procGetExtendedTcpTable = modIphlpapi.NewProc("GetExtendedTcpTable")
 	procGetExtendedUdpTable = modIphlpapi.NewProc("GetExtendedUdpTable")
-)
+}
+
 var (
 	tcpStateMap = map[uint32]string{
 		1:  "CLOSED",
@@ -281,6 +290,9 @@ func parseSocketTable(sockType string, table []byte) ([]ProcessOpenSocket, error
 
 // GenProcessOpenSockets returns a list of open sockets for each process
 func GenProcessOpenSockets() ([]ProcessOpenSocket, error) {
+	if procGetExtendedTcpTable == nil || procGetExtendedUdpTable == nil {
+		return nil, fmt.Errorf("failed to initialize iphlpapi.dll")
+	}
 
 	// Allocate memory for the TCP table
 	tcpTable, err := allocateSocketTable("TCP")
