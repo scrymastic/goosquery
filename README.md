@@ -1,23 +1,32 @@
-<div align="center">
-
-# <span style="font-weight: bold; font-size: 1.5em;">GOOSQUERY</span>
-<img src="https://img.shields.io/badge/Go-1.18+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go Version" />
-<img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Platform" />
-<img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License" />
-
-### Windows System Information Collector
-
+# <span style="font-weight: bold">goosquery </span>
+![Go](https://img.shields.io/badge/made%20with-Go-00ADD8)
+![Platform](https://img.shields.io/badge/platform-windows-0078D6)
+![License](https://img.shields.io/badge/license-MIT-yellow)
 </div>
 
 Goosquery is a Go-based system information collection tool inspired by OSQuery. It provides a unified interface to collect various system information from Windows systems.
 
+## Table of Contents
+
+- [Notice](#notice)
+- [Features](#features)
+- [Usage](#usage)
+- [Development](#development)
+- [Output](#output)
+- [Implementation Status](#implementation-status)
+
+## Notice
+
+> [!IMPORTANT]  
+> This project is under development.
+
 ## Features
 
-- Collects system information from various sources
-- Organizes data into JSON format for easy analysis
-- Provides benchmarking capabilities to measure performance
-- Logs all operations for debugging and auditing
-- Modular design with clean separation of concerns
+- ✅ Collects system information from various sources
+- ✅ Organizes data into JSON format for easy analysis
+- ✅ Provides benchmarking capabilities to measure performance
+- ✅ Logs all operations for debugging and auditing
+- ✅ Modular design with clean separation of concerns
 
 ## Usage
 
@@ -48,60 +57,20 @@ Goosquery generates the following output:
 
 ## Development
 
-### Adding a New Collector
-
-1. Create a new package in the appropriate directory (networking, system, or utility)
-2. Implement the collector function with the standard Gen* naming convention
-3. Add the type and function to the corresponding main package file (networking.go, system.go, or utility.go)
-4. Add the collector to the collectors list in main.go
-
 ### Implementation Status
 
 <details>
 <summary><strong>Status Legend</strong></summary>
 
-<table>
-  <tr>
-    <th>Status</th>
-    <th>Icon</th>
-    <th>Description</th>
-  </tr>
-  <tr>
-    <td>Not Started</td>
-    <td align="center">⏳</td>
-    <td>Work has not begun on this table yet.</td>
-  </tr>
-  <tr>
-    <td>In Progress</td>
-    <td align="center">🛠️</td>
-    <td>Actively being developed.</td>
-  </tr>
-  <tr>
-    <td>Completed</td>
-    <td align="center">✅</td>
-    <td>Fully implemented and tested.</td>
-  </tr>
-  <tr>
-    <td>Testing</td>
-    <td align="center">🧪</td>
-    <td>Development is done, but under testing for bugs or issues.</td>
-  </tr>
-  <tr>
-    <td>Blocked</td>
-    <td align="center">⛔</td>
-    <td>Development is paused due to dependencies, blockers, or technical issues.</td>
-  </tr>
-  <tr>
-    <td>Planned</td>
-    <td align="center">🗓️</td>
-    <td>Table is planned for future implementation but hasn't started yet.</td>
-  </tr>
-  <tr>
-    <td>Deprecated</td>
-    <td align="center">🗑️</td>
-    <td>This table is no longer relevant or supported in this implementation.</td>
-  </tr>
-</table>
+| Status | Icon | Description |
+|--------|------|-------------|
+| Not Started | ⏳ | Work has not begun on this table yet. |
+| In Progress | 🛠️ | Actively being developed. |
+| Completed | ✅ | Fully implemented and tested. |
+| Testing | 🧪 | Development is done, but under testing for bugs or issues. |
+| Blocked | ⛔ | Development is paused due to dependencies, blockers, or technical issues. |
+| Planned | 🗓️ | Table is planned for future implementation but hasn't started yet. |
+| Deprecated | 🗑️ | This table is no longer relevant or supported in this implementation. |
 </details>
 
 <details>
@@ -220,12 +189,3 @@ Goosquery generates the following output:
 | yara_events                      | ⛔      |
 | ycloud_instance_metadata         | ⛔      |
 </details>
-
-## Requirements
-
-- Go 1.18 or higher
-- Windows operating system
-
-## License
-
-MIT
