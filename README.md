@@ -140,7 +140,7 @@ Goosquery generates the following output:
 | patches                          | ✅      |
 | physical_disk_performance        | ⏳      |
 | pipes                            | 🧪      |
-| platform_info                    | 🧪      |
+| platform_info                    | ✅      |
 | powershell_events                | ⏳      |
 | prefetch                         | ⏳      |
 | process_etw_events               | ⏳      |
