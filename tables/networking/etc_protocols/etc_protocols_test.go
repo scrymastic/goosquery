@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenEtcProtocols(t *testing.T) {
-	protocols, err := GenEtcProtocols()
+	protocols, err := GenEtcProtocols(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get protocols: %v", err)
 	}

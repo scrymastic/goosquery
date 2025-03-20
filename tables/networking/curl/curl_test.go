@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenCurl(t *testing.T) {
@@ -11,13 +13,25 @@ func TestGenCurl(t *testing.T) {
 	url := "https://httpbin.org/get"
 	userAgent := ""
 
-	result, err := GenCurl(url, userAgent)
+	// Create context with URL
+	ctx := context.Context{}
+	ctx.AddConstant("url", url)
+	if userAgent != "" {
+		ctx.AddConstant("user_agent", userAgent)
+	}
+
+	// Execute curl
+	results, err := GenCurl(ctx)
 	if err != nil {
 		t.Fatalf("Failed to make request: %v", err)
 	}
 
+	if len(results) == 0 {
+		t.Fatalf("No results returned")
+	}
+
 	// Print results as JSON for debugging
-	jsonData, err := json.MarshalIndent(result, "", "  ")
+	jsonData, err := json.MarshalIndent(results[0], "", "  ")
 	if err != nil {
 		t.Fatalf("Failed to marshal result to JSON: %v", err)
 	}
@@ -26,7 +40,11 @@ func TestGenCurl(t *testing.T) {
 
 func TestGenCurl_InvalidURL(t *testing.T) {
 	// Test with invalid URL
-	_, err := GenCurl("invalid-url", "test-agent")
+	ctx := context.Context{}
+	ctx.AddConstant("url", "invalid-url")
+	ctx.AddConstant("user_agent", "test-agent")
+
+	_, err := GenCurl(ctx)
 	if err == nil {
 		t.Error("Expected error for invalid URL, got nil")
 	}

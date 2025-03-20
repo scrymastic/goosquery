@@ -4,10 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenProcessOpenSockets(t *testing.T) {
-	sockets, err := GenProcessOpenSockets()
+	// Create context with all columns used
+	ctx := context.Context{}
+	// Add all possible columns to ensure they're all included in test
+	ctx.Columns = []string{"pid", "fd", "socket", "family", "proto", "local_address", "remote_address", "local_port", "remote_port", "path", "state", "net_namespace"}
+
+	sockets, err := GenProcessOpenSockets(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get process open sockets: %v", err)
 	}

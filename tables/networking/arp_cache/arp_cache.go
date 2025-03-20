@@ -5,14 +5,16 @@ import (
 	"strings"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 )
 
-// ARPCache represents a single entry in the ARP cache.
-type ARPCache struct {
-	Address   string `json:"address"`
-	MAC       string `json:"mac"`
-	Interface string `json:"interface"`
-	Permanent string `json:"permanent"`
+// Column definitions for the listening_ports table
+var columnDefs = map[string]string{
+	"address":   "string",
+	"mac":       "string",
+	"interface": "string",
+	"permanent": "string",
 }
 
 // MSFT_NetNeighbor represents the WMI MSFT_NetNeighbor class structure.
@@ -33,8 +35,8 @@ const (
 )
 
 // GenARPCache retrieves the current ARP cache entries from the system.
-// It returns a slice of ARPEntry and an error if the operation fails.
-func GenARPCache() ([]ARPCache, error) {
+// It returns a slice of map[string]interface{} and an error if the operation fails.
+func GenARPCache(ctx context.Context) ([]map[string]interface{}, error) {
 	var neighbors []MSFT_NetNeighbor
 	query := "SELECT * FROM MSFT_NetNeighbor"
 	namespace := `ROOT\StandardCimv2`
@@ -42,7 +44,7 @@ func GenARPCache() ([]ARPCache, error) {
 		return nil, fmt.Errorf("failed to query MSFT_NetNeighbor: %w", err)
 	}
 
-	entries := make([]ARPCache, 0, len(neighbors))
+	entries := make([]map[string]interface{}, 0, len(neighbors))
 	for _, n := range neighbors {
 		if n.AddressFamily != IPv4AddressFamily {
 			continue
@@ -52,12 +54,25 @@ func GenARPCache() ([]ARPCache, error) {
 			continue
 		}
 
-		entries = append(entries, ARPCache{
-			Address:   n.IPAddress,
-			MAC:       strings.ReplaceAll(n.LinkLayerAddress, "-", ":"),
-			Interface: n.InterfaceAlias,
-			Permanent: map[bool]string{true: "1", false: "0"}[n.State == PermanentState],
-		})
+		entry := util.InitColumns(ctx, columnDefs)
+
+		if ctx.IsColumnUsed("address") {
+			entry["address"] = n.IPAddress
+		}
+
+		if ctx.IsColumnUsed("mac") {
+			entry["mac"] = strings.ReplaceAll(n.LinkLayerAddress, "-", ":")
+		}
+
+		if ctx.IsColumnUsed("interface") {
+			entry["interface"] = n.InterfaceAlias
+		}
+
+		if ctx.IsColumnUsed("permanent") {
+			entry["permanent"] = map[bool]string{true: "1", false: "0"}[n.State == PermanentState]
+		}
+
+		entries = append(entries, entry)
 	}
 
 	return entries, nil

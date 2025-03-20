@@ -4,16 +4,20 @@
 ![License](https://img.shields.io/badge/license-MIT-yellow)
 </div>
 
-Goosquery is a Go-based system information collection tool inspired by OSQuery. It provides a unified interface to collect various system information from Windows systems.
+Goosquery is a Go-based system information collection tool inspired by OSQuery. It provides a unified interface to collect various system information from Windows systems using SQL-like queries.
 
 ## Table of Contents
 
 - [Notice](#notice)
 - [Features](#features)
 - [Usage](#usage)
+  - [Interactive Mode](#interactive-mode)
+  - [Command Line Mode](#command-line-mode)
+  - [Output Formats](#output-formats)
+- [Examples](#examples)
 - [Development](#development)
-- [Output](#output)
 - [Implementation Status](#implementation-status)
+- [Adding New Tables](#adding-new-tables)
 
 ## Notice
 
@@ -22,38 +26,85 @@ Goosquery is a Go-based system information collection tool inspired by OSQuery. 
 
 ## Features
 
-- ✅ Collects system information from various sources
-- ✅ Organizes data into JSON format for easy analysis
-- ✅ Provides benchmarking capabilities to measure performance
-- ✅ Logs all operations for debugging and auditing
-- ✅ Modular design with clean separation of concerns
+- ✅ SQL-like query interface for accessing system information
+- ✅ Interactive mode with command history and autocompletion
+- ✅ Multiple output formats (table and JSON)
+- ✅ Modular design for easy extension with new tables
+- ✅ Efficient data collection with column-based filtering
+- ✅ Comprehensive table collection for Windows systems
+- ✅ Support for WHERE clauses to filter results
 
 ## Usage
 
-### Basic Usage
+### Interactive Mode
 
 ```bash
-# Run with default output directory (reports)
-goosquery
+# Start in interactive mode with default table output
+goosquery -i
 
-# Specify a custom output directory
-goosquery /path/to/output
+# Start in interactive mode with JSON output
+goosquery -i -json
 ```
 
-### Options
+In interactive mode, you can use the following commands:
+
+```
+.quit - Exit the program
+.json        - Switch to JSON output mode
+.table       - Switch to table output mode  
+.mode        - Show current output mode
+.help        - Show help message
+```
+
+### Command Line Mode
 
 ```bash
-# Display help information
-goosquery --help
+# Execute a query directly from the command line
+goosquery -q "SELECT * FROM processes LIMIT 5"
+
+# Execute a query and output as JSON
+goosquery -q "SELECT name, pid FROM processes" -json
 ```
 
-## Output
+### Output Formats
 
-Goosquery generates the following output:
+GoOsquery supports two output formats:
 
-- JSON files for each collector's data
-- A compressed zip file containing all collected data
-- Detailed logging information
+1. **Table Format (Default)**: Displays results in a formatted ASCII table
+   ```
+   +------+-----+
+   | name | pid |
+   +------+-----+
+   | cmd  | 123 |
+   +------+-----+
+   ```
+
+2. **JSON Format**: Outputs results as JSON data
+   ```json
+   [
+     {
+       "name": "cmd",
+       "pid": 123
+     }
+   ]
+   ```
+
+## Examples
+
+Query processes:
+```sql
+SELECT name, pid, parent FROM processes WHERE name LIKE '%svc%';
+```
+
+Query network interfaces:
+```sql
+SELECT interface, address, mask FROM interface_addresses;
+```
+
+Check HTTP response from a website:
+```sql
+SELECT url, response_code, round_trip_time FROM curl WHERE url = 'https://example.com';
+```
 
 ## Development
 
@@ -189,3 +240,50 @@ Goosquery generates the following output:
 | yara_events                      | ⛔      |
 | ycloud_instance_metadata         | ⛔      |
 </details>
+
+## Adding New Tables
+
+To add a new table to Goosquery, follow these steps:
+
+1. Create a new package for your table under the appropriate category (e.g., `tables/system/newtable/`)
+
+2. Implement a data generator function with the following signature:
+   ```go
+   func GenNewTable(context context.Context) ([]map[string]interface{}, error)
+   ```
+   
+   This function should:
+   - Use the context.IsColumnUsed() method to check which columns are needed
+   - Only fetch the data needed for the columns requested
+   - Return data as a slice of maps where keys are column names
+
+3. Define column types in a map to ensure consistent type handling:
+   ```go
+   var columnDefs = map[string]string{
+       "column1": "string",
+       "column2": "int64",
+       "column3": "int32",
+   }
+   ```
+
+4. Use the utility function to initialize columns with appropriate default values:
+   ```go
+   result := util.InitColumns(ctx, columnDefs)
+   ```
+
+5. Register the table in `sql/executor/executor.go` by adding a new case to the `GetExecutor` function:
+   ```go
+   case "newtable":
+       return &tableExecutor{
+           BaseExecutor: BaseExecutor{},
+           tableName:    "newtable",
+           dataFunc:     newtable.GenNewTable,
+       }, nil
+   ```
+
+The `tableExecutor` pattern eliminates the need to write custom executor code for each table. It handles:
+- Extracting selected columns 
+- Filtering with WHERE clauses
+- Projecting only requested columns
+
+This design pattern reduces code duplication and ensures consistent behavior across all tables.

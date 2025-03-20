@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenEtcServices(t *testing.T) {
-	services, err := GenEtcServices()
+	services, err := GenEtcServices(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get etc services: %v", err)
 	}
@@ -27,7 +29,10 @@ func TestGenEtcServices(t *testing.T) {
 
 	for name, port := range wellKnownServices {
 		for _, service := range services {
-			if service.Name == name && service.Port == port {
+			serviceName, nameOk := service["name"].(string)
+			servicePort, portOk := service["port"].(uint16)
+
+			if nameOk && portOk && serviceName == name && servicePort == port {
 				fmt.Printf("Found service: %s (port %d)\n", name, port)
 			}
 		}

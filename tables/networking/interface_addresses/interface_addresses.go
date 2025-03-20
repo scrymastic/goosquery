@@ -6,18 +6,19 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 	"golang.org/x/sys/windows"
 )
 
-// InterfaceAddress represents a network interface address
-type InterfaceAddress struct {
-	Interface    string `json:"interface"`
-	Address      string `json:"address"`
-	Mask         string `json:"mask"`
-	Broadcast    string `json:"broadcast"`
-	PointToPoint string `json:"point_to_point"`
-	Type         string `json:"type"`
-	FriendlyName string `json:"friendly_name"`
+// Column definitions for the interface_addresses table
+var columnDefs = map[string]string{
+	"interface":      "string",
+	"address":        "string",
+	"mask":           "string",
+	"type":           "string",
+	"broadcast":      "string",
+	"point_to_point": "string",
 }
 
 // Windows-specific constants for IP address suffix origin
@@ -57,38 +58,56 @@ func calculateBroadcast(ip net.IP, prefixLength uint8) string {
 	return broadcast.String()
 }
 
-// processUnicastAddress handles a single unicast address and returns an InterfaceAddress
-func processUnicastAddress(addr *windows.IpAdapterAddresses, unicastAddr *windows.IpAdapterUnicastAddress) (ifaceAddr InterfaceAddress, isOk bool) {
-
-	// Set interface index and friendly name
-	ifaceAddr.Interface = fmt.Sprintf("%d", addr.IfIndex)
-	ifaceAddr.FriendlyName = windows.UTF16PtrToString(addr.FriendlyName)
+// processUnicastAddress handles a single unicast address and returns address information
+func processUnicastAddress(addr *windows.IpAdapterAddresses, unicastAddr *windows.IpAdapterUnicastAddress, ctx context.Context) (map[string]interface{}, bool) {
+	result := util.InitColumns(ctx, columnDefs)
 
 	// Get the IP address from the unicast address
 	sockAddr := (*syscall.RawSockaddrAny)(unsafe.Pointer(unicastAddr.Address.Sockaddr))
 	ip, isIPv6, ok := getIPFromSockAddr(sockAddr)
 	if !ok {
-		return ifaceAddr, false
+		return nil, false
 	}
 
-	// Set IP address and mask
-	ifaceAddr.Address = ip.String()
-	ifaceAddr.Mask = ipNetMaskToString(unicastAddr.OnLinkPrefixLength, isIPv6)
+	// Set interface index and friendly name
+	if ctx.IsColumnUsed("interface") {
+		result["interface"] = fmt.Sprintf("%d", addr.IfIndex)
+	}
+
+	if ctx.IsColumnUsed("friendly_name") {
+		result["friendly_name"] = windows.UTF16PtrToString(addr.FriendlyName)
+	}
+
+	// Set IP address
+	if ctx.IsColumnUsed("address") {
+		result["address"] = ip.String()
+	}
+
+	// Set mask
+	if ctx.IsColumnUsed("mask") {
+		result["mask"] = ipNetMaskToString(unicastAddr.OnLinkPrefixLength, isIPv6)
+	}
 
 	// Set address type
-	ifaceAddr.Type = getAddressType(addr.IfType, unicastAddr.SuffixOrigin)
+	if ctx.IsColumnUsed("type") {
+		result["type"] = getAddressType(addr.IfType, unicastAddr.SuffixOrigin)
+	}
 
 	// Set broadcast for IPv4
-	if ip.To4() != nil {
-		ifaceAddr.Broadcast = calculateBroadcast(ip, unicastAddr.OnLinkPrefixLength)
+	if ctx.IsColumnUsed("broadcast") && ip.To4() != nil {
+		result["broadcast"] = calculateBroadcast(ip, unicastAddr.OnLinkPrefixLength)
 	}
 
 	// Set point-to-point if applicable
-	if addr.IfType == windows.IF_TYPE_PPP {
-		ifaceAddr.PointToPoint = ""
+	if ctx.IsColumnUsed("point_to_point") {
+		if addr.IfType == windows.IF_TYPE_PPP {
+			result["point_to_point"] = "true"
+		} else {
+			result["point_to_point"] = "false"
+		}
 	}
 
-	return ifaceAddr, true
+	return result, true
 }
 
 // getIPFromSockAddr extracts IP address from a socket address
@@ -115,7 +134,7 @@ func getIPFromSockAddr(sockAddr *syscall.RawSockaddrAny) (ip net.IP, isIPv6 bool
 // getAddressType determines the address type based on interface and suffix origin
 func getAddressType(ifType uint32, suffixOrigin int32) string {
 	if ifType == windows.IF_TYPE_SOFTWARE_LOOPBACK {
-		return "other"
+		return "loopback"
 	}
 
 	switch suffixOrigin {
@@ -131,9 +150,9 @@ func getAddressType(ifType uint32, suffixOrigin int32) string {
 }
 
 // GenInterfaceAddresses returns a list of all interface addresses on the system
-// It returns a slice of InterfaceAddress and an error if the operation fails.
-func GenInterfaceAddresses() ([]InterfaceAddress, error) {
-	var results []InterfaceAddress
+// It returns a slice of map[string]interface{} and an error if the operation fails.
+func GenInterfaceAddresses(ctx context.Context) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
 
 	// Get required buffer size
 	var size uint32
@@ -165,7 +184,7 @@ func GenInterfaceAddresses() ([]InterfaceAddress, error) {
 	// Iterate through all adapters
 	for ; addr != nil; addr = addr.Next {
 		for unicastAddr := addr.FirstUnicastAddress; unicastAddr != nil; unicastAddr = unicastAddr.Next {
-			if ifaceAddr, ok := processUnicastAddress(addr, unicastAddr); ok {
+			if ifaceAddr, ok := processUnicastAddress(addr, unicastAddr, ctx); ok {
 				results = append(results, ifaceAddr)
 			}
 		}

@@ -7,43 +7,46 @@ import (
 	"unsafe"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 	"golang.org/x/sys/windows"
 )
 
-type InterfaceDetail struct {
-	Interface                  string `json:"interface"`
-	MAC                        string `json:"mac"`
-	Type                       int32  `json:"type"`
-	MTU                        int32  `json:"mtu"`
-	Metric                     int32  `json:"metric"`
-	Flags                      int32  `json:"flags"`
-	IPackets                   int64  `json:"ipackets"`
-	OPackets                   int64  `json:"opackets"`
-	IBytes                     int64  `json:"ibytes"`
-	OBytes                     int64  `json:"obytes"`
-	IErrors                    int64  `json:"ierrors"`
-	OErrors                    int64  `json:"oerrors"`
-	IDrops                     int64  `json:"idrops"`
-	ODrops                     int64  `json:"odrops"`
-	Collisions                 int64  `json:"collisions"`
-	LastChange                 int64  `json:"last_change"`
-	FriendlyName               string `json:"friendly_name"`
-	Description                string `json:"description"`
-	Manufacturer               string `json:"manufacturer"`
-	ConnectionID               string `json:"connection_id"`
-	ConnectionStatus           string `json:"connection_status"`
-	Enabled                    int32  `json:"enabled"`
-	PhysicalAdapter            int32  `json:"physical_adapter"`
-	Speed                      int32  `json:"speed"`
-	Service                    string `json:"service"`
-	DHCPEnabled                int32  `json:"dhcp_enabled"`
-	DHCPLeaseExpires           string `json:"dhcp_lease_expires"`
-	DHCPLeaseObtained          string `json:"dhcp_lease_obtained"`
-	DHCPServer                 string `json:"dhcp_server"`
-	DNSDomain                  string `json:"dns_domain"`
-	DNSDomainSuffixSearchOrder string `json:"dns_domain_suffix_search_order"`
-	DNSHostName                string `json:"dns_host_name"`
-	DNSServerSearchOrder       string `json:"dns_server_search_order"`
+// Column definitions for the interface_details table
+var columnDefs = map[string]string{
+	"interface":                      "string",
+	"mac":                            "string",
+	"type":                           "int32",
+	"mtu":                            "int32",
+	"metric":                         "int32",
+	"flags":                          "int32",
+	"ipackets":                       "int64",
+	"opackets":                       "int64",
+	"ibytes":                         "int64",
+	"obytes":                         "int64",
+	"ierrors":                        "int64",
+	"oerrors":                        "int64",
+	"idrops":                         "int64",
+	"odrops":                         "int64",
+	"collisions":                     "int64",
+	"last_change":                    "int64",
+	"friendly_name":                  "string",
+	"description":                    "string",
+	"manufacturer":                   "string",
+	"connection_id":                  "string",
+	"connection_status":              "string",
+	"enabled":                        "int32",
+	"physical_adapter":               "int32",
+	"service":                        "string",
+	"speed":                          "int32",
+	"dhcp_enabled":                   "int32",
+	"dhcp_lease_expires":             "string",
+	"dhcp_lease_obtained":            "string",
+	"dhcp_server":                    "string",
+	"dns_domain":                     "string",
+	"dns_domain_suffix_search_order": "string",
+	"dns_host_name":                  "string",
+	"dns_server_search_order":        "string",
 }
 
 func boolToInt32(b bool) int32 {
@@ -53,7 +56,12 @@ func boolToInt32(b bool) int32 {
 	return 0
 }
 
-func getInterfaceStats(detail *InterfaceDetail) error {
+func getInterfaceStats(ifDetail map[string]interface{}, ctx context.Context) error {
+	ifDesc, ok := ifDetail["description"].(string)
+	if !ok || !ctx.IsAnyOfColumnsUsed([]string{"ipackets", "opackets", "ibytes", "obytes", "ierrors", "oerrors", "idrops", "odrops"}) {
+		return nil
+	}
+
 	var dst []struct {
 		PacketsReceivedPerSec    string
 		PacketsSentPerSec        string
@@ -65,27 +73,54 @@ func getInterfaceStats(detail *InterfaceDetail) error {
 		PacketsOutboundDiscarded string
 	}
 
-	query := fmt.Sprintf("SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface WHERE Name = %q", detail.Description)
+	query := fmt.Sprintf("SELECT * FROM Win32_PerfRawData_Tcpip_NetworkInterface WHERE Name = %q", ifDesc)
 	err := wmi.Query(query, &dst)
 	if err != nil {
 		return fmt.Errorf("failed to query interface stats: %v", err)
 	}
 
 	if len(dst) > 0 {
-		detail.IPackets, _ = strconv.ParseInt(dst[0].PacketsReceivedPerSec, 10, 64)
-		detail.OPackets, _ = strconv.ParseInt(dst[0].PacketsSentPerSec, 10, 64)
-		detail.IBytes, _ = strconv.ParseInt(dst[0].BytesReceivedPerSec, 10, 64)
-		detail.OBytes, _ = strconv.ParseInt(dst[0].BytesSentPerSec, 10, 64)
-		detail.IErrors, _ = strconv.ParseInt(dst[0].PacketsReceivedErrors, 10, 64)
-		detail.OErrors, _ = strconv.ParseInt(dst[0].PacketsOutboundErrors, 10, 64)
-		detail.IDrops, _ = strconv.ParseInt(dst[0].PacketsReceivedDiscarded, 10, 64)
-		detail.ODrops, _ = strconv.ParseInt(dst[0].PacketsOutboundDiscarded, 10, 64)
+		if ctx.IsColumnUsed("ipackets") {
+			ifDetail["ipackets"], _ = strconv.ParseInt(dst[0].PacketsReceivedPerSec, 10, 64)
+		}
+		if ctx.IsColumnUsed("opackets") {
+			ifDetail["opackets"], _ = strconv.ParseInt(dst[0].PacketsSentPerSec, 10, 64)
+		}
+		if ctx.IsColumnUsed("ibytes") {
+			ifDetail["ibytes"], _ = strconv.ParseInt(dst[0].BytesReceivedPerSec, 10, 64)
+		}
+		if ctx.IsColumnUsed("obytes") {
+			ifDetail["obytes"], _ = strconv.ParseInt(dst[0].BytesSentPerSec, 10, 64)
+		}
+		if ctx.IsColumnUsed("ierrors") {
+			ifDetail["ierrors"], _ = strconv.ParseInt(dst[0].PacketsReceivedErrors, 10, 64)
+		}
+		if ctx.IsColumnUsed("oerrors") {
+			ifDetail["oerrors"], _ = strconv.ParseInt(dst[0].PacketsOutboundErrors, 10, 64)
+		}
+		if ctx.IsColumnUsed("idrops") {
+			ifDetail["idrops"], _ = strconv.ParseInt(dst[0].PacketsReceivedDiscarded, 10, 64)
+		}
+		if ctx.IsColumnUsed("odrops") {
+			ifDetail["odrops"], _ = strconv.ParseInt(dst[0].PacketsOutboundDiscarded, 10, 64)
+		}
 	}
 
 	return nil
 }
 
-func getAdapterDetails(detail *InterfaceDetail) error {
+func getAdapterDetails(ifDetail map[string]interface{}, ctx context.Context) error {
+	if !ctx.IsAnyOfColumnsUsed([]string{
+		"manufacturer", "connection_id", "connection_status", "enabled",
+		"physical_adapter", "service", "speed"}) {
+		return nil
+	}
+
+	ifIndex, err := strconv.ParseInt(ifDetail["interface"].(string), 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse interface index: %v", err)
+	}
+
 	var dst []struct {
 		Manufacturer        string
 		NetConnectionID     string
@@ -96,27 +131,51 @@ func getAdapterDetails(detail *InterfaceDetail) error {
 		Speed               uint64
 	}
 
-	ifIndex, _ := strconv.ParseInt(detail.Interface, 10, 64)
 	query := fmt.Sprintf("SELECT * FROM Win32_NetworkAdapter WHERE InterfaceIndex = %d", ifIndex)
-	err := wmi.Query(query, &dst)
+	err = wmi.Query(query, &dst)
 	if err != nil {
 		return fmt.Errorf("failed to query adapter details: %v", err)
 	}
 
 	if len(dst) > 0 {
-		detail.Manufacturer = dst[0].Manufacturer
-		detail.ConnectionID = dst[0].NetConnectionID
-		detail.ConnectionStatus = strconv.FormatUint(uint64(dst[0].NetConnectionStatus), 10)
-		detail.Enabled = boolToInt32(dst[0].NetEnabled)
-		detail.PhysicalAdapter = boolToInt32(dst[0].PhysicalAdapter)
-		detail.Service = dst[0].ServiceName
-		detail.Speed = int32(dst[0].Speed)
+		if ctx.IsColumnUsed("manufacturer") {
+			ifDetail["manufacturer"] = dst[0].Manufacturer
+		}
+		if ctx.IsColumnUsed("connection_id") {
+			ifDetail["connection_id"] = dst[0].NetConnectionID
+		}
+		if ctx.IsColumnUsed("connection_status") {
+			ifDetail["connection_status"] = strconv.FormatUint(uint64(dst[0].NetConnectionStatus), 10)
+		}
+		if ctx.IsColumnUsed("enabled") {
+			ifDetail["enabled"] = boolToInt32(dst[0].NetEnabled)
+		}
+		if ctx.IsColumnUsed("physical_adapter") {
+			ifDetail["physical_adapter"] = boolToInt32(dst[0].PhysicalAdapter)
+		}
+		if ctx.IsColumnUsed("service") {
+			ifDetail["service"] = dst[0].ServiceName
+		}
+		if ctx.IsColumnUsed("speed") {
+			ifDetail["speed"] = int32(dst[0].Speed)
+		}
 	}
 
 	return nil
 }
 
-func getDHCPAndDNSInfo(detail *InterfaceDetail) error {
+func getDHCPAndDNSInfo(ifDetail map[string]interface{}, ctx context.Context) error {
+	if !ctx.IsAnyOfColumnsUsed([]string{
+		"dhcp_enabled", "dhcp_lease_expires", "dhcp_lease_obtained", "dhcp_server",
+		"dns_domain", "dns_domain_suffix_search_order", "dns_host_name", "dns_server_search_order"}) {
+		return nil
+	}
+
+	ifIndex, err := strconv.ParseInt(ifDetail["interface"].(string), 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse interface index: %v", err)
+	}
+
 	var dst []struct {
 		DHCPEnabled                bool
 		DHCPLeaseExpires           string
@@ -128,28 +187,43 @@ func getDHCPAndDNSInfo(detail *InterfaceDetail) error {
 		DNSServerSearchOrder       []string
 	}
 
-	ifIndex, _ := strconv.ParseInt(detail.Interface, 10, 64)
 	query := fmt.Sprintf("SELECT * FROM Win32_NetworkAdapterConfiguration WHERE InterfaceIndex = %d", ifIndex)
-	err := wmi.Query(query, &dst)
+	err = wmi.Query(query, &dst)
 	if err != nil {
 		return fmt.Errorf("failed to query DHCP and DNS info: %v", err)
 	}
 
 	if len(dst) > 0 {
-		detail.DHCPEnabled = boolToInt32(dst[0].DHCPEnabled)
-		detail.DHCPLeaseExpires = dst[0].DHCPLeaseExpires
-		detail.DHCPLeaseObtained = dst[0].DHCPLeaseObtained
-		detail.DHCPServer = dst[0].DHCPServer
-		detail.DNSDomain = dst[0].DNSDomain
-		detail.DNSDomainSuffixSearchOrder = strings.Join(dst[0].DNSDomainSuffixSearchOrder, ", ")
-		detail.DNSHostName = dst[0].DNSHostName
-		detail.DNSServerSearchOrder = strings.Join(dst[0].DNSServerSearchOrder, ", ")
+		if ctx.IsColumnUsed("dhcp_enabled") {
+			ifDetail["dhcp_enabled"] = boolToInt32(dst[0].DHCPEnabled)
+		}
+		if ctx.IsColumnUsed("dhcp_lease_expires") {
+			ifDetail["dhcp_lease_expires"] = dst[0].DHCPLeaseExpires
+		}
+		if ctx.IsColumnUsed("dhcp_lease_obtained") {
+			ifDetail["dhcp_lease_obtained"] = dst[0].DHCPLeaseObtained
+		}
+		if ctx.IsColumnUsed("dhcp_server") {
+			ifDetail["dhcp_server"] = dst[0].DHCPServer
+		}
+		if ctx.IsColumnUsed("dns_domain") {
+			ifDetail["dns_domain"] = dst[0].DNSDomain
+		}
+		if ctx.IsColumnUsed("dns_domain_suffix_search_order") {
+			ifDetail["dns_domain_suffix_search_order"] = strings.Join(dst[0].DNSDomainSuffixSearchOrder, ", ")
+		}
+		if ctx.IsColumnUsed("dns_host_name") {
+			ifDetail["dns_host_name"] = dst[0].DNSHostName
+		}
+		if ctx.IsColumnUsed("dns_server_search_order") {
+			ifDetail["dns_server_search_order"] = strings.Join(dst[0].DNSServerSearchOrder, ", ")
+		}
 	}
 
 	return nil
 }
 
-func GenInterfaceDetails() ([]InterfaceDetail, error) {
+func GenInterfaceDetails(ctx context.Context) ([]map[string]interface{}, error) {
 	const (
 		maxBufferAllocRetries = 3
 		initialBufferSize     = 15000
@@ -180,38 +254,60 @@ func GenInterfaceDetails() ([]InterfaceDetail, error) {
 		return nil, fmt.Errorf("GetAdaptersAddresses failed after retries: %v", err)
 	}
 
-	var interfaces []InterfaceDetail
+	var interfaces []map[string]interface{}
 	current := (*windows.IpAdapterAddresses)(unsafe.Pointer(&result[0]))
 
 	for current != nil {
-		detail := InterfaceDetail{
-			Interface:   strconv.FormatInt(int64(current.IfIndex), 10),
-			MTU:         int32(current.Mtu),
-			Type:        int32(current.IfType),
-			Description: windows.UTF16PtrToString(current.Description),
-			Flags:       int32(current.Flags),
-			Metric:      int32(current.Ipv4Metric),
-			LastChange:  int64(-1),
-			Collisions:  int64(-1),
+		ifDetail := util.InitColumns(ctx, columnDefs)
+
+		// Basic interface details
+		if ctx.IsColumnUsed("interface") {
+			ifDetail["interface"] = strconv.FormatInt(int64(current.IfIndex), 10)
+		}
+		if ctx.IsColumnUsed("mtu") {
+			ifDetail["mtu"] = int32(current.Mtu)
+		}
+		if ctx.IsColumnUsed("type") {
+			ifDetail["type"] = int32(current.IfType)
+		}
+		if ctx.IsColumnUsed("description") {
+			ifDetail["description"] = windows.UTF16PtrToString(current.Description)
+		}
+		if ctx.IsColumnUsed("flags") {
+			ifDetail["flags"] = int32(current.Flags)
+		}
+		if ctx.IsColumnUsed("metric") {
+			ifDetail["metric"] = int32(current.Ipv4Metric)
+		}
+		if ctx.IsColumnUsed("last_change") {
+			ifDetail["last_change"] = int64(-1)
+		}
+		if ctx.IsColumnUsed("collisions") {
+			ifDetail["collisions"] = int64(-1)
 		}
 
 		// Convert physical address (MAC) to string
-		macBytes := make([]string, current.PhysicalAddressLength)
-		for i := uint32(0); i < current.PhysicalAddressLength; i++ {
-			macBytes[i] = fmt.Sprintf("%02x", current.PhysicalAddress[i])
+		if ctx.IsColumnUsed("mac") {
+			macBytes := make([]string, current.PhysicalAddressLength)
+			for i := uint32(0); i < current.PhysicalAddressLength; i++ {
+				macBytes[i] = fmt.Sprintf("%02x", current.PhysicalAddress[i])
+			}
+			ifDetail["mac"] = strings.Join(macBytes, ":")
 		}
-		detail.MAC = strings.Join(macBytes, ":")
 
-		// Get network interface statistics using WMI
-		_ = getInterfaceStats(&detail)
+		// Only get additional details if we have interface ID and there are columns that need them
+		if ifDetail["interface"] != nil {
+			// Get network interface statistics using WMI if needed
+			_ = getInterfaceStats(ifDetail, ctx)
 
-		// Get physical adapter details using WMI
-		_ = getAdapterDetails(&detail)
+			// Get physical adapter details using WMI if needed
+			_ = getAdapterDetails(ifDetail, ctx)
 
-		// Get DHCP and DNS information using WMI
-		_ = getDHCPAndDNSInfo(&detail)
+			// Get DHCP and DNS information using WMI if needed
+			_ = getDHCPAndDNSInfo(ifDetail, ctx)
+		}
 
-		interfaces = append(interfaces, detail)
+		interfaces = append(interfaces, ifDetail)
 		current = current.Next
 	}
 

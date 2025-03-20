@@ -7,52 +7,55 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 	"golang.org/x/sys/windows"
 )
 
-type Process struct {
-	PID     int64  `json:"pid"`
-	Name    string `json:"name"`
-	Path    string `json:"path"`
-	CMDLine string `json:"cmdline"`
-	State   string `json:"state"`
-	CWD     string `json:"cwd"`
-	Root    string `json:"root"`
-	// UID
-	// GID
-	// EUID
-	// EGID
-	// SUID
-	// SGID
-	OnDisk       int32 `json:"on_disk"`
-	WiredSize    int64 `json:"wired_size"`
-	ResidentSize int64 `json:"resident_size"`
-	TotalSize    int64 `json:"total_size"`
-	// UserTime
-	// SystemTime
-	DiskBytesRead    int64 `json:"disk_bytes_read"`
-	DiskBytesWritten int64 `json:"disk_bytes_written"`
-	// StartTime
-	Parent int64 `json:"parent"`
-	// Pgroup
-	Threads       int32 `json:"threads"`
-	Nice          int32 `json:"nice"`
-	ElevatedToken int32 `json:"elevated_token"`
-	// SecureProcess
-	// ProtectionType
-	// VirtualProcess
-	ElapsedTime int64 `json:"elapsed_time"`
-	HandleCount int64 `json:"handle_count"`
-	// PercentProcessorTime
-	// UPID
-	// UPPID
-	// CPUType
-	// CPUSubtype
-	// Translated
-	// CgroupPath
+// Column definitions for the processes table
+var columnDefs = map[string]string{
+	"pid":     "int64",
+	"name":    "string",
+	"path":    "string",
+	"cmdline": "string",
+	"state":   "string",
+	"cwd":     "string",
+	"root":    "string",
+	"uid":     "int64",
+	"gid":     "int64",
+	// "euid":                   "int64",
+	// "egid":                   "int64",
+	// "suid":                   "int64",
+	// "sgid":                   "int64",
+	"on_disk":       "int32",
+	"wired_size":    "int64",
+	"resident_size": "int64",
+	"total_size":    "int64",
+	// "user_time":              "int64",
+	// "system_time":            "int64",
+	"disk_bytes_read":    "int64",
+	"disk_bytes_written": "int64",
+	// "start_time":             "int64",
+	"parent": "int64",
+	// "pgroup":                 "int64",
+	"threads":        "int32",
+	"nice":           "int32",
+	"elevated_token": "int32",
+	// "secure_process":         "int32",
+	// "protection_type":        "string",
+	// "virtual_process":        "int32",
+	"elapsed_time": "int64",
+	"handle_count": "int64",
+	// "percent_processor_time": "int32",
 }
 
-type _PROCESS_MEMORY_COUNTERS_EX struct {
+// Process-related constants
+const (
+	STILL_ACTIVE = 259
+)
+
+// Windows-specific structs needed for API calls
+type PROCESS_MEMORY_COUNTERS_EX struct {
 	cb                         uint32
 	PageFaultCount             uint32
 	PeakWorkingSetSize         uint64
@@ -66,7 +69,7 @@ type _PROCESS_MEMORY_COUNTERS_EX struct {
 	PrivateUsage               uint64
 }
 
-type _IO_COUNTERS struct {
+type IO_COUNTERS struct {
 	ReadOperationCount  uint64
 	WriteOperationCount uint64
 	OtherOperationCount uint64
@@ -75,13 +78,9 @@ type _IO_COUNTERS struct {
 	OtherTransferCount  uint64
 }
 
-type _TOKEN_ELEVATION struct {
+type TOKEN_ELEVATION struct {
 	TokenIsElevated uint32
 }
-
-const (
-	STILL_ACTIVE = 259
-)
 
 var (
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
@@ -173,7 +172,7 @@ func getProcessWorkingDirectory(proc windows.Handle) (string, error) {
 }
 
 // getProcessRssInfo retrieves memory-related information about the calling process.
-func getProcessRssInfo(proc windows.Handle) (*_PROCESS_MEMORY_COUNTERS_EX, error) {
+func getProcessRssInfo(proc windows.Handle) (*PROCESS_MEMORY_COUNTERS_EX, error) {
 	// https://docs.microsoft.com/en-us/windows/win32/api/psapi/nf-psapi-getprocessmemoryinfo
 	modKernel32 := windows.NewLazySystemDLL("kernel32.dll")
 	procGetProcessMemoryInfo := modKernel32.NewProc("K32GetProcessMemoryInfo")
@@ -189,7 +188,7 @@ func getProcessRssInfo(proc windows.Handle) (*_PROCESS_MEMORY_COUNTERS_EX, error
 		return nil, fmt.Errorf("failed to get GetProcessMemoryInfo address")
 	}
 
-	var pmcEx _PROCESS_MEMORY_COUNTERS_EX
+	var pmcEx PROCESS_MEMORY_COUNTERS_EX
 	ret, _, _ := procGetProcessMemoryInfo.Call(
 		uintptr(proc),
 		uintptr(unsafe.Pointer(&pmcEx)), // _PROCESS_MEMORY_COUNTERS_EX
@@ -217,7 +216,7 @@ func isProcessElevated(proc windows.Handle) (bool, error) {
 	}
 
 	// Check if token is elevated
-	var elevation _TOKEN_ELEVATION
+	var elevation TOKEN_ELEVATION
 	var returnLength uint32
 	if err := windows.GetTokenInformation(
 		token,
@@ -250,119 +249,163 @@ func getProcessElapsedTime(proc windows.Handle) (uint64, error) {
 	return uint64(elapsedTime), nil
 }
 
-func getProcessDetails(procInfo Process) (Process, error) {
+// Collect detailed information about a process and populate the procInfo map
+func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) error {
+	processID := uint32(procInfo["pid"].(int64))
+
 	// Try to open process with PROCESS_ALL_ACCESS first
-	procHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, uint32(procInfo.PID))
+	procHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, processID)
 	if err != nil {
 		// If it fails, try with PROCESS_QUERY_LIMITED_INFORMATION
-		procHandle, err = windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(procInfo.PID))
+		procHandle, err = windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, processID)
 	}
 
-	if err != nil && procInfo.PID != 0 {
-		return procInfo, fmt.Errorf("failed to open process %d: %v", procInfo.PID, err)
+	if err != nil && processID != 0 {
+		return fmt.Errorf("failed to open process %d: %v", processID, err)
 	}
 
-	// Get process path
-	var pathBuf [windows.MAX_PATH]uint16
-	pathLen := uint32(len(pathBuf))
-	if err := windows.QueryFullProcessImageName(
-		procHandle,
-		0,
-		&pathBuf[0],
-		&pathLen); err == nil {
-		procInfo.Path = windows.UTF16ToString(pathBuf[:pathLen])
-	}
-
-	// Get command line
-	cmdline, err := getProcessCommandLine(procHandle)
-	if err == nil {
-		procInfo.CMDLine = cmdline
-	}
-
-	// Get process state
-	var exitCode uint32
-	if err := windows.GetExitCodeProcess(procHandle, &exitCode); err == nil {
-		if exitCode == STILL_ACTIVE {
-			procInfo.State = "STILL_ACTIVE"
-		} else {
-			procInfo.State = "EXITED"
+	if ctx.IsColumnUsed("path") {
+		// Get process path
+		var pathBuf [windows.MAX_PATH]uint16
+		pathLen := uint32(len(pathBuf))
+		if err := windows.QueryFullProcessImageName(
+			procHandle,
+			0,
+			&pathBuf[0],
+			&pathLen); err == nil {
+			procInfo["path"] = windows.UTF16ToString(pathBuf[:pathLen])
 		}
 	}
 
-	// Get working directory
-	cwd, err := getProcessWorkingDirectory(procHandle)
-	if err == nil {
-		procInfo.CWD = cwd
-	}
-
-	// Get process root directory
-	procInfo.Root = procInfo.CWD
-
-	// Check if process is on disk
-	if _, err := os.Stat(procInfo.Path); err == nil {
-		procInfo.OnDisk = 1
-	}
-
-	// Get process memory info
-	pmc, err := getProcessRssInfo(procHandle)
-	if err == nil {
-		procInfo.WiredSize = int64(pmc.QuotaNonPagedPoolUsage)
-		procInfo.ResidentSize = int64(pmc.WorkingSetSize)
-		procInfo.TotalSize = int64(pmc.PrivateUsage)
-	}
-
-	// Get disk bytes read and written
-	var ioCounters _IO_COUNTERS
-	processIoCounters := kernel32.NewProc("GetProcessIoCounters")
-	if ret, _, _ := processIoCounters.Call(
-		uintptr(procHandle),
-		uintptr(unsafe.Pointer(&ioCounters))); ret != 0 {
-		procInfo.DiskBytesRead = int64(ioCounters.ReadTransferCount)
-		procInfo.DiskBytesWritten = int64(ioCounters.WriteTransferCount)
-	}
-
-	// Get nice value
-	nice, err := windows.GetPriorityClass(procHandle)
-	if err == nil {
-		procInfo.Nice = int32(nice)
-	}
-
-	// Get elevated token
-	elevated, err := isProcessElevated(procHandle)
-	if err == nil {
-		if elevated {
-			procInfo.ElevatedToken = 1
-		} else {
-			procInfo.ElevatedToken = 0
+	if ctx.IsColumnUsed("cmdline") {
+		// Get command line
+		cmdline, err := getProcessCommandLine(procHandle)
+		if err == nil {
+			procInfo["cmdline"] = cmdline
 		}
 	}
 
-	// Get elapsed time
-	elapsedTime, err := getProcessElapsedTime(procHandle)
-	if err == nil {
-		procInfo.ElapsedTime = int64(elapsedTime)
+	if ctx.IsColumnUsed("state") {
+		// Get process state
+		var exitCode uint32
+		if err := windows.GetExitCodeProcess(procHandle, &exitCode); err == nil {
+			if exitCode == STILL_ACTIVE {
+				procInfo["state"] = "STILL_ACTIVE"
+			} else {
+				procInfo["state"] = "EXITED"
+			}
+		}
 	}
 
-	// Get handle count
-	var handleCount uint32
-	procGetProcessHandleCount := kernel32.NewProc("GetProcessHandleCount")
-	if ret, _, _ := procGetProcessHandleCount.Call(uintptr(procHandle), uintptr(unsafe.Pointer(&handleCount))); ret != 0 {
-		procInfo.HandleCount = int64(handleCount)
+	if ctx.IsColumnUsed("cwd") {
+		// Get working directory
+		cwd, err := getProcessWorkingDirectory(procHandle)
+		if err == nil {
+			procInfo["cwd"] = cwd
+		}
+	}
+
+	if ctx.IsColumnUsed("root") {
+		// Get process root directory
+		if cwd, ok := procInfo["cwd"].(string); ok {
+			procInfo["root"] = cwd
+		}
+	}
+
+	if ctx.IsColumnUsed("on_disk") {
+		// Check if process is on disk
+		if path, ok := procInfo["path"].(string); ok {
+			if _, err := os.Stat(path); err == nil {
+				procInfo["on_disk"] = int32(1)
+			} else {
+				procInfo["on_disk"] = int32(0)
+			}
+		}
+	}
+
+	if ctx.IsAnyOfColumnsUsed([]string{"wired_size", "resident_size", "total_size"}) {
+		// Get process memory info
+		pmc, err := getProcessRssInfo(procHandle)
+		if err == nil {
+			if ctx.IsColumnUsed("wired_size") {
+				procInfo["wired_size"] = int64(pmc.QuotaNonPagedPoolUsage)
+			}
+			if ctx.IsColumnUsed("resident_size") {
+				procInfo["resident_size"] = int64(pmc.WorkingSetSize)
+			}
+			if ctx.IsColumnUsed("total_size") {
+				procInfo["total_size"] = int64(pmc.PrivateUsage)
+			}
+		}
+	}
+
+	if ctx.IsAnyOfColumnsUsed([]string{"disk_bytes_read", "disk_bytes_written"}) {
+		// Get disk bytes read and written
+		var ioCounters IO_COUNTERS
+		processIoCounters := kernel32.NewProc("GetProcessIoCounters")
+		if ret, _, _ := processIoCounters.Call(
+			uintptr(procHandle),
+			uintptr(unsafe.Pointer(&ioCounters))); ret != 0 {
+			if ctx.IsColumnUsed("disk_bytes_read") {
+				procInfo["disk_bytes_read"] = int64(ioCounters.ReadTransferCount)
+			}
+			if ctx.IsColumnUsed("disk_bytes_written") {
+				procInfo["disk_bytes_written"] = int64(ioCounters.WriteTransferCount)
+			}
+		}
+	}
+
+	if ctx.IsColumnUsed("nice") {
+		// Get nice value
+		nice, err := windows.GetPriorityClass(procHandle)
+		if err == nil {
+			procInfo["nice"] = int32(nice)
+		}
+	}
+
+	if ctx.IsColumnUsed("elevated_token") {
+		// Get elevated token
+		elevated, err := isProcessElevated(procHandle)
+		if err == nil {
+			if elevated {
+				procInfo["elevated_token"] = int32(1)
+			} else {
+				procInfo["elevated_token"] = int32(0)
+			}
+		}
+	}
+
+	if ctx.IsColumnUsed("elapsed_time") {
+		// Get elapsed time
+		elapsedTime, err := getProcessElapsedTime(procHandle)
+		if err == nil {
+			procInfo["elapsed_time"] = int64(elapsedTime)
+		}
+	}
+
+	if ctx.IsColumnUsed("handle_count") {
+		// Get handle count
+		var handleCount uint32
+		procGetProcessHandleCount := kernel32.NewProc("GetProcessHandleCount")
+		if ret, _, _ := procGetProcessHandleCount.Call(uintptr(procHandle), uintptr(unsafe.Pointer(&handleCount))); ret != 0 {
+			procInfo["handle_count"] = int64(handleCount)
+		}
 	}
 
 	windows.CloseHandle(procHandle)
 
-	return procInfo, nil
+	return nil
 }
 
-func GenProcesses() ([]Process, error) {
+// GenProcesses returns information about all processes as a slice of maps
+func GenProcesses(ctx context.Context) ([]map[string]interface{}, error) {
 	procs, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPALL, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot: %v", err)
 	}
 	defer windows.CloseHandle(procs)
 
-	var processes []Process
+	var processes []map[string]interface{}
 	var pe32 windows.ProcessEntry32
 	pe32.Size = uint32(unsafe.Sizeof(pe32))
 
@@ -373,18 +416,32 @@ func GenProcesses() ([]Process, error) {
 	}
 
 	for {
-		procInfo := Process{
-			PID:     int64(pe32.ProcessID),
-			Parent:  int64(pe32.ParentProcessID),
-			Name:    windows.UTF16ToString(pe32.ExeFile[:]),
-			Threads: int32(pe32.Threads),
+		// Create a new map for the process
+		procInfo := make(map[string]interface{})
+
+		// Initialize all requested columns with default values
+		procInfo = util.InitColumns(ctx, columnDefs)
+
+		if ctx.IsColumnUsed("pid") {
+			procInfo["pid"] = int64(pe32.ProcessID)
+		}
+		if ctx.IsColumnUsed("parent") {
+			procInfo["parent"] = int64(pe32.ParentProcessID)
+		}
+		if ctx.IsColumnUsed("name") {
+			procInfo["name"] = windows.UTF16ToString(pe32.ExeFile[:])
+		}
+		if ctx.IsColumnUsed("threads") {
+			procInfo["threads"] = int32(pe32.Threads)
 		}
 
-		procInfo, err = getProcessDetails(procInfo)
+		// Get additional process details
+		err = getProcessDetails(ctx, procInfo)
 		if err != nil {
 			log.Printf("Failed to get process details: %v", err)
 		}
 
+		// Add process to the results
 		processes = append(processes, procInfo)
 
 		// Get next process

@@ -91,7 +91,7 @@ func (e *BaseExecutor) EvaluateComparison(row map[string]interface{}, expr *sqlp
 		return e.GreaterThan(fieldValue, targetValue) || e.Equals(fieldValue, targetValue)
 	case "<=":
 		return e.LessThan(fieldValue, targetValue) || e.Equals(fieldValue, targetValue)
-	case "LIKE":
+	case "like":
 		return e.MatchesLike(fieldValue, targetValue)
 	default:
 		return false
@@ -115,7 +115,14 @@ func (e *BaseExecutor) Equals(a, b interface{}) bool {
 		return strings.EqualFold(aStr, bStr)
 	}
 
-	// Handle numeric comparison
+	// Handle numeric comparison for integer types of different sizes
+	aFloat, aIsNum := e.toFloat64(a)
+	bFloat, bIsNum := e.toFloat64(b)
+	if aIsNum && bIsNum {
+		return aFloat == bFloat
+	}
+
+	// Default comparison
 	return a == b
 }
 
@@ -225,6 +232,7 @@ func (e *BaseExecutor) toFloat64(v interface{}) (float64, bool) {
 }
 
 // GetSelectedColumns extracts the column names from a SELECT statement
+// Returns an empty slice for SELECT * queries
 func (e *BaseExecutor) GetSelectedColumns(selectExprs sqlparser.SelectExprs) []string {
 	var columns []string
 
@@ -242,7 +250,7 @@ func (e *BaseExecutor) GetSelectedColumns(selectExprs sqlparser.SelectExprs) []s
 			}
 		case *sqlparser.StarExpr:
 			// Handle * expression (all columns)
-			return nil // nil indicates all columns
+			return []string{} // Return empty slice to represent all columns
 		}
 	}
 
@@ -253,7 +261,7 @@ func (e *BaseExecutor) GetSelectedColumns(selectExprs sqlparser.SelectExprs) []s
 // If columns is nil, all columns are included (SELECT *)
 func (e *BaseExecutor) ProjectRow(row map[string]interface{}, columns []string) map[string]interface{} {
 	// If no specific columns are requested or empty list, return the whole row
-	if columns == nil || len(columns) == 0 {
+	if len(columns) == 0 {
 		return row
 	}
 

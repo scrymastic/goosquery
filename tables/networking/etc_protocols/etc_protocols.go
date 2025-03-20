@@ -7,14 +7,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 	"golang.org/x/sys/windows"
 )
 
-type EtcProtocol struct {
-	Name    string `json:"name"`
-	Number  uint32 `json:"number"`
-	Alias   string `json:"alias"`
-	Comment string `json:"comment"`
+// Column definitions for the etc_protocols table
+var columnDefs = map[string]string{
+	"name":    "string",
+	"number":  "int32",
+	"alias":   "string",
+	"comment": "string",
 }
 
 func getSystemRoot() string {
@@ -25,14 +28,14 @@ func getSystemRoot() string {
 	return systemRoot
 }
 
-func parseProtocolsFile(path string) ([]EtcProtocol, error) {
+func parseProtocolsFile(path string, ctx context.Context) ([]map[string]interface{}, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("error opening protocols file: %w", err)
 	}
 	defer file.Close()
 
-	var protocols []EtcProtocol
+	var protocols []map[string]interface{}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -51,22 +54,34 @@ func parseProtocolsFile(path string) ([]EtcProtocol, error) {
 			continue
 		}
 
-		protocol := EtcProtocol{
-			Name:   protocolInfo[0],
-			Number: 0, // Will be converted from string
+		protocol := util.InitColumns(ctx, columnDefs)
+
+		if ctx.IsColumnUsed("name") {
+			protocol["name"] = protocolInfo[0]
 		}
 
 		// Parse protocol number
-		fmt.Sscanf(protocolInfo[1], "%d", &protocol.Number)
+		var number uint32
+		fmt.Sscanf(protocolInfo[1], "%d", &number)
+
+		if ctx.IsColumnUsed("number") {
+			protocol["number"] = number
+		}
 
 		// Get alias if exists
-		if len(protocolInfo) > 2 {
-			protocol.Alias = protocolInfo[2]
+		if ctx.IsColumnUsed("alias") && len(protocolInfo) > 2 {
+			protocol["alias"] = protocolInfo[2]
+		} else if ctx.IsColumnUsed("alias") {
+			protocol["alias"] = ""
 		}
 
 		// Get comment if exists
-		if len(parts) > 1 {
-			protocol.Comment = strings.TrimSpace(parts[1])
+		if ctx.IsColumnUsed("comment") {
+			if len(parts) > 1 {
+				protocol["comment"] = strings.TrimSpace(parts[1])
+			} else {
+				protocol["comment"] = ""
+			}
 		}
 
 		protocols = append(protocols, protocol)
@@ -80,10 +95,10 @@ func parseProtocolsFile(path string) ([]EtcProtocol, error) {
 }
 
 // GenEtcProtocols retrieves the contents of the protocols file from the system.
-// It returns a slice of EtcProtocol and an error if the operation fails.
-func GenEtcProtocols() ([]EtcProtocol, error) {
+// It returns a slice of map[string]interface{} and an error if the operation fails.
+func GenEtcProtocols(ctx context.Context) ([]map[string]interface{}, error) {
 	protocolsPath := filepath.Join(getSystemRoot(), "System32", "drivers", "etc", "protocol")
-	protocols, err := parseProtocolsFile(protocolsPath)
+	protocols, err := parseProtocolsFile(protocolsPath, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error parsing protocols file: %w", err)
 	}

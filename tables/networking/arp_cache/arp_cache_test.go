@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenARPCache(t *testing.T) {
-	entries, err := GenARPCache()
+	entries, err := GenARPCache(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get ARP entries: %v", err)
 	}

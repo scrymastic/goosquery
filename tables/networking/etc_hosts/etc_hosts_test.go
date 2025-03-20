@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenEtcHosts(t *testing.T) {
-	entries, err := GenEtcHosts()
+	entries, err := GenEtcHosts(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get hosts entries: %v", err)
 	}
@@ -22,11 +24,11 @@ func TestGenEtcHosts(t *testing.T) {
 
 	// Basic validation of entries
 	for i, entry := range entries {
-		if entry.Address == "" {
-			t.Errorf("Entry %d has empty address", i)
+		if address, ok := entry["address"]; !ok || address.(string) == "" {
+			t.Errorf("Entry %d has empty or missing address", i)
 		}
-		if entry.Hostnames == "" {
-			t.Errorf("Entry %d has empty hostnames", i)
+		if hostnames, ok := entry["hostnames"]; !ok || hostnames.(string) == "" {
+			t.Errorf("Entry %d has empty or missing hostnames", i)
 		}
 	}
 }

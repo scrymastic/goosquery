@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenProcesses(t *testing.T) {
-	processes, err := GenProcesses()
+	processes, err := GenProcesses(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get processes: %v", err)
 	}
@@ -23,13 +25,13 @@ func TestGenProcesses(t *testing.T) {
 }
 
 func TestGetNotepadProcess(t *testing.T) {
-	processes, err := GenProcesses()
+	processes, err := GenProcesses(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get processes: %v", err)
 	}
 
 	for _, process := range processes {
-		if process.Path == "C:\\Windows\\System32\\notepad.exe" {
+		if process["path"] == "C:\\Windows\\System32\\notepad.exe" {
 			jsonData, err := json.MarshalIndent(process, "", "  ")
 			if err != nil {
 				t.Fatalf("Failed to marshal process: %v", err)

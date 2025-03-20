@@ -7,13 +7,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 	"golang.org/x/sys/windows"
 )
 
-// HostEntry represents a single hosts file entry
-type HostEntry struct {
-	Address   string `json:"address"`
-	Hostnames string `json:"hostnames"`
+// Column definitions for the etc_hosts table
+var columnDefs = map[string]string{
+	"address":   "string",
+	"hostnames": "string",
 }
 
 func getSystemRoot() string {
@@ -24,14 +26,14 @@ func getSystemRoot() string {
 	return systemRoot
 }
 
-func parseHostsFile(path string) ([]HostEntry, error) {
+func parseHostsFile(path string, ctx context.Context) ([]map[string]interface{}, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	var entries []HostEntry
+	var entries []map[string]interface{}
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -61,10 +63,17 @@ func parseHostsFile(path string) ([]HostEntry, error) {
 		}
 
 		if len(hostnames) > 0 {
-			entries = append(entries, HostEntry{
-				Address:   address,
-				Hostnames: strings.Join(hostnames, " "),
-			})
+			entry := util.InitColumns(ctx, columnDefs)
+
+			if ctx.IsColumnUsed("address") {
+				entry["address"] = address
+			}
+
+			if ctx.IsColumnUsed("hostnames") {
+				entry["hostnames"] = strings.Join(hostnames, " ")
+			}
+
+			entries = append(entries, entry)
 		}
 	}
 
@@ -76,8 +85,8 @@ func parseHostsFile(path string) ([]HostEntry, error) {
 }
 
 // GenEtcHosts retrieves the contents of the hosts file from the system.
-// It returns a slice of HostEntry and an error if the operation fails.
-func GenEtcHosts() ([]HostEntry, error) {
+// It returns a slice of map[string]interface{} and an error if the operation fails.
+func GenEtcHosts(ctx context.Context) ([]map[string]interface{}, error) {
 	// Get Windows system root
 	sysRoot := getSystemRoot()
 
@@ -86,13 +95,13 @@ func GenEtcHosts() ([]HostEntry, error) {
 	hostsIcsPath := filepath.Join(sysRoot, "System32", "drivers", "etc", "hosts.ics")
 
 	// Read and parse main hosts file
-	entries, err := parseHostsFile(hostsPath)
+	entries, err := parseHostsFile(hostsPath, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error reading hosts file: %w", err)
 	}
 
 	// Read and parse ICS hosts file if it exists
-	icsEntries, err := parseHostsFile(hostsIcsPath)
+	icsEntries, err := parseHostsFile(hostsIcsPath, ctx)
 	if err == nil {
 		entries = append(entries, icsEntries...)
 	}

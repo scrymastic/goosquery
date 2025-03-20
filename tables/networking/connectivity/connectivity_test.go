@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenConnectivity(t *testing.T) {
-	connectivity, err := GenConnectivity()
+	connectivity, err := GenConnectivity(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get connectivity status: %v", err)
 	}

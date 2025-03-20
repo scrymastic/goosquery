@@ -4,7 +4,22 @@ import (
 	"fmt"
 
 	"github.com/go-ole/go-ole"
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 )
+
+// Column definitions for the connectivity table
+var columnDefs = map[string]string{
+	"disconnected":       "int32",
+	"ipv4_no_traffic":    "int32",
+	"ipv6_no_traffic":    "int32",
+	"ipv4_subnet":        "int32",
+	"ipv4_local_network": "int32",
+	"ipv4_internet":      "int32",
+	"ipv6_subnet":        "int32",
+	"ipv6_local_network": "int32",
+	"ipv6_internet":      "int32",
+}
 
 // Connectivity flag constants (from netlistmgr.h)
 const (
@@ -25,19 +40,6 @@ var (
 	IID_INetworkListManager  = ole.NewGUID("{DCB00001-570F-4A9B-8D69-199FDBA5723B}")
 )
 
-// Connectivity represents the network connectivity state
-type Connectivity struct {
-	Disconnected     int32 `json:"disconnected"`
-	IPv4NoTraffic    int32 `json:"ipv4_no_traffic"`
-	IPv6NoTraffic    int32 `json:"ipv6_no_traffic"`
-	IPv4Subnet       int32 `json:"ipv4_subnet"`
-	IPv4LocalNetwork int32 `json:"ipv4_local_network"`
-	IPv4Internet     int32 `json:"ipv4_internet"`
-	IPv6Subnet       int32 `json:"ipv6_subnet"`
-	IPv6LocalNetwork int32 `json:"ipv6_local_network"`
-	IPv6Internet     int32 `json:"ipv6_internet"`
-}
-
 func boolToInt32(b bool) int32 {
 	if b {
 		return 1
@@ -46,8 +48,8 @@ func boolToInt32(b bool) int32 {
 }
 
 // GenConnectivity initializes COM, creates the NetworkListManager instance,
-// retrieves connectivity flags, and returns the result in a slice.
-func GenConnectivity() ([]Connectivity, error) {
+// retrieves connectivity flags, and returns the result in a slice of maps.
+func GenConnectivity(ctx context.Context) ([]map[string]interface{}, error) {
 	// Initialize COM.
 	err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
 	if err != nil {
@@ -76,17 +78,37 @@ func GenConnectivity() ([]Connectivity, error) {
 	// Get the connectivity value directly as an integer
 	flag := uint32(connectivityVariant.Val)
 
-	connectivity := Connectivity{
-		Disconnected:     boolToInt32(flag&NLM_CONNECTIVITY_DISCONNECTED != 0),
-		IPv4NoTraffic:    boolToInt32(flag&NLM_CONNECTIVITY_IPV4_NOTRAFFIC != 0),
-		IPv6NoTraffic:    boolToInt32(flag&NLM_CONNECTIVITY_IPV6_NOTRAFFIC != 0),
-		IPv4Subnet:       boolToInt32(flag&NLM_CONNECTIVITY_IPV4_SUBNET != 0),
-		IPv4LocalNetwork: boolToInt32(flag&NLM_CONNECTIVITY_IPV4_LOCALNETWORK != 0),
-		IPv4Internet:     boolToInt32(flag&NLM_CONNECTIVITY_IPV4_INTERNET != 0),
-		IPv6Subnet:       boolToInt32(flag&NLM_CONNECTIVITY_IPV6_SUBNET != 0),
-		IPv6LocalNetwork: boolToInt32(flag&NLM_CONNECTIVITY_IPV6_LOCALNETWORK != 0),
-		IPv6Internet:     boolToInt32(flag&NLM_CONNECTIVITY_IPV6_INTERNET != 0),
+	// Create a map instead of a struct
+	connectivityMap := util.InitColumns(ctx, columnDefs)
+
+	// Populate map based on requested columns
+	if ctx.IsColumnUsed("disconnected") {
+		connectivityMap["disconnected"] = boolToInt32(flag&NLM_CONNECTIVITY_DISCONNECTED != 0)
+	}
+	if ctx.IsColumnUsed("ipv4_no_traffic") {
+		connectivityMap["ipv4_no_traffic"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV4_NOTRAFFIC != 0)
+	}
+	if ctx.IsColumnUsed("ipv6_no_traffic") {
+		connectivityMap["ipv6_no_traffic"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV6_NOTRAFFIC != 0)
+	}
+	if ctx.IsColumnUsed("ipv4_subnet") {
+		connectivityMap["ipv4_subnet"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV4_SUBNET != 0)
+	}
+	if ctx.IsColumnUsed("ipv4_local_network") {
+		connectivityMap["ipv4_local_network"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV4_LOCALNETWORK != 0)
+	}
+	if ctx.IsColumnUsed("ipv4_internet") {
+		connectivityMap["ipv4_internet"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV4_INTERNET != 0)
+	}
+	if ctx.IsColumnUsed("ipv6_subnet") {
+		connectivityMap["ipv6_subnet"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV6_SUBNET != 0)
+	}
+	if ctx.IsColumnUsed("ipv6_local_network") {
+		connectivityMap["ipv6_local_network"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV6_LOCALNETWORK != 0)
+	}
+	if ctx.IsColumnUsed("ipv6_internet") {
+		connectivityMap["ipv6_internet"] = boolToInt32(flag&NLM_CONNECTIVITY_IPV6_INTERNET != 0)
 	}
 
-	return []Connectivity{connectivity}, nil
+	return []map[string]interface{}{connectivityMap}, nil
 }

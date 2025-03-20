@@ -5,14 +5,25 @@ import (
 	"fmt"
 	"testing"
 	"unsafe"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGetRoutes(t *testing.T) {
-	routes, err := GenRoutes()
+	// Create context with all columns used
+	ctx := context.Context{}
+	// Add all possible columns to ensure they're all included in test
+	ctx.Columns = []string{
+		"destination", "netmask", "gateway", "source",
+		"flags", "interface", "mtu", "metric", "type",
+	}
+
+	routes, err := GenRoutes(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get routes: %v", err)
 	}
 
+	// Print results as JSON
 	jsonData, err := json.MarshalIndent(routes, "", "  ")
 	if err != nil {
 		t.Fatalf("Failed to marshal routes to JSON: %v", err)

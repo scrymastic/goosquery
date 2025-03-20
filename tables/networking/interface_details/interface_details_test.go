@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenInterfaceDetails(t *testing.T) {
-	interfaces, err := GenInterfaceDetails()
+	interfaces, err := GenInterfaceDetails(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get interface details: %v", err)
 	}

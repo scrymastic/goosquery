@@ -4,10 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenWindowsFirewallRules(t *testing.T) {
-	rules, err := GenWindowsFirewallRules()
+	// Create context with all columns used
+	ctx := context.Context{}
+	// Add all possible columns to ensure they're all included in test
+	ctx.Columns = []string{
+		"name", "app_name", "action", "enabled", "grouping",
+		"direction", "protocol", "local_addresses", "remote_addresses",
+		"local_ports", "remote_ports", "icmp_types_codes",
+		"profile_domain", "profile_private", "profile_public", "service_name",
+	}
+
+	rules, err := GenWindowsFirewallRules(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get Windows Firewall Rules: %v", err)
 	}
@@ -22,14 +34,14 @@ func TestGenWindowsFirewallRules(t *testing.T) {
 
 	// Basic validation of the returned data
 	for i, rule := range rules {
-		if rule.Name == "" {
-			t.Errorf("Rule %d: Name is empty", i)
+		if name, ok := rule["name"].(string); !ok || name == "" {
+			t.Errorf("Rule %d: Name is empty or not a string", i)
 		}
-		if rule.Direction != "In" && rule.Direction != "Out" {
-			t.Errorf("Rule %d: Invalid direction '%s', expected 'In' or 'Out'", i, rule.Direction)
+		if direction, ok := rule["direction"].(string); !ok || (direction != "In" && direction != "Out") {
+			t.Errorf("Rule %d: Invalid direction '%v', expected 'In' or 'Out'", i, rule["direction"])
 		}
-		if rule.Action != "Allow" && rule.Action != "Block" {
-			t.Errorf("Rule %d: Invalid action '%s', expected 'Allow' or 'Block'", i, rule.Action)
+		if action, ok := rule["action"].(string); !ok || (action != "Allow" && action != "Block") {
+			t.Errorf("Rule %d: Invalid action '%v', expected 'Allow' or 'Block'", i, rule["action"])
 		}
 	}
 }

@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/util"
 	"golang.org/x/sys/windows/registry"
 )
 
-type DefaultEnvironment struct {
-	Variable string
-	Value    string
-	Expand   int32
+// Column definitions for the default_environment table
+var columnDefs = map[string]string{
+	"variable": "string",
+	"value":    "string",
+	"expand":   "int32",
 }
 
 const (
@@ -25,8 +28,8 @@ func boolToInt32(b bool) int32 {
 }
 
 // GenDefaultEnvironments retrieves system environment variables from the Windows Registry
-func GenDefaultEnvironments() ([]DefaultEnvironment, error) {
-	var results []DefaultEnvironment
+func GenDefaultEnvironments(ctx context.Context) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
 
 	// Open the Registry key
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE,
@@ -52,12 +55,21 @@ func GenDefaultEnvironments() ([]DefaultEnvironment, error) {
 			continue
 		}
 
-		// Create environment variable entry
-		envVar := DefaultEnvironment{
-			Variable: name,
-			Value:    value,
-			Expand:   boolToInt32(valueType == registry.EXPAND_SZ),
+		// Initialize all requested columns with default values
+		envVar := util.InitColumns(ctx, columnDefs)
+
+		if ctx.IsColumnUsed("variable") {
+			envVar["variable"] = name
 		}
+
+		if ctx.IsColumnUsed("value") {
+			envVar["value"] = value
+		}
+
+		if ctx.IsColumnUsed("expand") {
+			envVar["expand"] = boolToInt32(valueType == registry.EXPAND_SZ)
+		}
+
 		results = append(results, envVar)
 	}
 
