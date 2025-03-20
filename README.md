@@ -60,7 +60,7 @@ In interactive mode, you can use the following commands:
 
 ```bash
 # Execute a query directly from the command line
-goosquery -q "SELECT * FROM processes LIMIT 5"
+goosquery -q "SELECT * FROM processes"
 
 # Execute a query and output as JSON
 goosquery -q "SELECT name, pid FROM processes" -json
