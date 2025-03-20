@@ -49,7 +49,7 @@ goosquery -i -json
 In interactive mode, you can use the following commands:
 
 ```
-.quit - Exit the program
+.quit        - Exit the program
 .json        - Switch to JSON output mode
 .table       - Switch to table output mode  
 .mode        - Show current output mode
