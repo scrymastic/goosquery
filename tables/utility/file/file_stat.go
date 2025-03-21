@@ -9,33 +9,10 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/scrymastic/goosquery/sql/context"
+
 	"golang.org/x/sys/windows"
 )
-
-type FileStat struct {
-	Path             string `json:"path"`
-	Filename         string `json:"filename"`
-	Symlink          int32  `json:"symlink"`
-	FileID           string `json:"file_id"`
-	Inode            int64  `json:"inode"`
-	UID              int64  `json:"uid"`
-	GID              int64  `json:"gid"`
-	Mode             string `json:"mode"`
-	Device           int64  `json:"device"`
-	Size             int64  `json:"size"`
-	BlockSize        int32  `json:"block_size"`
-	Atime            int64  `json:"atime"`
-	Mtime            int64  `json:"mtime"`
-	Ctime            int64  `json:"ctime"`
-	Btime            int64  `json:"btime"`
-	HardLinks        int32  `json:"hard_links"`
-	Type             string `json:"type"`
-	Attributes       string `json:"attributes"`
-	VolumeSerial     string `json:"volume_serial"`
-	ProductVersion   string `json:"product_version"`
-	FileVersion      string `json:"file_version"`
-	OriginalFilename string `json:"original_filename"`
-}
 
 type FILE_BASIC_INFO struct {
 	CreationTime   windows.Filetime
@@ -263,12 +240,11 @@ func getOriginalFilename(path string) (string, error) {
 }
 
 // GetFileStat retrieves detailed file information
-func GetFileStat(path string) (*FileStat, error) {
-	fileStat := &FileStat{}
+func GetFileStat(ctx context.Context, path string, fileStat *map[string]interface{}) error {
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get file info: %w", err)
+		return fmt.Errorf("failed to get file info: %w", err)
 	}
 
 	FLAGS_AND_ATTRIBUTES := windows.FILE_ATTRIBUTE_ARCHIVE |
@@ -280,15 +256,14 @@ func GetFileStat(path string) (*FileStat, error) {
 	if fileInfo.IsDir() {
 		FLAGS_AND_ATTRIBUTES |= windows.FILE_FLAG_BACKUP_SEMANTICS
 	}
-
-	fileStat.Path = path
-	fileStat.Filename = fileInfo.Name()
-	fileStat.Size = int64(fileInfo.Size())
-	fileStat.Mode = fileInfo.Mode().String()
-	winAttr := fileInfo.Sys().(*syscall.Win32FileAttributeData)
-	fileStat.Atime = (*windows.Filetime)(&winAttr.LastAccessTime).Nanoseconds() / 1e9
-	fileStat.Mtime = (*windows.Filetime)(&winAttr.LastWriteTime).Nanoseconds() / 1e9
-	fileStat.Btime = (*windows.Filetime)(&winAttr.CreationTime).Nanoseconds() / 1e9
+	if ctx.IsColumnUsed("atime") {
+		winAttr := fileInfo.Sys().(*syscall.Win32FileAttributeData)
+		(*fileStat)["atime"] = (*windows.Filetime)(&winAttr.LastAccessTime).Nanoseconds() / 1e9
+	}
+	if ctx.IsColumnUsed("btime") {
+		winAttr := fileInfo.Sys().(*syscall.Win32FileAttributeData)
+		(*fileStat)["btime"] = (*windows.Filetime)(&winAttr.CreationTime).Nanoseconds() / 1e9
+	}
 
 	hFile, err := windows.CreateFile(
 		windows.StringToUTF16Ptr(path),
@@ -300,7 +275,7 @@ func GetFileStat(path string) (*FileStat, error) {
 		windows.Handle(0),
 	)
 	if hFile == windows.InvalidHandle {
-		return nil, fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to create file: %w", err)
 	}
 	defer windows.CloseHandle(hFile)
 
@@ -320,83 +295,119 @@ func GetFileStat(path string) (*FileStat, error) {
 	defer windows.LocalFree(windows.Handle(uintptr(unsafe.Pointer(securityDescriptor))))
 
 	if windows.Errno(ret) != windows.ERROR_SUCCESS {
-		return nil, fmt.Errorf("failed to get security info: %w", err)
+		return fmt.Errorf("failed to get security info: %w", err)
 	}
 
 	byHandleFileInfo := &windows.ByHandleFileInformation{}
 
 	if err := windows.GetFileInformationByHandle(hFile, byHandleFileInfo); err != nil {
-		return nil, fmt.Errorf("failed to get file information: %w", err)
+		return fmt.Errorf("failed to get file information: %w", err)
 	}
 
-	fileStat.FileID = fmt.Sprintf("0x%016X", uint64(byHandleFileInfo.FileIndexHigh)<<32|uint64(byHandleFileInfo.FileIndexLow))
-	fileStat.Inode = int64(uint64(byHandleFileInfo.FileIndexHigh)<<32 | uint64(byHandleFileInfo.FileIndexLow))
-	fileStat.UID = getRidFromSid(sidOwner)
-	fileStat.GID = getRidFromSid(sidGroup)
-	fileStat.Mode = "-1"
-	fileStat.Symlink = 0
-	fileStat.HardLinks = int32(byHandleFileInfo.NumberOfLinks)
-	fileStat.Attributes = getFileAttributesString(byHandleFileInfo.FileAttributes)
-	fileStat.Device = int64(byHandleFileInfo.VolumeSerialNumber)
-	fileStat.VolumeSerial = fmt.Sprintf("%04X-%04X",
-		HIWORD(byHandleFileInfo.VolumeSerialNumber),
-		LOWORD(byHandleFileInfo.VolumeSerialNumber),
-	)
+	if ctx.IsColumnUsed("file_id") {
+		(*fileStat)["file_id"] = fmt.Sprintf("0x%016X", uint64(byHandleFileInfo.FileIndexHigh)<<32|uint64(byHandleFileInfo.FileIndexLow))
+	}
+	if ctx.IsColumnUsed("inode") {
+		(*fileStat)["inode"] = int64(uint64(byHandleFileInfo.FileIndexHigh)<<32 | uint64(byHandleFileInfo.FileIndexLow))
+	}
+	if ctx.IsColumnUsed("uid") {
+		(*fileStat)["uid"] = getRidFromSid(sidOwner)
+	}
+	if ctx.IsColumnUsed("gid") {
+		(*fileStat)["gid"] = getRidFromSid(sidGroup)
+	}
+	if ctx.IsColumnUsed("mode") {
+		(*fileStat)["mode"] = "-1"
+	}
+	if ctx.IsColumnUsed("symlink") {
+		(*fileStat)["symlink"] = 0
+	}
+	if ctx.IsColumnUsed("hard_links") {
+		(*fileStat)["hard_links"] = int32(byHandleFileInfo.NumberOfLinks)
+	}
+	if ctx.IsColumnUsed("attributes") {
+		(*fileStat)["attributes"] = getFileAttributesString(byHandleFileInfo.FileAttributes)
+	}
+	if ctx.IsColumnUsed("device") {
+		(*fileStat)["device"] = int64(byHandleFileInfo.VolumeSerialNumber)
+	}
+	if ctx.IsColumnUsed("volume_serial") {
+		(*fileStat)["volume_serial"] = fmt.Sprintf("%04X-%04X",
+			HIWORD(byHandleFileInfo.VolumeSerialNumber),
+			LOWORD(byHandleFileInfo.VolumeSerialNumber),
+		)
+	}
 
 	fileType, _, err := procGetFileType.Call(
 		uintptr(hFile),
 	)
 	if err != windows.ERROR_SUCCESS {
-		return nil, fmt.Errorf("failed to get file type: %w", err)
+		return fmt.Errorf("failed to get file type: %w", err)
 	}
-	fileStat.Type = getFileTypeString(uint32(fileType), byHandleFileInfo.FileAttributes, hFile)
+	if ctx.IsColumnUsed("type") {
+		(*fileStat)["type"] = getFileTypeString(uint32(fileType), byHandleFileInfo.FileAttributes, hFile)
+	}
 
-	// Extract drive letter from path
-	driveLetter := filepath.VolumeName(path)
-	// Check if drive letter is in driveLetters
-	if slices.Contains(driveLetters, driveLetter) {
-		var sectPerCluster, bytesPerSect, freeClusters, totalClusters uint32
-		ret, _, err := procGetDiskFreeSpaceW.Call(
-			uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(driveLetter))),
-			uintptr(unsafe.Pointer(&sectPerCluster)),
-			uintptr(unsafe.Pointer(&bytesPerSect)),
-			uintptr(unsafe.Pointer(&freeClusters)),
-			uintptr(unsafe.Pointer(&totalClusters)),
-		)
-		if ret == 0 {
-			return nil, fmt.Errorf("failed to get disk free space: %w", err)
+	if ctx.IsColumnUsed("block_size") {
+		// Extract drive letter from path
+		driveLetter := filepath.VolumeName(path)
+		// Check if drive letter is in driveLetters
+		if slices.Contains(driveLetters, driveLetter) {
+			var sectPerCluster, bytesPerSect, freeClusters, totalClusters uint32
+			ret, _, err := procGetDiskFreeSpaceW.Call(
+				uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(driveLetter))),
+				uintptr(unsafe.Pointer(&sectPerCluster)),
+				uintptr(unsafe.Pointer(&bytesPerSect)),
+				uintptr(unsafe.Pointer(&freeClusters)),
+				uintptr(unsafe.Pointer(&totalClusters)),
+			)
+			if ret == 0 {
+				return fmt.Errorf("failed to get disk free space: %w", err)
+			}
+
+			(*fileStat)["block_size"] = int32(bytesPerSect)
 		}
-		fileStat.BlockSize = int32(bytesPerSect)
 	}
-	basicInfo := make([]byte, unsafe.Sizeof(FILE_BASIC_INFO{}))
-	err = windows.GetFileInformationByHandleEx(
-		hFile,
-		windows.FileBasicInfo,
-		(*byte)(unsafe.Pointer(&basicInfo[0])),
-		uint32(len(basicInfo)),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get file basic info: %w", err)
+
+	if ctx.IsColumnUsed("ctime") {
+		basicInfo := make([]byte, unsafe.Sizeof(FILE_BASIC_INFO{}))
+		err = windows.GetFileInformationByHandleEx(
+			hFile,
+			windows.FileBasicInfo,
+			(*byte)(unsafe.Pointer(&basicInfo[0])),
+			uint32(len(basicInfo)),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to get file basic info: %w", err)
+		}
+		// Cast basicInfo to FILE_BASIC_INFO
+		basicInfoPtr := (*FILE_BASIC_INFO)(unsafe.Pointer(&basicInfo[0]))
+
+		(*fileStat)["ctime"] = basicInfoPtr.ChangeTime.Nanoseconds() / 1e9
 	}
-	// Cast basicInfo to FILE_BASIC_INFO
-	basicInfoPtr := (*FILE_BASIC_INFO)(unsafe.Pointer(&basicInfo[0]))
 
-	fileStat.Ctime = basicInfoPtr.ChangeTime.Nanoseconds() / 1e9
-
-	productVersion, fileVersion, err := getVersionInfo(path)
-	if err != nil {
-		// Log error
-		fmt.Printf("failed to get version info: %v", err)
+	if ctx.IsAnyOfColumnsUsed([]string{"product_version", "file_version", "original_filename"}) {
+		productVersion, fileVersion, err := getVersionInfo(path)
+		if err != nil {
+			// Log error
+			fmt.Printf("failed to get version info: %v", err)
+		}
+		if ctx.IsColumnUsed("product_version") {
+			(*fileStat)["product_version"] = productVersion
+		}
+		if ctx.IsColumnUsed("file_version") {
+			(*fileStat)["file_version"] = fileVersion
+		}
 	}
-	fileStat.ProductVersion = productVersion
-	fileStat.FileVersion = fileVersion
 
-	originalFilename, err := getOriginalFilename(path)
-	if err != nil {
-		// Log error
-		fmt.Printf("failed to get original filename: %v", err)
+	if ctx.IsColumnUsed("original_filename") {
+		originalFilename, err := getOriginalFilename(path)
+		if err != nil {
+			// Log error
+			fmt.Printf("failed to get original filename: %v", err)
+		}
+		(*fileStat)["original_filename"] = originalFilename
 	}
-	fileStat.OriginalFilename = originalFilename
 
-	return fileStat, nil
+	return nil
 }

@@ -8,15 +8,9 @@ import (
 	"strings"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the etc_hosts table
-var columnDefs = map[string]string{
-	"address":   "string",
-	"hostnames": "string",
-}
 
 func getSystemRoot() string {
 	systemRoot, err := windows.GetWindowsDirectory()
@@ -63,7 +57,7 @@ func parseHostsFile(path string, ctx context.Context) ([]map[string]interface{},
 		}
 
 		if len(hostnames) > 0 {
-			entry := util.InitColumns(ctx, columnDefs)
+			entry := specs.Init(ctx, Schema)
 
 			if ctx.IsColumnUsed("address") {
 				entry["address"] = address

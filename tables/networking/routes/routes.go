@@ -6,22 +6,9 @@ import (
 	"unsafe"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the routes table
-var columnDefs = map[string]string{
-	"destination": "string",
-	"netmask":     "int32",
-	"gateway":     "string",
-	"source":      "string",
-	"flags":       "int32",
-	"interface":   "string",
-	"mtu":         "int32",
-	"metric":      "int32",
-	"type":        "string",
-}
 
 type SOCKADDR_IN struct {
 	SinFamily uint16
@@ -165,7 +152,7 @@ func GenRoutes(ctx context.Context) ([]map[string]interface{}, error) {
 	table := unsafe.Slice((*MIB_IPFORWARD_ROW2)(unsafe.Pointer(&ipTablePtr.Table[0])), numEntries)
 
 	for _, currRow := range table {
-		route := util.InitColumns(ctx, columnDefs)
+		route := specs.Init(ctx, Schema)
 		var actualInterface windows.MibIpInterfaceRow
 		var interfaceIpAddress string
 		actualInterface.Family = currRow.DestinationPrefix.Prefix.GetFamily()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
+	"github.com/scrymastic/goosquery/sql/context"
 	"golang.org/x/sys/windows"
 )
 
@@ -82,78 +83,85 @@ func showCmdToString(showCmd int) string {
 }
 
 // ParseLnkData parses a Windows shortcut file
-func ParseLnkData(linkPath string) (*LnkData, error) {
+func ParseLnkData(ctx context.Context, linkPath string, lnkData *map[string]interface{}) error {
 	// Initialize COM
 	err := ole.CoInitialize(0)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize COM: %v", err)
+		return fmt.Errorf("failed to initialize COM: %v", err)
 	}
 	defer ole.CoUninitialize()
 
 	// Create ShellLink object
 	unknown, err := oleutil.CreateObject("WScript.Shell")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create WScript.Shell: %v", err)
+		return fmt.Errorf("failed to create WScript.Shell: %v", err)
 	}
 	defer unknown.Release()
 
 	shell, err := unknown.QueryInterface(ole.IID_IDispatch)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query interface: %v", err)
+		return fmt.Errorf("failed to query interface: %v", err)
 	}
 	defer shell.Release()
 
 	// Create shortcut object
 	shortcut, err := oleutil.CallMethod(shell, "CreateShortcut", linkPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create shortcut: %v", err)
+		return fmt.Errorf("failed to create shortcut: %v", err)
 	}
 	defer shortcut.Clear()
 
 	// Validate header
 	valid, err := isValidShellLinkHeader(linkPath)
 	if err != nil || !valid {
-		return nil, fmt.Errorf("invalid shell link header")
+		return fmt.Errorf("invalid shell link header")
 	}
 
 	// Get shortcut properties
-	targetPath, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "TargetPath")
-	workingDir, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "WorkingDirectory")
-	description, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "Description")
-	windowStyle, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "WindowStyle")
-
-	// Create LnkData structure
-	lnkData := &LnkData{
-		TargetPath: targetPath.ToString(),
-		StartIn:    workingDir.ToString(),
-		Comment:    description.ToString(),
-		Run:        showCmdToString(int(windowStyle.Val)),
+	if ctx.IsColumnUsed("shortcut_target_path") {
+		targetPath, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "TargetPath")
+		(*lnkData)["shortcut_target_path"] = targetPath.ToString()
+	}
+	if ctx.IsColumnUsed("shortcut_start_in") {
+		workingDir, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "WorkingDirectory")
+		(*lnkData)["shortcut_start_in"] = workingDir.ToString()
+	}
+	if ctx.IsColumnUsed("shortcut_comment") {
+		description, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "Description")
+		(*lnkData)["shortcut_comment"] = description.ToString()
+	}
+	if ctx.IsColumnUsed("shortcut_run") {
+		windowStyle, _ := oleutil.GetProperty(shortcut.ToIDispatch(), "WindowStyle")
+		(*lnkData)["shortcut_run"] = showCmdToString(int(windowStyle.Val))
 	}
 
-	// Get attributes of target path
-	attributes, err := windows.GetFileAttributes(windows.StringToUTF16Ptr(lnkData.TargetPath))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get file attributes: %v", err)
+	if ctx.IsColumnUsed("shortcut_target_type") {
+		// Get attributes of target path
+		attributes, err := windows.GetFileAttributes(windows.StringToUTF16Ptr((*lnkData)["shortcut_target_path"].(string)))
+		if err != nil {
+			return fmt.Errorf("failed to get file attributes: %v", err)
+		}
+
+		var fileInfo SHFILEINFOW
+
+		ret, _, err := procSHGetFileInfoW.Call(
+			uintptr(unsafe.Pointer(windows.StringToUTF16Ptr((*lnkData)["shortcut_target_path"].(string)))),
+			uintptr(attributes),
+			uintptr(unsafe.Pointer(&fileInfo)),
+			uintptr(unsafe.Sizeof(SHFILEINFOW{})),
+			uintptr(SHGFI_TYPENAME|SHGFI_USEFILEATTRIBUTES),
+		)
+
+		if ret == 0 {
+			return fmt.Errorf("failed to get file info: %v", err)
+		}
+
+		(*lnkData)["shortcut_target_type"] = windows.UTF16ToString(fileInfo.szTypeName[:])
+	}
+	if ctx.IsColumnUsed("shortcut_target_location") {
+		// Target location is name of the folder that hold targettype
+		(*lnkData)["shortcut_target_location"] = filepath.Base(filepath.Dir((*lnkData)["shortcut_target_path"].(string)))
 	}
 
-	var fileInfo SHFILEINFOW
-
-	ret, _, err := procSHGetFileInfoW.Call(
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(lnkData.TargetPath))),
-		uintptr(attributes),
-		uintptr(unsafe.Pointer(&fileInfo)),
-		uintptr(unsafe.Sizeof(SHFILEINFOW{})),
-		uintptr(SHGFI_TYPENAME|SHGFI_USEFILEATTRIBUTES),
-	)
-
-	if ret == 0 {
-		return nil, fmt.Errorf("failed to get file info: %v", err)
-	}
-
-	lnkData.TargetType = windows.UTF16ToString(fileInfo.szTypeName[:])
-
-	// Target location is name of the folder that hold targettype
-	lnkData.TargetLocation = filepath.Base(filepath.Dir(lnkData.TargetPath))
-
-	return lnkData, nil
+	return nil
 }

@@ -5,21 +5,8 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// Column definitions for the connectivity table
-var columnDefs = map[string]string{
-	"disconnected":       "int32",
-	"ipv4_no_traffic":    "int32",
-	"ipv6_no_traffic":    "int32",
-	"ipv4_subnet":        "int32",
-	"ipv4_local_network": "int32",
-	"ipv4_internet":      "int32",
-	"ipv6_subnet":        "int32",
-	"ipv6_local_network": "int32",
-	"ipv6_internet":      "int32",
-}
 
 // Connectivity flag constants (from netlistmgr.h)
 const (
@@ -79,7 +66,7 @@ func GenConnectivity(ctx context.Context) ([]map[string]interface{}, error) {
 	flag := uint32(connectivityVariant.Val)
 
 	// Create a map instead of a struct
-	connectivityMap := util.InitColumns(ctx, columnDefs)
+	connectivityMap := specs.Init(ctx, Schema)
 
 	// Populate map based on requested columns
 	if ctx.IsColumnUsed("disconnected") {

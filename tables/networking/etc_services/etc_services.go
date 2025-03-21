@@ -8,17 +8,8 @@ import (
 	"strings"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// Column definitions for the etc_services table
-var columnDefs = map[string]string{
-	"name":     "string",
-	"port":     "int32",
-	"protocol": "string",
-	"aliases":  "string",
-	"comment":  "string",
-}
 
 func getSystemRoot() string {
 	systemRoot := os.Getenv("SystemRoot")
@@ -56,7 +47,7 @@ func parseServiceEntry(line string, ctx context.Context) (map[string]interface{}
 	}
 
 	// Create service entry
-	entry := util.InitColumns(ctx, columnDefs)
+	entry := specs.Init(ctx, Schema)
 
 	if ctx.IsColumnUsed("name") {
 		entry["name"] = serviceInfo[0]

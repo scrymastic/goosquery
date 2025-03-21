@@ -6,15 +6,20 @@
 
 Goosquery is a Go-based system information collection tool inspired by OSQuery. It provides a unified interface to collect various system information from Windows systems using SQL-like queries.
 
+Simple build process, straightforward table implementation, and seamless integration with other Go applications.
+
 ## Table of Contents
 
 - [Notice](#notice)
+- [Advantages Over Original OSQuery](#advantages-over-original-osquery)
 - [Features](#features)
 - [Usage](#usage)
   - [Interactive Mode](#interactive-mode)
   - [Command Line Mode](#command-line-mode)
   - [Output Formats](#output-formats)
 - [Examples](#examples)
+- [SQL Query Capabilities](#sql-query-capabilities)
+- [Available Tables](#available-tables)
 - [Development](#development)
 - [Implementation Status](#implementation-status)
 - [Adding New Tables](#adding-new-tables)
@@ -104,6 +109,55 @@ SELECT interface, address, mask FROM interface_addresses;
 Check HTTP response from a website:
 ```sql
 SELECT url, response_code, round_trip_time FROM curl WHERE url = 'https://example.com';
+```
+
+## SQL Query Capabilities
+
+GoOSQuery supports a wide range of SQL features for powerful data processing:
+
+### SQL Functions
+
+- **Aggregation Functions**:
+  - `COUNT(*)` - Count all rows
+  - `COUNT(column)` - Count non-null values in a column
+  - `COUNT(DISTINCT column)` - Count unique values in a column
+  - `SUM(column)` - Sum of values in a column
+  - `AVG(column)` - Average of values in a column
+  - `MIN(column)` - Minimum value in a column
+  - `MAX(column)` - Maximum value in a column
+
+### Clauses and Operators
+
+- **SELECT** - Specify columns to retrieve
+- **FROM** - Specify the table to query
+- **WHERE** - Filter results based on conditions
+  - Comparison operators: `=`, `<>`, `>`, `>=`, `<`, `<=`
+  - Logical operators: `AND`, `OR`, `NOT`
+  - Pattern matching: `LIKE` with wildcards (`%`)
+  - Value checks: `IS NULL`, `IS NOT NULL`
+- **GROUP BY** - Group results by one or more columns
+- **ORDER BY** - Sort results by one or more columns
+  - Specify sort direction: `ASC` or `DESC`
+- **LIMIT** - Limit the number of returned rows
+
+### Examples
+
+Count processes by name:
+```sql
+SELECT name, COUNT(*) AS count FROM processes GROUP BY name ORDER BY count DESC LIMIT 5;
+```
+
+Get average memory usage by process type:
+```sql
+SELECT name, AVG(memory) AS avg_memory FROM processes GROUP BY name;
+```
+
+Find listening ports with the highest average port number by process:
+```sql
+SELECT process_name, COUNT(port) as port_count, AVG(port) as avg_port 
+FROM listening_ports 
+GROUP BY process_name 
+ORDER BY avg_port DESC;
 ```
 
 ## Development

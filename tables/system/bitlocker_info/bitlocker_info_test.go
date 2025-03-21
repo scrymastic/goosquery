@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGetBitLockerInfo(t *testing.T) {
-	volumes, err := GenBitlockerInfo()
+	ctx := context.Context{}
+	volumes, err := GenBitlockerInfo(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get BitLocker volumes: %v", err)
 	}
@@ -22,7 +25,7 @@ func TestGetBitLockerInfo(t *testing.T) {
 
 	// Basic validation of returned data
 	for i, volume := range volumes {
-		if volume.DeviceID == "" {
+		if volume["device_id"] == "" {
 			t.Errorf("Volume[%d] has empty DeviceID", i)
 		}
 	}

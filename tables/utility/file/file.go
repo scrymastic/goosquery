@@ -4,112 +4,80 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/tables/specs"
 	// "golang.org/x/sys/windows"
 )
 
-// FileInfo represents the schema for file information
-type FileInfo struct {
-	Path                   string `json:"path"`
-	Directory              string `json:"directory"`
-	Filename               string `json:"filename"`
-	Inode                  int64  `json:"inode"`
-	UID                    int64  `json:"uid"`
-	GID                    int64  `json:"gid"`
-	Mode                   string `json:"mode"`
-	Device                 int64  `json:"device"`
-	Size                   int64  `json:"size"`
-	BlockSize              int32  `json:"block_size"`
-	Atime                  int64  `json:"atime"`
-	Mtime                  int64  `json:"mtime"`
-	Ctime                  int64  `json:"ctime"`
-	Btime                  int64  `json:"btime"`
-	HardLinks              int32  `json:"hard_links"`
-	Symlink                int32  `json:"symlink"`
-	Type                   string `json:"type"`
-	SymlinkTargetPath      string `json:"symlink_target_path"`
-	Attributes             string `json:"attributes"`
-	VolumeSerial           string `json:"volume_serial"`
-	FileID                 string `json:"file_id"`
-	FileVersion            string `json:"file_version"`
-	ProductVersion         string `json:"product_version"`
-	OriginalFilename       string `json:"original_filename"`
-	ShortcutTargetPath     string `json:"shortcut_target_path"`
-	ShortcutTargetType     string `json:"shortcut_target_type"`
-	ShortcutTargetLocation string `json:"shortcut_target_location"`
-	ShortcutStartIn        string `json:"shortcut_start_in"`
-	ShortcutRun            string `json:"shortcut_run"`
-	ShortcutComment        string `json:"shortcut_comment"`
-}
-
-// GenFile retrieves file information for a given path
-func GenFile(path string) (*FileInfo, error) {
+// GenFile retrieves file information for a given path using context for column selection
+func GenFile(ctx context.Context, path string) (map[string]interface{}, error) {
 	info, err := os.Lstat(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat file: %w", err)
 	}
 
-	fileInfo := &FileInfo{
-		Path:      path,
-		Directory: filepath.Dir(path),
-		Filename:  filepath.Base(path),
-		Size:      info.Size(),
-		Mode:      info.Mode().String(),
+	fileInfo := specs.Init(ctx, Schema)
+
+	if ctx.IsColumnUsed("path") {
+		fileInfo["path"] = path
 	}
 
-	// Get file stat
-	fileStat, err := GetFileStat(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get file stat: %w", err)
+	if ctx.IsColumnUsed("directory") {
+		fileInfo["directory"] = filepath.Dir(path)
 	}
 
-	fileInfo.Symlink = fileStat.Symlink
-	fileInfo.FileID = fileStat.FileID
-	fileInfo.Inode = fileStat.Inode
-	fileInfo.UID = fileStat.UID
-	fileInfo.GID = fileStat.GID
-	fileInfo.Mode = fileStat.Mode
-	fileInfo.Device = fileStat.Device
-	fileInfo.Size = fileStat.Size
-	fileInfo.BlockSize = fileStat.BlockSize
-	fileInfo.Atime = fileStat.Atime
-	fileInfo.Mtime = fileStat.Mtime
-	fileInfo.Ctime = fileStat.Ctime
-	fileInfo.Btime = fileStat.Btime
-	fileInfo.HardLinks = fileStat.HardLinks
-	fileInfo.Type = fileStat.Type
-	fileInfo.Attributes = fileStat.Attributes
-	fileInfo.VolumeSerial = fileStat.VolumeSerial
-	fileInfo.FileVersion = fileStat.FileVersion
-	fileInfo.ProductVersion = fileStat.ProductVersion
-	fileInfo.OriginalFilename = fileStat.OriginalFilename
+	if ctx.IsColumnUsed("filename") {
+		fileInfo["filename"] = filepath.Base(path)
+	}
 
-	// Parse shortcut data
-	lnkData, err := ParseLnkData(path)
-	if err == nil {
-		fileInfo.ShortcutTargetPath = lnkData.TargetPath
-		fileInfo.ShortcutTargetType = lnkData.TargetType
-		fileInfo.ShortcutTargetLocation = lnkData.TargetLocation
-		fileInfo.ShortcutStartIn = lnkData.StartIn
-		fileInfo.ShortcutRun = lnkData.Run
-		fileInfo.ShortcutComment = lnkData.Comment
+	if ctx.IsColumnUsed("size") {
+		fileInfo["size"] = info.Size()
+	}
+
+	if ctx.IsColumnUsed("mode") {
+		fileInfo["mode"] = info.Mode().String()
+	}
+
+	// Handle timestamps
+	if ctx.IsColumnUsed("mtime") {
+		fileInfo["mtime"] = info.ModTime().Unix()
+	}
+
+	if ctx.IsAnyOfColumnsUsed([]string{"inode", "uid", "gid", "device", "block_size", "atime", "ctime", "btime", "hard_links", "attributes", "volume_serial", "file_id", "file_version", "product_version", "original_filename"}) {
+		err := GetFileStat(ctx, path, &fileInfo)
+		if err != nil {
+			fmt.Printf("failed to get file stat: %v", err)
+		}
+	}
+
+	if ctx.IsAnyOfColumnsUsed([]string{"shortcut_target_path", "shortcut_target_type", "shortcut_target_location", "shortcut_start_in", "shortcut_run", "shortcut_comment"}) {
+		err := ParseLnkData(ctx, path, &fileInfo)
+		if err != nil {
+			fmt.Printf("failed to parse lnk data: %v", err)
+		}
 	}
 
 	return fileInfo, nil
 }
 
-// func GenFiles(context Context) ([]FileInfo, error) {
-// 	files, err := filepath.Glob(context.Path)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to glob files: %w", err)
-// 	}
+func GenFiles(ctx context.Context) ([]map[string]interface{}, error) {
+	paths := ctx.GetConstants("path")
+	results := []map[string]interface{}{}
+	for _, path := range paths {
+		files, err := filepath.Glob(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to glob files: %w", err)
+		}
 
-// 	for _, file := range files {
-// 		fileInfo, err := GenFile(file)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("failed to generate file info: %w", err)
-// 		}
-// 		fileInfos = append(fileInfos, *fileInfo)
-// 	}
+		for _, file := range files {
+			fileInfo, err := GenFile(ctx, file)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate file info: %w", err)
+			}
+			results = append(results, fileInfo)
+		}
+	}
 
-// 	return fileInfos, nil
-// }
+	return results, nil
+}

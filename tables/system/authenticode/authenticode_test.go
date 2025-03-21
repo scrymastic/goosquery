@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenAuthenticode(t *testing.T) {
@@ -13,9 +15,12 @@ func TestGenAuthenticode(t *testing.T) {
 		`C:\Users\sonx\Downloads\dnSpy-net-win32\dnSpy.exe`,
 		`C:\Users\sonx\Downloads\ida-pro_90sp1_x64win.exe`,
 		`C:\Program Files\osquery\osqueryi.exe`,
+		`C:\Windows\System32\ntoskrnl.exe`,
 	}
 	for _, path := range testPath {
-		entries, err := GenAuthenticode(path)
+		ctx := context.Context{}
+		ctx.AddConstant("path", path)
+		entries, err := GenAuthenticode(ctx)
 		if err != nil {
 			t.Fatalf("Failed to get authenticode info: %v", err)
 		}

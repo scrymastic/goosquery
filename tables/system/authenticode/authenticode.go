@@ -5,17 +5,10 @@ import (
 	"unsafe"
 
 	"github.com/go-ole/go-ole"
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-type Authenticode struct {
-	Path                string `json:"path"`
-	OriginalProgramName string `json:"original_program_name"`
-	SerialNumber        string `json:"serial_number"`
-	IssuerName          string `json:"issuer_name"`
-	SubjectName         string `json:"subject_name"`
-	Result              string `json:"result"`
-}
 
 var (
 	modWintrust                             = windows.NewLazyDLL("wintrust.dll")
@@ -135,7 +128,7 @@ func getOriginalProgramName(signerInfo *CMSG_SIGNER_INFO) (string, error) {
 	return programName, nil
 }
 
-func getSignatureInformation(path string, authenticode *Authenticode) error {
+func getSignatureInformation(path string, entry map[string]interface{}, ctx context.Context) error {
 	// Convert path to UTF16
 	uft16Path := windows.StringToUTF16Ptr(path)
 
@@ -159,7 +152,6 @@ func getSignatureInformation(path string, authenticode *Authenticode) error {
 		return fmt.Errorf("failed to query signature: %v", err)
 	}
 	defer windows.CertCloseStore(certStore, 0)
-	// Use syscall for CryptMsgClose since it's not in windows package
 	defer procCryptMsgClose.Call(uintptr(message))
 
 	var signerInfoSize uint32
@@ -187,13 +179,15 @@ func getSignatureInformation(path string, authenticode *Authenticode) error {
 		return fmt.Errorf("failed to get signer info: %v", err)
 	}
 
-	// Get original program name
-	originalProgramName, err := getOriginalProgramName(signerInfoPtr)
-	if err != nil {
-		// Just log the error and continue, as this is not critical
-		fmt.Printf("failed to get original program name: %v\n", err)
+	if ctx.IsColumnUsed("original_program_name") {
+		// Get original program name
+		originalProgramName, err := getOriginalProgramName(signerInfoPtr)
+		if err != nil {
+			// Just log the error and continue, as this is not critical
+			fmt.Printf("failed to get original program name: %v\n", err)
+		}
+		entry["original_program_name"] = originalProgramName
 	}
-	authenticode.OriginalProgramName = originalProgramName
 
 	// Find certificate in store
 	certInfo := windows.CertInfo{
@@ -214,73 +208,79 @@ func getSignatureInformation(path string, authenticode *Authenticode) error {
 	}
 	defer windows.CertFreeCertificateContext(certContext)
 
-	// Get serial number
-	serialNumber := make([]byte, certContext.CertInfo.SerialNumber.Size)
-	copy(serialNumber, unsafe.Slice(certContext.CertInfo.SerialNumber.Data, certContext.CertInfo.SerialNumber.Size))
+	if ctx.IsColumnUsed("serial_number") {
+		// Get serial number
+		serialNumber := make([]byte, certContext.CertInfo.SerialNumber.Size)
+		copy(serialNumber, unsafe.Slice(certContext.CertInfo.SerialNumber.Data, certContext.CertInfo.SerialNumber.Size))
 
-	// Format serial number as hex string
-	var serialNumberStr string
-	for i := len(serialNumber) - 1; i >= 0; i-- {
-		serialNumberStr += fmt.Sprintf("%02x", serialNumber[i])
-	}
-	authenticode.SerialNumber = serialNumberStr
-
-	// Get issuer name
-	// First call to get size
-	issuerNameSize := uint32(windows.CertGetNameString(
-		certContext,
-		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
-		windows.CERT_NAME_ISSUER_FLAG,
-		nil,
-		nil,
-		0,
-	))
-	if issuerNameSize == 0 {
-		return fmt.Errorf("failed to get issuer name size: %v", windows.GetLastError())
+		// Format serial number as hex string
+		var serialNumberStr string
+		for i := len(serialNumber) - 1; i >= 0; i-- {
+			serialNumberStr += fmt.Sprintf("%02x", serialNumber[i])
+		}
+		entry["serial_number"] = serialNumberStr
 	}
 
-	issuerName := make([]uint16, issuerNameSize)
-	// Second call to get actual name
-	ret2 := windows.CertGetNameString(
-		certContext,
-		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
-		windows.CERT_NAME_ISSUER_FLAG,
-		nil,
-		&issuerName[0],
-		issuerNameSize,
-	)
-	if ret2 == 0 {
-		return fmt.Errorf("failed to get issuer name: %v", windows.GetLastError())
-	}
-	authenticode.IssuerName = windows.UTF16ToString(issuerName)
+	if ctx.IsColumnUsed("issuer_name") {
+		// Get issuer name
+		// First call to get size
+		issuerNameSize := uint32(windows.CertGetNameString(
+			certContext,
+			windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+			windows.CERT_NAME_ISSUER_FLAG,
+			nil,
+			nil,
+			0,
+		))
+		if issuerNameSize == 0 {
+			return fmt.Errorf("failed to get issuer name size: %v", windows.GetLastError())
+		}
 
-	// First call to get size
-	subjectNameSize := uint32(windows.CertGetNameString(
-		certContext,
-		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
-		0,
-		nil,
-		nil,
-		0,
-	))
-	if subjectNameSize == 0 {
-		return fmt.Errorf("failed to get subject name size: %v", windows.GetLastError())
+		issuerName := make([]uint16, issuerNameSize)
+		// Second call to get actual name
+		ret := windows.CertGetNameString(
+			certContext,
+			windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+			windows.CERT_NAME_ISSUER_FLAG,
+			nil,
+			&issuerName[0],
+			issuerNameSize,
+		)
+		if ret == 0 {
+			return fmt.Errorf("failed to get issuer name: %v", windows.GetLastError())
+		}
+		entry["issuer_name"] = windows.UTF16ToString(issuerName)
 	}
 
-	subjectName := make([]uint16, subjectNameSize)
-	// Second call to get actual name
-	ret2 = windows.CertGetNameString(
-		certContext,
-		windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
-		0,
-		nil,
-		&subjectName[0],
-		subjectNameSize,
-	)
-	if ret2 == 0 {
-		return fmt.Errorf("failed to get subject name: %v", windows.GetLastError())
+	if ctx.IsColumnUsed("subject_name") {
+		// First call to get size
+		subjectNameSize := uint32(windows.CertGetNameString(
+			certContext,
+			windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+			0,
+			nil,
+			nil,
+			0,
+		))
+		if subjectNameSize == 0 {
+			return fmt.Errorf("failed to get subject name size: %v", windows.GetLastError())
+		}
+
+		subjectName := make([]uint16, subjectNameSize)
+		// Second call to get actual name
+		ret := windows.CertGetNameString(
+			certContext,
+			windows.CERT_NAME_SIMPLE_DISPLAY_TYPE,
+			0,
+			nil,
+			&subjectName[0],
+			subjectNameSize,
+		)
+		if ret == 0 {
+			return fmt.Errorf("failed to get subject name: %v", windows.GetLastError())
+		}
+		entry["subject_name"] = windows.UTF16ToString(subjectName)
 	}
-	authenticode.SubjectName = windows.UTF16ToString(subjectName)
 
 	return nil
 }
@@ -421,31 +421,42 @@ func verifySignature(path string) (string, error) {
 	}
 }
 
-func GenAuthenticode(path string) ([]Authenticode, error) {
-	authenticode := Authenticode{}
+func GenAuthenticode(ctx context.Context) ([]map[string]interface{}, error) {
+	results := make([]map[string]interface{}, 0)
+	paths := ctx.GetConstants("path")
 
-	authenticode.Path = path
+	for _, path := range paths {
+		entry := specs.Init(ctx, Schema)
+		entry["path"] = path
 
-	catalogFile, err := getCatalogPathForFilePath(path)
-	if err != nil {
-		catalogFile = path
+		catalogFile, err := getCatalogPathForFilePath(path)
+		if err != nil {
+			catalogFile = path
+		}
+
+		if ctx.IsColumnUsed("result") {
+			verificationResult, err := verifySignature(catalogFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to verify signature: %v", err)
+			}
+
+			entry["result"] = verificationResult
+
+			if verificationResult == "missing" {
+				results = append(results, entry)
+				continue
+			}
+		}
+
+		if ctx.IsAnyOfColumnsUsed([]string{"serial_number", "issuer_name", "subject_name", "original_program_name"}) {
+			err = getSignatureInformation(catalogFile, entry, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get cert details: %v", err)
+			}
+		}
+
+		results = append(results, entry)
 	}
 
-	verificationResult, err := verifySignature(catalogFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to verify signature: %v", err)
-	}
-
-	authenticode.Result = verificationResult
-
-	if verificationResult == "missing" {
-		return []Authenticode{authenticode}, nil
-	}
-
-	err = getSignatureInformation(catalogFile, &authenticode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cert details: %v", err)
-	}
-
-	return []Authenticode{authenticode}, nil
+	return results, nil
 }

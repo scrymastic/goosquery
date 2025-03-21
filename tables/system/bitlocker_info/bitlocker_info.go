@@ -4,20 +4,9 @@ import (
 	"fmt"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// BitlockerInfo represents information about a BitLocker encrypted volume
-type BitlockerInfo struct {
-	DeviceID            string `json:"device_id"`
-	DriveLetter         string `json:"drive_letter"`
-	PersistentVolumeID  string `json:"persistent_volume_id"`
-	ConversionStatus    int32  `json:"conversion_status"`
-	ProtectionStatus    int32  `json:"protection_status"`
-	EncryptionMethod    string `json:"encryption_method"`
-	Version             int32  `json:"version"`
-	PercentageEncrypted int32  `json:"percentage_encrypted"`
-	LockStatus          int32  `json:"lock_status"`
-}
 
 // Win32_EncryptableVolume represents the WMI class structure
 type Win32_EncryptableVolume struct {
@@ -59,7 +48,7 @@ func getWMIValue(deviceID string, methodName string) (uint32, error) {
 }
 
 // GenBitlockerInfo retrieves BitLocker information for all encryptable volumes
-func GenBitlockerInfo() ([]BitlockerInfo, error) {
+func GenBitlockerInfo(ctx context.Context) ([]map[string]interface{}, error) {
 	// Set up WMI query
 	var encryptableVolumes []Win32_EncryptableVolume
 
@@ -71,36 +60,62 @@ func GenBitlockerInfo() ([]BitlockerInfo, error) {
 	}
 
 	// Convert WMI results to BitLockerVolume structs
-	var results []BitlockerInfo
+	var results []map[string]interface{}
 	for _, vol := range encryptableVolumes {
-		// Get values using WMI methods
-		version, err := getWMIValue(vol.DeviceID, "GetVersion")
-		if err != nil {
-			version = 0 // Use default if method fails
+		entry := specs.Init(ctx, Schema)
+
+		if ctx.IsColumnUsed("device_id") {
+			entry["device_id"] = vol.DeviceID
 		}
 
-		percentageEncrypted, err := getWMIValue(vol.DeviceID, "GetConversionStatus")
-		if err != nil {
-			percentageEncrypted = 0 // Use default if method fails
+		if ctx.IsColumnUsed("drive_letter") {
+			entry["drive_letter"] = vol.DriveLetter
 		}
 
-		lockStatus, err := getWMIValue(vol.DeviceID, "GetLockStatus")
-		if err != nil {
-			lockStatus = 0 // Use default if method fails
+		if ctx.IsColumnUsed("persistent_volume_id") {
+			entry["persistent_volume_id"] = vol.PersistentVolumeID
 		}
 
-		volume := BitlockerInfo{
-			DeviceID:            vol.DeviceID,
-			DriveLetter:         vol.DriveLetter,
-			PersistentVolumeID:  vol.PersistentVolumeID,
-			ConversionStatus:    vol.ConversionStatus,
-			ProtectionStatus:    vol.ProtectionStatus,
-			EncryptionMethod:    getEncryptionMethodString(vol.EncryptionMethod),
-			Version:             int32(version),
-			PercentageEncrypted: int32(percentageEncrypted),
-			LockStatus:          int32(lockStatus),
+		if ctx.IsColumnUsed("conversion_status") {
+			entry["conversion_status"] = vol.ConversionStatus
 		}
-		results = append(results, volume)
+
+		if ctx.IsColumnUsed("protection_status") {
+			entry["protection_status"] = vol.ProtectionStatus
+		}
+
+		if ctx.IsColumnUsed("encryption_method") {
+			entry["encryption_method"] = getEncryptionMethodString(vol.EncryptionMethod)
+		}
+
+		if ctx.IsAnyOfColumnsUsed([]string{"version", "percentage_encrypted", "lock_status"}) {
+			// Get values using WMI methods if needed
+			if ctx.IsColumnUsed("version") {
+				version, err := getWMIValue(vol.DeviceID, "GetVersion")
+				if err != nil {
+					version = 0 // Use default if method fails
+				}
+				entry["version"] = int32(version)
+			}
+
+			if ctx.IsColumnUsed("percentage_encrypted") {
+				percentageEncrypted, err := getWMIValue(vol.DeviceID, "GetConversionStatus")
+				if err != nil {
+					percentageEncrypted = 0 // Use default if method fails
+				}
+				entry["percentage_encrypted"] = int32(percentageEncrypted)
+			}
+
+			if ctx.IsColumnUsed("lock_status") {
+				lockStatus, err := getWMIValue(vol.DeviceID, "GetLockStatus")
+				if err != nil {
+					lockStatus = 0 // Use default if method fails
+				}
+				entry["lock_status"] = int32(lockStatus)
+			}
+		}
+
+		results = append(results, entry)
 	}
 
 	return results, nil

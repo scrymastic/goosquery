@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -31,8 +33,8 @@ const (
 
 // GenAppCompatShims generates the information about the appcompat shims
 // A shim is a compatibility layer that allows a program to run on a newer version of Windows
-func GenAppCompatShims() ([]AppCompatShim, error) {
-	var results []AppCompatShim
+func GenAppCompatShims(ctx context.Context) ([]map[string]interface{}, error) {
+	var results []map[string]interface{}
 	sdbs := make(map[string]sdb)
 
 	// Query installed SDBs
@@ -123,15 +125,33 @@ func GenAppCompatShims() ([]AppCompatShim, error) {
 			sdbId := valueName[:len(valueName)-4]
 
 			if sdbInfo, exists := sdbs[sdbId]; exists {
-				shim := AppCompatShim{
-					Executable:  exeName,
-					Path:        sdbInfo.path,
-					Description: sdbInfo.description,
-					InstallTime: int32(sdbInfo.installTimestamp),
-					Type:        sdbInfo.shimType,
-					SdbId:       sdbId,
+				entry := specs.Init(ctx, Schema)
+
+				if ctx.IsColumnUsed("executable") {
+					entry["executable"] = exeName
 				}
-				results = append(results, shim)
+
+				if ctx.IsColumnUsed("path") {
+					entry["path"] = sdbInfo.path
+				}
+
+				if ctx.IsColumnUsed("description") {
+					entry["description"] = sdbInfo.description
+				}
+
+				if ctx.IsColumnUsed("install_time") {
+					entry["install_time"] = int32(sdbInfo.installTimestamp)
+				}
+
+				if ctx.IsColumnUsed("type") {
+					entry["type"] = sdbInfo.shimType
+				}
+
+				if ctx.IsColumnUsed("sdb_id") {
+					entry["sdb_id"] = sdbId
+				}
+
+				results = append(results, entry)
 			}
 		}
 	}

@@ -4,10 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenFile(t *testing.T) {
-	fileInfo, err := GenFile("C:\\users\\sonx\\.projects\\goosquery\\utility\\file\\file.go")
+	ctx := context.Context{}
+	ctx.AddConstant("path", "C:\\windows\\system32\\ntoskrnl.exe")
+	fileInfo, err := GenFile(ctx, "C:\\windows\\system32\\ntoskrnl.exe")
 	if err != nil {
 		t.Fatalf("Failed to get file information: %v", err)
 	}
@@ -21,7 +25,9 @@ func TestGenFile(t *testing.T) {
 }
 
 func TestGenFileFolder(t *testing.T) {
-	fileInfo, err := GenFile("C:\\windows\\system32")
+	ctx := context.Context{}
+	ctx.AddConstant("path", "C:\\windows\\system32")
+	fileInfo, err := GenFile(ctx, "C:\\windows\\system32")
 	if err != nil {
 		t.Fatalf("Failed to get file information: %v", err)
 	}
@@ -32,67 +38,16 @@ func TestGenFileFolder(t *testing.T) {
 	fmt.Printf("File Information:\n%s\n", string(jsonData))
 }
 
-func TestGetFileStat(t *testing.T) {
-	fileStat, err := GetFileStat("C:\\windows\\system32\\ntoskrnl.exe")
+func TestGetFiltShortcuts(t *testing.T) {
+	ctx := context.Context{}
+	ctx.AddConstant("path", "C:\\Users\\sonx\\Desktop\\cursor.lnk")
+	fileInfo, err := GenFile(ctx, "C:\\Users\\sonx\\Desktop\\cursor.lnk")
 	if err != nil {
-		t.Fatalf("Failed to get file stat: %v", err)
+		t.Fatalf("Failed to get file information: %v", err)
 	}
-	jsonData, err := json.MarshalIndent(fileStat, "", "  ")
+	jsonData, err := json.MarshalIndent(fileInfo, "", "  ")
 	if err != nil {
-		t.Fatalf("Failed to marshal file stat to JSON: %v", err)
+		t.Fatalf("Failed to marshal file info to JSON: %v", err)
 	}
-	fmt.Printf("File Stat:\n%s\n", string(jsonData))
-
-	fileStat, err = GetFileStat("C:\\users\\sonx\\desktop\\cursor.lnk")
-	if err != nil {
-		t.Fatalf("Failed to get file stat: %v", err)
-	}
-	jsonData, err = json.MarshalIndent(fileStat, "", "  ")
-	if err != nil {
-		t.Fatalf("Failed to marshal file stat to JSON: %v", err)
-	}
-	fmt.Printf("File Stat:\n%s\n", string(jsonData))
-}
-
-func TestGenFileStatFolder(t *testing.T) {
-	fileStat, err := GetFileStat("C:\\windows\\system32")
-	if err != nil {
-		t.Fatalf("Failed to get file stat: %v", err)
-	}
-	jsonData, err := json.MarshalIndent(fileStat, "", "  ")
-	if err != nil {
-		t.Fatalf("Failed to marshal file stat to JSON: %v", err)
-	}
-	fmt.Printf("File Stat:\n%s\n", string(jsonData))
-}
-
-func TestParseLnkData(t *testing.T) {
-	lnkData, err := ParseLnkData("C:\\Users\\sonx\\desktop\\cursor.lnk")
-	if err != nil {
-		t.Fatalf("Failed to parse link data: %v", err)
-	}
-	jsonData, err := json.MarshalIndent(lnkData, "", "  ")
-	if err != nil {
-		t.Fatalf("Failed to marshal link data to JSON: %v", err)
-	}
-	fmt.Printf("Link Data:\n%s\n", string(jsonData))
-
-	// Folder link
-	lnkData, err = ParseLnkData("C:\\Users\\sonx\\desktop\\cursor - Shortcut.lnk")
-	if err != nil {
-		t.Fatalf("Failed to parse link data: %v", err)
-	}
-	jsonData, err = json.MarshalIndent(lnkData, "", "  ")
-	if err != nil {
-		t.Fatalf("Failed to marshal link data to JSON: %v", err)
-	}
-	fmt.Printf("Link Data:\n%s\n", string(jsonData))
-}
-
-func TestParseLnkDataNotLnk(t *testing.T) {
-	_, err := ParseLnkData("C:\\Users\\sonx\\desktop\\cursor.exe")
-	// Expect error
-	if err == nil {
-		t.Fatalf("Expected error for non-lnk file")
-	}
+	fmt.Printf("File Information:\n%s\n", string(jsonData))
 }

@@ -8,46 +8,9 @@ import (
 	"unsafe"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the processes table
-var columnDefs = map[string]string{
-	"pid":     "int64",
-	"name":    "string",
-	"path":    "string",
-	"cmdline": "string",
-	"state":   "string",
-	"cwd":     "string",
-	"root":    "string",
-	"uid":     "int64",
-	"gid":     "int64",
-	// "euid":                   "int64",
-	// "egid":                   "int64",
-	// "suid":                   "int64",
-	// "sgid":                   "int64",
-	"on_disk":       "int32",
-	"wired_size":    "int64",
-	"resident_size": "int64",
-	"total_size":    "int64",
-	// "user_time":              "int64",
-	// "system_time":            "int64",
-	"disk_bytes_read":    "int64",
-	"disk_bytes_written": "int64",
-	// "start_time":             "int64",
-	"parent": "int64",
-	// "pgroup":                 "int64",
-	"threads":        "int32",
-	"nice":           "int32",
-	"elevated_token": "int32",
-	// "secure_process":         "int32",
-	// "protection_type":        "string",
-	// "virtual_process":        "int32",
-	"elapsed_time": "int64",
-	"handle_count": "int64",
-	// "percent_processor_time": "int32",
-}
 
 // Process-related constants
 const (
@@ -420,7 +383,7 @@ func GenProcesses(ctx context.Context) ([]map[string]interface{}, error) {
 		procInfo := make(map[string]interface{})
 
 		// Initialize all requested columns with default values
-		procInfo = util.InitColumns(ctx, columnDefs)
+		procInfo = specs.Init(ctx, Schema)
 
 		if ctx.IsColumnUsed("pid") {
 			procInfo["pid"] = int64(pe32.ProcessID)

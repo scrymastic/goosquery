@@ -7,21 +7,10 @@ import (
 	"time"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
 
 const defaultUserAgent = "goosquery"
-
-// Column definitions for the curl table
-var columnDefs = map[string]string{
-	"url":             "string",
-	"method":          "string",
-	"user_agent":      "string",
-	"round_trip_time": "int64",
-	"response_code":   "int32",
-	"bytes":           "int64",
-	"result":          "string",
-}
 
 // genCurl performs an HTTP request to the specified URL and returns information about the request
 func genCurl(ctx context.Context, url string, userAgent string) (map[string]interface{}, error) {
@@ -41,7 +30,7 @@ func genCurl(ctx context.Context, url string, userAgent string) (map[string]inte
 	req.Header.Set("User-Agent", userAgent)
 
 	// Initialize result map with default values for all requested columns
-	result := util.InitColumns(ctx, columnDefs)
+	result := specs.Init(ctx, Schema)
 
 	// Set URL and method values (overriding defaults)
 	if ctx.IsColumnUsed("url") {

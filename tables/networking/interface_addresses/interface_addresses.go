@@ -7,19 +7,9 @@ import (
 	"unsafe"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the interface_addresses table
-var columnDefs = map[string]string{
-	"interface":      "string",
-	"address":        "string",
-	"mask":           "string",
-	"type":           "string",
-	"broadcast":      "string",
-	"point_to_point": "string",
-}
 
 // Windows-specific constants for IP address suffix origin
 const (
@@ -60,7 +50,7 @@ func calculateBroadcast(ip net.IP, prefixLength uint8) string {
 
 // processUnicastAddress handles a single unicast address and returns address information
 func processUnicastAddress(addr *windows.IpAdapterAddresses, unicastAddr *windows.IpAdapterUnicastAddress, ctx context.Context) (map[string]interface{}, bool) {
-	result := util.InitColumns(ctx, columnDefs)
+	result := specs.Init(ctx, Schema)
 
 	// Get the IP address from the unicast address
 	sockAddr := (*syscall.RawSockaddrAny)(unsafe.Pointer(unicastAddr.Address.Sockaddr))
@@ -134,7 +124,7 @@ func getIPFromSockAddr(sockAddr *syscall.RawSockaddrAny) (ip net.IP, isIPv6 bool
 // getAddressType determines the address type based on interface and suffix origin
 func getAddressType(ifType uint32, suffixOrigin int32) string {
 	if ifType == windows.IF_TYPE_SOFTWARE_LOOPBACK {
-		return "loopback"
+		return "other"
 	}
 
 	switch suffixOrigin {

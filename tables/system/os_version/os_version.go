@@ -8,25 +8,9 @@ import (
 
 	"github.com/StackExchange/wmi"
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows/registry"
 )
-
-// Column definitions for the os_version table
-var columnDefs = map[string]string{
-	"name":          "string",
-	"version":       "string",
-	"major":         "int32",
-	"minor":         "int32",
-	"patch":         "int32",
-	"build":         "string",
-	"platform":      "string",
-	"platform_like": "string",
-	"codename":      "string",
-	"arch":          "string",
-	"install_date":  "int64",
-	"revision":      "int32",
-}
 
 // Fields from Win32_OperatingSystem WMI class, not all fields are used
 type Win32_OperatingSystem struct {
@@ -53,7 +37,7 @@ func GenOSVersion(ctx context.Context) ([]map[string]interface{}, error) {
 	result := make(map[string]interface{})
 
 	// Initialize all requested columns with default values
-	result = util.InitColumns(ctx, columnDefs)
+	result = specs.Init(ctx, Schema)
 
 	if ctx.IsColumnUsed("name") {
 		result["name"] = winOS[0].Caption

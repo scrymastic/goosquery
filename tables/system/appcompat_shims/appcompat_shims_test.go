@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestGenAppCompatShims(t *testing.T) {
-	shims, err := GenAppCompatShims()
+	shims, err := GenAppCompatShims(context.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get AppCompat shims: %v", err)
 	}

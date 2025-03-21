@@ -5,16 +5,9 @@ import (
 	"log"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows/registry"
 )
-
-// Column definitions for the default_environment table
-var columnDefs = map[string]string{
-	"variable": "string",
-	"value":    "string",
-	"expand":   "int32",
-}
 
 const (
 	regKeyEnvironment = `SYSTEM\CurrentControlSet\Control\Session Manager\Environment`
@@ -56,7 +49,7 @@ func GenDefaultEnvironments(ctx context.Context) ([]map[string]interface{}, erro
 		}
 
 		// Initialize all requested columns with default values
-		envVar := util.InitColumns(ctx, columnDefs)
+		envVar := specs.Init(ctx, Schema)
 
 		if ctx.IsColumnUsed("variable") {
 			envVar["variable"] = name

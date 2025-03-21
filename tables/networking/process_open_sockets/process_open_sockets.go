@@ -7,24 +7,9 @@ import (
 	"unsafe"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the process_open_sockets table
-var columnDefs = map[string]string{
-	"pid":            "int32",
-	"fd":             "int64",
-	"socket":         "int64",
-	"family":         "int32",
-	"proto":          "int32",
-	"local_address":  "string",
-	"remote_address": "string",
-	"local_port":     "int32",
-	"remote_port":    "int32",
-	"path":           "string",
-	"state":          "string",
-}
 
 type MIB_TCPROW_OWNER_PID struct {
 	DwState      uint32
@@ -191,7 +176,7 @@ func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map
 		// Parse the TCP table
 		sockets := make([]map[string]interface{}, 0, DwNumEntries)
 		for i := uint32(0); i < DwNumEntries; i++ {
-			socket := util.InitColumns(ctx, columnDefs)
+			socket := specs.Init(ctx, Schema)
 
 			if ctx.IsColumnUsed("pid") {
 				socket["pid"] = int32(row.DwOwningPid)

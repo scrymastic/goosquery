@@ -6,28 +6,8 @@ import (
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// Column definitions for the windows_firewall_rules table
-var columnDefs = map[string]string{
-	"name":             "string",
-	"app_name":         "string",
-	"action":           "string",
-	"enabled":          "int32",
-	"grouping":         "string",
-	"direction":        "string",
-	"protocol":         "string",
-	"local_addresses":  "string",
-	"remote_addresses": "string",
-	"local_ports":      "string",
-	"remote_ports":     "string",
-	"icmp_types_codes": "string",
-	"profile_domain":   "int32",
-	"profile_private":  "int32",
-	"profile_public":   "int32",
-	"service_name":     "string",
-}
 
 const (
 	NET_FW_IP_VERSION_V4    = 0
@@ -44,7 +24,7 @@ const (
 // and maps them into a map[string]interface{} based on the context columns.
 // It returns the map or an error if something goes wrong.
 func renderFirewallRule(ruleDisp *ole.IDispatch, ctx context.Context) (map[string]interface{}, error) {
-	rule := util.InitColumns(ctx, columnDefs)
+	rule := specs.Init(ctx, Schema)
 
 	// Helper to get a string property.
 	getStringProp := func(name string) (string, error) {

@@ -6,25 +6,40 @@ import (
 
 	"github.com/scrymastic/goosquery/sql/context"
 	"github.com/scrymastic/goosquery/tables/networking/process_open_sockets"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// Column definitions for the listening_ports table
-var columnDefs = map[string]string{
-	"pid":      "int32",
-	"protocol": "int32",
-	"family":   "int32",
-	"address":  "string",
-	"port":     "int32",
-	"path":     "string",
-	"fd":       "int32",
-	"socket":   "int32",
-}
 
 // GenListeningPorts retrieves information about listening ports from all process sockets
 func GenListeningPorts(ctx context.Context) ([]map[string]interface{}, error) {
+	// Remap columns
+	context := context.Context{}
+	if ctx.IsColumnUsed("pid") {
+		context.AddConstant("pid", "pid")
+	}
+	if ctx.IsColumnUsed("port") {
+		context.AddConstant("port", "local_port")
+	}
+	if ctx.IsColumnUsed("protocol") {
+		context.AddConstant("protocol", "proto")
+	}
+	if ctx.IsColumnUsed("family") {
+		context.AddConstant("family", "family")
+	}
+	if ctx.IsColumnUsed("address") {
+		context.AddConstant("address", "local_address")
+	}
+	if ctx.IsColumnUsed("fd") {
+		context.AddConstant("fd", "fd")
+	}
+	if ctx.IsColumnUsed("socket") {
+		context.AddConstant("socket", "socket")
+	}
+	if ctx.IsColumnUsed("path") {
+		context.AddConstant("path", "path")
+	}
+
 	// Get all open sockets
-	sockets, err := process_open_sockets.GenProcessOpenSockets(ctx)
+	sockets, err := process_open_sockets.GenProcessOpenSockets(context)
 	if err != nil {
 		return nil, fmt.Errorf("error getting process open sockets: %w", err)
 	}
@@ -47,7 +62,7 @@ func GenListeningPorts(ctx context.Context) ([]map[string]interface{}, error) {
 		}
 
 		// Initialize port map with default values for all requested columns
-		port := util.InitColumns(ctx, columnDefs)
+		port := specs.Init(ctx, Schema)
 
 		// Copy values from socket map if they exist
 		if ctx.IsColumnUsed("pid") {

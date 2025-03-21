@@ -5,17 +5,8 @@ import (
 	"syscall"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// Column definitions for the uptime table
-var columnDefs = map[string]string{
-	"days":          "int32",
-	"hours":         "int32",
-	"minutes":       "int32",
-	"seconds":       "int32",
-	"total_seconds": "int64",
-}
 
 var (
 	kernel32       = syscall.NewLazyDLL("kernel32.dll")
@@ -32,7 +23,7 @@ func GenUptime(ctx context.Context) ([]map[string]interface{}, error) {
 
 	totalSeconds := uint64(ret) / 1000
 
-	result := util.InitColumns(ctx, columnDefs)
+	result := specs.Init(ctx, Schema)
 
 	if ctx.IsColumnUsed("days") {
 		result["days"] = uint32(totalSeconds / 86400)

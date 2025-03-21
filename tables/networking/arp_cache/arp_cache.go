@@ -6,16 +6,8 @@ import (
 
 	"github.com/StackExchange/wmi"
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 )
-
-// Column definitions for the listening_ports table
-var columnDefs = map[string]string{
-	"address":   "string",
-	"mac":       "string",
-	"interface": "string",
-	"permanent": "string",
-}
 
 // MSFT_NetNeighbor represents the WMI MSFT_NetNeighbor class structure.
 type MSFT_NetNeighbor struct {
@@ -54,7 +46,7 @@ func GenARPCache(ctx context.Context) ([]map[string]interface{}, error) {
 			continue
 		}
 
-		entry := util.InitColumns(ctx, columnDefs)
+		entry := specs.Init(ctx, Schema)
 
 		if ctx.IsColumnUsed("address") {
 			entry["address"] = n.IPAddress

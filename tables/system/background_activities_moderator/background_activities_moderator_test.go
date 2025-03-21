@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/context"
 )
 
 func TestBackgroundActivitiesModerator(t *testing.T) {
-	results, err := GenBackgroundActivitiesModerator()
+	ctx := context.Context{}
+	results, err := GenBackgroundActivitiesModerator(ctx)
 	if err != nil {
 		t.Errorf("Error generating background activities moderator: %v", err)
 	}

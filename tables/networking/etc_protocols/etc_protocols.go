@@ -8,17 +8,9 @@ import (
 	"strings"
 
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the etc_protocols table
-var columnDefs = map[string]string{
-	"name":    "string",
-	"number":  "int32",
-	"alias":   "string",
-	"comment": "string",
-}
 
 func getSystemRoot() string {
 	systemRoot, err := windows.GetWindowsDirectory()
@@ -54,7 +46,7 @@ func parseProtocolsFile(path string, ctx context.Context) ([]map[string]interfac
 			continue
 		}
 
-		protocol := util.InitColumns(ctx, columnDefs)
+		protocol := specs.Init(ctx, Schema)
 
 		if ctx.IsColumnUsed("name") {
 			protocol["name"] = protocolInfo[0]

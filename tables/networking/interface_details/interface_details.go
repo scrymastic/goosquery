@@ -8,46 +8,9 @@ import (
 
 	"github.com/StackExchange/wmi"
 	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/util"
+	"github.com/scrymastic/goosquery/tables/specs"
 	"golang.org/x/sys/windows"
 )
-
-// Column definitions for the interface_details table
-var columnDefs = map[string]string{
-	"interface":                      "string",
-	"mac":                            "string",
-	"type":                           "int32",
-	"mtu":                            "int32",
-	"metric":                         "int32",
-	"flags":                          "int32",
-	"ipackets":                       "int64",
-	"opackets":                       "int64",
-	"ibytes":                         "int64",
-	"obytes":                         "int64",
-	"ierrors":                        "int64",
-	"oerrors":                        "int64",
-	"idrops":                         "int64",
-	"odrops":                         "int64",
-	"collisions":                     "int64",
-	"last_change":                    "int64",
-	"friendly_name":                  "string",
-	"description":                    "string",
-	"manufacturer":                   "string",
-	"connection_id":                  "string",
-	"connection_status":              "string",
-	"enabled":                        "int32",
-	"physical_adapter":               "int32",
-	"service":                        "string",
-	"speed":                          "int32",
-	"dhcp_enabled":                   "int32",
-	"dhcp_lease_expires":             "string",
-	"dhcp_lease_obtained":            "string",
-	"dhcp_server":                    "string",
-	"dns_domain":                     "string",
-	"dns_domain_suffix_search_order": "string",
-	"dns_host_name":                  "string",
-	"dns_server_search_order":        "string",
-}
 
 func boolToInt32(b bool) int32 {
 	if b {
@@ -258,7 +221,7 @@ func GenInterfaceDetails(ctx context.Context) ([]map[string]interface{}, error) 
 	current := (*windows.IpAdapterAddresses)(unsafe.Pointer(&result[0]))
 
 	for current != nil {
-		ifDetail := util.InitColumns(ctx, columnDefs)
+		ifDetail := specs.Init(ctx, Schema)
 
 		// Basic interface details
 		if ctx.IsColumnUsed("interface") {
