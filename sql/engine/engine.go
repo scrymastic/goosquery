@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
-	"github.com/scrymastic/goosquery/sql/executor"
+	execintf "github.com/scrymastic/goosquery/sql/executor/interface"
 	"github.com/scrymastic/goosquery/sql/parser"
 	"github.com/scrymastic/goosquery/sql/result"
 )
@@ -32,7 +32,7 @@ func (e *Engine) Execute(query string) (*result.QueryResult, error) {
 	}
 
 	// Get the executor for this table
-	exec, err := executor.GetExecutor(tableName)
+	exec, err := execintf.GetExecutor(tableName)
 	if err != nil {
 		return nil, err
 	}

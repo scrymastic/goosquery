@@ -130,10 +130,10 @@ func variantTimeToUnixTime(date float64) int64 {
 }
 
 func GenWindowsUpdateHistory() ([]WindowsUpdateHistory, error) {
-	err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize COM: %v", err)
-	}
+	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize COM: %v", err)
+	// }
 	defer ole.CoUninitialize()
 
 	unknown, err := oleutil.CreateObject("Microsoft.Update.Session")

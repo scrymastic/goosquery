@@ -225,29 +225,30 @@ func GenWindowsFirewallRules(ctx context.Context) ([]map[string]interface{}, err
 	var rulesList []map[string]interface{}
 
 	// Initialize COM.
-	if err := ole.CoInitialize(0); err != nil {
-		return nil, fmt.Errorf("coInitialize error: %v", err)
-	}
+	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize COM: %v", err)
+	// }
 	// Make sure to uninitialize COM when we're done.
 	defer ole.CoUninitialize()
 
 	// Create the HNetCfg.FwPolicy2 COM object.
 	unknown, err := oleutil.CreateObject("HNetCfg.FwPolicy2")
 	if err != nil {
-		return nil, fmt.Errorf("error creating COM object: %v", err)
+		return nil, fmt.Errorf("failed to create COM object: %v", err)
 	}
 
 	// Get the IDispatch interface.
 	fwPolicy2, err := unknown.QueryInterface(ole.IID_IDispatch)
 	if err != nil {
-		return nil, fmt.Errorf("error querying IDispatch: %v", err)
+		return nil, fmt.Errorf("failed to query IDispatch: %v", err)
 	}
 	defer fwPolicy2.Release()
 
 	// Get the Rules collection.
 	rulesDisp, err := oleutil.GetProperty(fwPolicy2, "Rules")
 	if err != nil {
-		return nil, fmt.Errorf("error getting Rules property: %v", err)
+		return nil, fmt.Errorf("failed to get Rules property: %v", err)
 	}
 	rules := rulesDisp.ToIDispatch()
 	defer rules.Release()
@@ -259,7 +260,7 @@ func GenWindowsFirewallRules(ctx context.Context) ([]map[string]interface{}, err
 
 		rule, err := renderFirewallRule(ruleDisp, ctx)
 		if err != nil {
-			return fmt.Errorf("error rendering firewall rule: %v", err)
+			return fmt.Errorf("failed to render firewall rule: %v", err)
 		}
 
 		// Append the rule to the list.
@@ -267,7 +268,7 @@ func GenWindowsFirewallRules(ctx context.Context) ([]map[string]interface{}, err
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error enumerating rules: %v", err)
+		return nil, fmt.Errorf("failed to enumerate rules: %v", err)
 	}
 
 	return rulesList, nil

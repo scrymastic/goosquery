@@ -192,9 +192,10 @@ func parseTask(taskObj *ole.IDispatch) *ScheduledTask {
 }
 
 func GenScheduledTasks() ([]ScheduledTask, error) {
-	if err := ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED); err != nil {
-		return nil, fmt.Errorf("failed to initialize COM: %w", err)
-	}
+	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize COM: %w", err)
+	// }
 	defer ole.CoUninitialize()
 
 	unknown, err := ole.CreateInstance(CLSID_TaskScheduler, nil)

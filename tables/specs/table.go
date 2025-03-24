@@ -18,13 +18,13 @@ func Init(ctx context.Context, schema Schema) map[string]interface{} {
 	for _, col := range schema {
 		if ctx.IsColumnUsed(col.Name) {
 			switch col.Type {
-			case "string":
+			case "TEXT":
 				result[col.Name] = ""
-			case "int32":
+			case "INTEGER":
 				result[col.Name] = int32(-1)
-			case "int64":
+			case "BIGINT":
 				result[col.Name] = int64(-1)
-			case "float64":
+			case "FLOAT":
 				result[col.Name] = float64(-1)
 			default:
 				result[col.Name] = nil

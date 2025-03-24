@@ -38,10 +38,10 @@ func boolToInt32(b bool) int32 {
 // retrieves connectivity flags, and returns the result in a slice of maps.
 func GenConnectivity(ctx context.Context) ([]map[string]interface{}, error) {
 	// Initialize COM.
-	err := ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize COM: %v", err)
-	}
+	ole.CoInitializeEx(0, ole.COINIT_APARTMENTTHREADED)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize COM: %v", err)
+	// }
 	defer ole.CoUninitialize()
 
 	// Create an instance of INetworkListManager.

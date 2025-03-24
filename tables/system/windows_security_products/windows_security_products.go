@@ -56,10 +56,10 @@ func GenWindowsSecurityProducts() ([]WindowsSecurityProduct, error) {
 
 	CLSID_WSCProductList := windows.NewLazySystemDLL("wscapi.dll").NewProc("CLSID_WSCProductList")
 
-	err := ole.CoInitialize(0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize COM: %v", err)
-	}
+	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to initialize COM: %v", err)
+	// }
 	defer ole.CoUninitialize()
 
 	unknown, err := ole.CreateInstance(

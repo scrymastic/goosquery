@@ -385,9 +385,9 @@ func GenProcesses(ctx context.Context) ([]map[string]interface{}, error) {
 		// Initialize all requested columns with default values
 		procInfo = specs.Init(ctx, Schema)
 
-		if ctx.IsColumnUsed("pid") {
-			procInfo["pid"] = int64(pe32.ProcessID)
-		}
+		// Always set pid regardless of whether it was explicitly requested
+		procInfo["pid"] = int64(pe32.ProcessID)
+
 		if ctx.IsColumnUsed("parent") {
 			procInfo["parent"] = int64(pe32.ParentProcessID)
 		}

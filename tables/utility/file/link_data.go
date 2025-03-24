@@ -85,10 +85,10 @@ func showCmdToString(showCmd int) string {
 // ParseLnkData parses a Windows shortcut file
 func ParseLnkData(ctx context.Context, linkPath string, lnkData *map[string]interface{}) error {
 	// Initialize COM
-	err := ole.CoInitialize(0)
-	if err != nil {
-		return fmt.Errorf("failed to initialize COM: %v", err)
-	}
+	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to initialize COM: %v", err)
+	// }
 	defer ole.CoUninitialize()
 
 	// Create ShellLink object
