@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 // The hidden field looks not correct. It still needs to be refined.
@@ -36,8 +38,8 @@ var (
 	IID_ITaskScheduler  = ole.NewGUID("{148BD520-A2AB-11CE-B11F-00AA00476E5D}")
 )
 
-func getTasksFromFolder(folder *ole.IDispatch) ([]ScheduledTask, error) {
-	tasks := []ScheduledTask{}
+func getTasksFromFolder(folder *ole.IDispatch, ctx *sqlctx.Context) (*result.Results, error) {
+	tasks := result.NewQueryResult()
 
 	// Process subfolders
 	subfoldersVariant, err := oleutil.CallMethod(folder, "GetFolders", 0)
@@ -59,12 +61,12 @@ func getTasksFromFolder(folder *ole.IDispatch) ([]ScheduledTask, error) {
 		}
 
 		subfolder := subfolderVariant.ToIDispatch()
-		subtasks, err := getTasksFromFolder(subfolder)
+		subtasks, err := getTasksFromFolder(subfolder, ctx)
 		if err != nil {
 			subfolder.Release()
 			continue
 		}
-		tasks = append(tasks, subtasks...)
+		tasks.AppendResults(*subtasks)
 		subfolder.Release()
 	}
 
@@ -87,8 +89,8 @@ func getTasksFromFolder(folder *ole.IDispatch) ([]ScheduledTask, error) {
 			continue
 		}
 		task := taskVariant.ToIDispatch()
-		if parsedTask := parseTask(task); parsedTask != nil {
-			tasks = append(tasks, *parsedTask)
+		if parsedTask := parseTask(task, ctx); parsedTask != nil {
+			tasks.AppendResult(*parsedTask)
 		}
 		task.Release()
 	}
@@ -96,48 +98,48 @@ func getTasksFromFolder(folder *ole.IDispatch) ([]ScheduledTask, error) {
 	return tasks, nil
 }
 
-func parseTask(taskObj *ole.IDispatch) *ScheduledTask {
-	task := &ScheduledTask{}
+func parseTask(taskObj *ole.IDispatch, ctx *sqlctx.Context) *result.Result {
+	task := result.NewResult(ctx, Schema)
 
 	// Get basic properties
 	if name, err := oleutil.GetProperty(taskObj, "Name"); err == nil {
-		task.Name = name.ToString()
+		task.Set("name", name.ToString())
 	}
 	if path, err := oleutil.GetProperty(taskObj, "Path"); err == nil {
-		task.Path = path.ToString()
+		task.Set("path", path.ToString())
 	}
 	if enabled, err := oleutil.GetProperty(taskObj, "Enabled"); err == nil {
-		task.Enabled = enabled.Val != 0
+		task.Set("enabled", enabled.Val != 0)
 	}
 	if hidden, err := oleutil.GetProperty(taskObj, "Hidden"); err == nil {
 		fmt.Printf("Hidden property value: %v\n", hidden.Val)
-		task.Hidden = hidden.Val != 0
+		task.Set("hidden", hidden.Val != 0)
 	}
 	if state, err := oleutil.GetProperty(taskObj, "State"); err == nil {
 		if s, ok := taskStates[int(state.Val)]; ok {
-			task.State = s
+			task.Set("state", s)
 		} else {
-			task.State = fmt.Sprintf("unknown (%d)", int(state.Val))
+			task.Set("state", fmt.Sprintf("unknown (%d)", int(state.Val)))
 		}
 	}
 
 	// Get time properties
 	if lastRun, err := oleutil.GetProperty(taskObj, "LastRunTime"); err == nil && lastRun.VT == ole.VT_DATE {
-		task.LastRunTime = lastRun.Value().(time.Time).Unix()
+		task.Set("last_run_time", lastRun.Value().(time.Time).Unix())
 	}
 	if nextRun, err := oleutil.GetProperty(taskObj, "NextRunTime"); err == nil && nextRun.VT == ole.VT_DATE {
-		task.NextRunTime = nextRun.Value().(time.Time).Unix()
+		task.Set("next_run_time", nextRun.Value().(time.Time).Unix())
 	} else {
-		task.NextRunTime = -1 // Use -1 to indicate "N/A" for int64
+		task.Set("next_run_time", -1) // Use -1 to indicate "N/A" for int64
 	}
 
 	// Get result properties
 	if result, err := oleutil.GetProperty(taskObj, "LastTaskResult"); err == nil {
-		task.LastRunCode = uint32(result.Val)
-		if task.LastRunCode == 0 {
-			task.LastRunMessage = "The operation completed successfully."
-		} else if err := ole.NewError(uintptr(task.LastRunCode)); err != nil {
-			task.LastRunMessage = err.Error()
+		task.Set("last_run_code", uint32(result.Val))
+		if task.Get("last_run_code") == 0 {
+			task.Set("last_run_message", "The operation completed successfully.")
+		} else if err := ole.NewError(uintptr(task.Get("last_run_code").(uint32))); err != nil {
+			task.Set("last_run_message", err.Error())
 		}
 	}
 
@@ -185,13 +187,13 @@ func parseTask(taskObj *ole.IDispatch) *ScheduledTask {
 		}
 	}
 	if len(actionStrings) > 0 {
-		task.Action = strings.Join(actionStrings, ",")
+		task.Set("action", strings.Join(actionStrings, ","))
 	}
 
 	return task
 }
 
-func GenScheduledTasks() ([]ScheduledTask, error) {
+func GenScheduledTasks(ctx *sqlctx.Context) (*result.Results, error) {
 	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("failed to initialize COM: %w", err)
@@ -221,5 +223,10 @@ func GenScheduledTasks() ([]ScheduledTask, error) {
 	folder := rootFolder.ToIDispatch()
 	defer folder.Release()
 
-	return getTasksFromFolder(folder)
+	results, err := getTasksFromFolder(folder, ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tasks: %w", err)
+	}
+
+	return results, nil
 }

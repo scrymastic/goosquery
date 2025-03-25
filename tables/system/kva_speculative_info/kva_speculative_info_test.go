@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGetKVASpeculativeInfo(t *testing.T) {
-	info, err := GenKVASpeculativeInfo()
+	ctx := sqlctx.NewContext()
+	info, err := GenKVASpeculativeInfo(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get KVA speculative info: %v", err)
 	}

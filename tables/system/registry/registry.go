@@ -4,18 +4,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
-
-type Registry struct {
-	Key   string `json:"key"`
-	Path  string `json:"path"`
-	Name  string `json:"name"`
-	Type  string `json:"type"`
-	Data  string `json:"data"`
-	MTime uint64 `json:"mtime"`
-}
 
 var registryTypeMap = map[uint32]string{
 	windows.REG_BINARY:                   "REG_BINARY",
@@ -55,7 +48,7 @@ func parseSearchKey(searchKey string) (registry.Key, string, error) {
 	return rootKey, parts[1], nil
 }
 
-func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) ([]Registry, error) {
+func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string, ctx *sqlctx.Context) (*result.Results, error) {
 	// Open the registry key with permissions to enumerate subkeys
 	key, err := registry.OpenKey(rootKey, keyPath, registry.QUERY_VALUE|registry.ENUMERATE_SUB_KEYS)
 	if err != nil {
@@ -70,7 +63,7 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) (
 
 	modTime := uint64(info.ModTime().Unix())
 
-	var results []Registry
+	regkeys := result.NewQueryResult()
 	var reg registry.Key
 
 	// Get and process subkeys
@@ -81,13 +74,12 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) (
 
 	// Process each subkey
 	for _, subkeyName := range subkeys {
-		subReg := Registry{
-			Key:  searchKey,
-			Path: searchKey + "\\" + subkeyName,
-			Name: subkeyName,
-			Type: "subkey",
-			Data: "",
-		}
+		subReg := result.NewResult(ctx, Schema)
+		subReg.Set("key", searchKey)
+		subReg.Set("path", searchKey+"\\"+subkeyName)
+		subReg.Set("name", subkeyName)
+		subReg.Set("type", "subkey")
+		subReg.Set("data", "")
 
 		if keyPath == "" {
 			reg, err = registry.OpenKey(rootKey, subkeyName, registry.QUERY_VALUE)
@@ -99,11 +91,11 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) (
 		if err == nil {
 			subkeyInfo, err := reg.Stat()
 			if err == nil {
-				subReg.MTime = uint64(subkeyInfo.ModTime().Unix())
+				subReg.Set("mtime", uint64(subkeyInfo.ModTime().Unix()))
 			}
 		}
 
-		results = append(results, subReg)
+		regkeys.AppendResult(*subReg)
 	}
 
 	// Get and process values
@@ -128,26 +120,32 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string) (
 			regType = fmt.Sprintf("Unknown Type: %d", valType)
 		}
 
-		entry := Registry{
-			Key:   searchKey,
-			Path:  searchKey + "\\" + valueName,
-			Name:  valueName,
-			Type:  regType,
-			Data:  val,
-			MTime: modTime,
-		}
+		entry := result.NewResult(ctx, Schema)
+		entry.Set("key", searchKey)
+		entry.Set("path", searchKey+"\\"+valueName)
+		entry.Set("name", valueName)
+		entry.Set("type", regType)
+		entry.Set("data", val)
+		entry.Set("mtime", modTime)
 
-		results = append(results, entry)
+		regkeys.AppendResult(*entry)
 	}
 
-	return results, nil
+	return regkeys, nil
 }
 
-func GenRegistry(searchKey string) ([]Registry, error) {
-	rootKey, keyPath, err := parseSearchKey(searchKey)
+func GenRegistry(ctx *sqlctx.Context) (*result.Results, error) {
+	searchKey := ctx.GetConstants("key")
+	results := result.NewQueryResult()
+	rootKey, keyPath, err := parseSearchKey(searchKey[0])
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse search key: %v", err)
 	}
+	regkeys, err := getRegistryValues(rootKey, keyPath, searchKey[0], ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry values: %v", err)
+	}
+	results.AppendResults(*regkeys)
 
-	return getRegistryValues(rootKey, keyPath, searchKey)
+	return results, nil
 }

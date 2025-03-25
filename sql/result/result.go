@@ -1,23 +1,27 @@
 package result
 
-// QueryResult represents the result of a SQL query
-// It's implemented as a slice of records (maps) for flexibility
-type QueryResult []map[string]interface{}
+// Results represents the result of a SQL query
+// It's implemented as a slice of results (maps) for flexibility
+type Results []Result
 
 // NewQueryResult creates a new empty query result
-func NewQueryResult() *QueryResult {
-	res := QueryResult{}
+func NewQueryResult() *Results {
+	res := Results{}
 	return &res
 }
 
-// AddRecord adds a record (row) to the query result
-func (r *QueryResult) AddRecord(record map[string]interface{}) {
-	*r = append(*r, record)
+// AppendResult adds a result (row) to the query result
+func (r *Results) AppendResult(result Result) {
+	*r = append(*r, result)
+}
+
+func (r *Results) AppendResults(results Results) {
+	*r = append(*r, results...)
 }
 
 // GetColumns returns all column names in the result
-// This inspects all records and combines their keys to get all possible columns
-func (r *QueryResult) GetColumns() []string {
+// This inspects all results and combines their keys to get all possible columns
+func (r *Results) GetColumns() []string {
 	if len(*r) == 0 {
 		return []string{}
 	}
@@ -25,9 +29,9 @@ func (r *QueryResult) GetColumns() []string {
 	// Use a map to eliminate duplicates
 	columnMap := make(map[string]bool)
 
-	// Collect all column names from all records
-	for _, record := range *r {
-		for column := range record {
+	// Collect all column names from all results
+	for _, result := range *r {
+		for column := range result {
 			columnMap[column] = true
 		}
 	}
@@ -41,62 +45,62 @@ func (r *QueryResult) GetColumns() []string {
 	return columns
 }
 
-// IsEmpty returns true if the result contains no records
-func (r *QueryResult) IsEmpty() bool {
+// IsEmpty returns true if the result contains no results
+func (r *Results) IsEmpty() bool {
 	return len(*r) == 0
 }
 
-// Size returns the number of records in the result
-func (r *QueryResult) Size() int {
+// Size returns the number of results in the result
+func (r *Results) Size() int {
 	return len(*r)
 }
 
 // Clone creates a deep copy of the query result
-func (r *QueryResult) Clone() *QueryResult {
+func (r *Results) Clone() *Results {
 	if r.IsEmpty() {
 		return NewQueryResult()
 	}
 
 	clone := NewQueryResult()
-	for _, record := range *r {
-		// Create a new map for each record
-		recordCopy := make(map[string]interface{})
-		for k, v := range record {
-			recordCopy[k] = v
+	for _, result := range *r {
+		// Create a new map for each result
+		resultCopy := make(map[string]interface{})
+		for k, v := range result {
+			resultCopy[k] = v
 		}
-		clone.AddRecord(recordCopy)
+		clone.AppendResult(resultCopy)
 	}
 
 	return clone
 }
 
-// GetValue retrieves a value from a specific record and column
+// GetValue retrieves a value from a specific result and column
 // Returns the value and a boolean indicating if the value was found
-func (r *QueryResult) GetValue(rowIndex int, columnName string) (interface{}, bool) {
+func (r *Results) GetValue(rowIndex int, columnName string) (interface{}, bool) {
 	if rowIndex < 0 || rowIndex >= r.Size() {
 		return nil, false
 	}
 
-	record := (*r)[rowIndex]
-	value, exists := record[columnName]
+	result := (*r)[rowIndex]
+	value, exists := result[columnName]
 	return value, exists
 }
 
-// SetValue sets a value in a specific record and column
-// Returns true if successful, false if the record doesn't exist
-func (r *QueryResult) SetValue(rowIndex int, columnName string, value interface{}) bool {
+// SetValue sets a value in a specific result and column
+// Returns true if successful, false if the result doesn't exist
+func (r *Results) SetValue(rowIndex int, columnName string, value interface{}) bool {
 	if rowIndex < 0 || rowIndex >= r.Size() {
 		return false
 	}
 
-	record := (*r)[rowIndex]
-	record[columnName] = value
+	result := (*r)[rowIndex]
+	result[columnName] = value
 	return true
 }
 
-// GetRow returns a specific record by index
-// Returns the record and a boolean indicating if the record was found
-func (r *QueryResult) GetRow(rowIndex int) (map[string]interface{}, bool) {
+// GetRow returns a specific result by index
+// Returns the result and a boolean indicating if the result was found
+func (r *Results) GetRow(rowIndex int) (Result, bool) {
 	if rowIndex < 0 || rowIndex >= r.Size() {
 		return nil, false
 	}
@@ -105,11 +109,11 @@ func (r *QueryResult) GetRow(rowIndex int) (map[string]interface{}, bool) {
 }
 
 // GetColumnValues returns all values for a specific column
-func (r *QueryResult) GetColumnValues(columnName string) []interface{} {
+func (r *Results) GetColumnValues(columnName string) []interface{} {
 	values := make([]interface{}, 0, r.Size())
 
-	for _, record := range *r {
-		if value, exists := record[columnName]; exists {
+	for _, result := range *r {
+		if value, exists := result[columnName]; exists {
 			values = append(values, value)
 		} else {
 			values = append(values, nil)
@@ -119,36 +123,36 @@ func (r *QueryResult) GetColumnValues(columnName string) []interface{} {
 	return values
 }
 
-// ForEach executes a function for each record in the result
-func (r *QueryResult) ForEach(fn func(map[string]interface{}) error) error {
-	for _, record := range *r {
-		if err := fn(record); err != nil {
+// ForEach executes a function for each result in the result
+func (r *Results) ForEach(fn func(Result) error) error {
+	for _, result := range *r {
+		if err := fn(result); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Filter returns a new QueryResult containing only records that pass the filter function
-func (r *QueryResult) Filter(fn func(map[string]interface{}) bool) *QueryResult {
+// Filter returns a new QueryResult containing only results that pass the filter function
+func (r *Results) Filter(fn func(Result) bool) *Results {
 	filtered := NewQueryResult()
 
-	for _, record := range *r {
-		if fn(record) {
-			filtered.AddRecord(record)
+	for _, result := range *r {
+		if fn(result) {
+			filtered.AppendResult(result)
 		}
 	}
 
 	return filtered
 }
 
-// Map applies a transformation function to each record and returns a new QueryResult
-func (r *QueryResult) Map(fn func(map[string]interface{}) map[string]interface{}) *QueryResult {
+// Map applies a transformation function to each result and returns a new QueryResult
+func (r *Results) Map(fn func(Result) Result) *Results {
 	mapped := NewQueryResult()
 
-	for _, record := range *r {
-		transformedRecord := fn(record)
-		mapped.AddRecord(transformedRecord)
+	for _, result := range *r {
+		transformedResult := fn(result)
+		mapped.AppendResult(transformedResult)
 	}
 
 	return mapped

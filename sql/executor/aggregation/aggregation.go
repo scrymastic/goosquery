@@ -10,7 +10,7 @@ import (
 )
 
 // ApplyAggregations applies aggregation functions to the result set
-func ApplyAggregations(results *result.QueryResult, aggregations []AggregationInfo, groupBy sqlparser.GroupBy) (*result.QueryResult, error) {
+func ApplyAggregations(results *result.Results, aggregations []AggregationInfo, groupBy sqlparser.GroupBy) (*result.Results, error) {
 	// If there are no results, return empty result with aggregation columns
 	if len(*results) == 0 {
 		emptyResult := result.NewQueryResult()
@@ -28,7 +28,7 @@ func ApplyAggregations(results *result.QueryResult, aggregations []AggregationIn
 			}
 		}
 
-		emptyResult.AddRecord(emptyRow)
+		emptyResult.AppendResult(emptyRow)
 		return emptyResult, nil
 	}
 
@@ -55,7 +55,7 @@ func ApplyAggregations(results *result.QueryResult, aggregations []AggregationIn
 }
 
 // aggregateAll applies aggregations to the entire result set (no GROUP BY)
-func aggregateAll(results *result.QueryResult, aggregations []AggregationInfo) (*result.QueryResult, error) {
+func aggregateAll(results *result.Results, aggregations []AggregationInfo) (*result.Results, error) {
 	// Create a single aggregated row
 	aggregatedRow := make(map[string]interface{})
 
@@ -70,13 +70,13 @@ func aggregateAll(results *result.QueryResult, aggregations []AggregationInfo) (
 
 	// Create a new result with just the aggregated row
 	aggregatedResult := result.NewQueryResult()
-	aggregatedResult.AddRecord(aggregatedRow)
+	aggregatedResult.AppendResult(aggregatedRow)
 
 	return aggregatedResult, nil
 }
 
 // aggregateByGroups applies aggregations to each group of results
-func aggregateByGroups(results *result.QueryResult, aggregations []AggregationInfo, groupByColumns []string) (*result.QueryResult, error) {
+func aggregateByGroups(results *result.Results, aggregations []AggregationInfo, groupByColumns []string) (*result.Results, error) {
 	// Check if group columns exist in the results
 	if len(*results) > 0 {
 		firstRow := (*results)[0]
@@ -112,7 +112,7 @@ func aggregateByGroups(results *result.QueryResult, aggregations []AggregationIn
 		// Create a subset of results containing only rows in this group
 		groupResults := result.NewQueryResult()
 		for _, idx := range rowIndices {
-			groupResults.AddRecord((*results)[idx])
+			groupResults.AppendResult((*results)[idx])
 		}
 
 		// Create a row with group by columns and aggregated values
@@ -132,14 +132,14 @@ func aggregateByGroups(results *result.QueryResult, aggregations []AggregationIn
 			aggregatedRow[agg.Alias] = value
 		}
 
-		aggregatedResult.AddRecord(aggregatedRow)
+		aggregatedResult.AppendResult(aggregatedRow)
 	}
 
 	return aggregatedResult, nil
 }
 
 // calculateAggregation applies a single aggregation function to a set of results
-func calculateAggregation(results *result.QueryResult, agg AggregationInfo) (interface{}, error) {
+func calculateAggregation(results *result.Results, agg AggregationInfo) (interface{}, error) {
 	if len(*results) == 0 {
 		return nil, nil
 	}

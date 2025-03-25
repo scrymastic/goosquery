@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenKernelInfo(t *testing.T) {
-	info, err := GenKernelInfo()
+	ctx := sqlctx.NewContext()
+	info, err := GenKernelInfo(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get kernel info: %v", err)
 	}

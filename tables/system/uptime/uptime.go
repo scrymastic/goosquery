@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 var (
@@ -14,7 +14,7 @@ var (
 )
 
 // GenUptime returns the system uptime information
-func GenUptime(ctx context.Context) ([]map[string]interface{}, error) {
+func GenUptime(ctx sqlctx.Context) ([]map[string]interface{}, error) {
 	// GetTickCount64 returns the number of milliseconds since system startup
 	ret, _, err := getTickCount64.Call()
 	if ret == 0 {

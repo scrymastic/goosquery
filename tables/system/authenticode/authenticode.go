@@ -5,8 +5,8 @@ import (
 	"unsafe"
 
 	"github.com/go-ole/go-ole"
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -128,7 +128,7 @@ func getOriginalProgramName(signerInfo *CMSG_SIGNER_INFO) (string, error) {
 	return programName, nil
 }
 
-func getSignatureInformation(path string, entry map[string]interface{}, ctx context.Context) error {
+func getSignatureInformation(path string, entry *result.Result, ctx *sqlctx.Context) error {
 	// Convert path to UTF16
 	uft16Path := windows.StringToUTF16Ptr(path)
 
@@ -186,7 +186,7 @@ func getSignatureInformation(path string, entry map[string]interface{}, ctx cont
 			// Just log the error and continue, as this is not critical
 			fmt.Printf("failed to get original program name: %v\n", err)
 		}
-		entry["original_program_name"] = originalProgramName
+		entry.Set("original_program_name", originalProgramName)
 	}
 
 	// Find certificate in store
@@ -218,7 +218,7 @@ func getSignatureInformation(path string, entry map[string]interface{}, ctx cont
 		for i := len(serialNumber) - 1; i >= 0; i-- {
 			serialNumberStr += fmt.Sprintf("%02x", serialNumber[i])
 		}
-		entry["serial_number"] = serialNumberStr
+		entry.Set("serial_number", serialNumberStr)
 	}
 
 	if ctx.IsColumnUsed("issuer_name") {
@@ -249,7 +249,7 @@ func getSignatureInformation(path string, entry map[string]interface{}, ctx cont
 		if ret == 0 {
 			return fmt.Errorf("failed to get issuer name: %v", windows.GetLastError())
 		}
-		entry["issuer_name"] = windows.UTF16ToString(issuerName)
+		entry.Set("issuer_name", windows.UTF16ToString(issuerName))
 	}
 
 	if ctx.IsColumnUsed("subject_name") {
@@ -279,7 +279,7 @@ func getSignatureInformation(path string, entry map[string]interface{}, ctx cont
 		if ret == 0 {
 			return fmt.Errorf("failed to get subject name: %v", windows.GetLastError())
 		}
-		entry["subject_name"] = windows.UTF16ToString(subjectName)
+		entry.Set("subject_name", windows.UTF16ToString(subjectName))
 	}
 
 	return nil
@@ -421,13 +421,13 @@ func verifySignature(path string) (string, error) {
 	}
 }
 
-func GenAuthenticode(ctx context.Context) ([]map[string]interface{}, error) {
-	results := make([]map[string]interface{}, 0)
+func GenAuthenticode(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	paths := ctx.GetConstants("path")
 
 	for _, path := range paths {
-		entry := specs.Init(ctx, Schema)
-		entry["path"] = path
+		entry := result.NewResult(ctx, Schema)
+		entry.Set("path", path)
 
 		catalogFile, err := getCatalogPathForFilePath(path)
 		if err != nil {
@@ -440,10 +440,10 @@ func GenAuthenticode(ctx context.Context) ([]map[string]interface{}, error) {
 				return nil, fmt.Errorf("failed to verify signature: %v", err)
 			}
 
-			entry["result"] = verificationResult
+			entry.Set("result", verificationResult)
 
 			if verificationResult == "missing" {
-				results = append(results, entry)
+				results.AppendResult(*entry)
 				continue
 			}
 		}
@@ -455,7 +455,7 @@ func GenAuthenticode(ctx context.Context) ([]map[string]interface{}, error) {
 			}
 		}
 
-		results = append(results, entry)
+		results.AppendResult(*entry)
 	}
 
 	return results, nil

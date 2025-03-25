@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 // DeviceGuardStatus represents the Device Guard security status information
@@ -69,7 +71,7 @@ func formatServices(services []int32) string {
 }
 
 // GenDeviceguardStatus retrieves the Device Guard status information
-func GenDeviceguardStatus() ([]DeviceGuardStatus, error) {
+func GenDeviceguardStatus(ctx *sqlctx.Context) (*result.Results, error) {
 	var guards []Win32_DeviceGuard
 	query := "SELECT * FROM Win32_DeviceGuard"
 	namespace := `ROOT\MICROSOFT\WINDOWS\DEVICEGUARD`
@@ -77,18 +79,17 @@ func GenDeviceguardStatus() ([]DeviceGuardStatus, error) {
 		return nil, fmt.Errorf("failed to query Win32_DeviceGuard: %v", err)
 	}
 
-	status := make([]DeviceGuardStatus, 0, len(guards))
+	status := result.NewQueryResult()
 	for _, guard := range guards {
-		s := DeviceGuardStatus{
-			Version:            guard.Version,
-			InstanceID:         guard.InstanceIdentifier,
-			VBSStatus:          getEnumString(guard.VirtualizationBasedSecurityStatus, vbsStatuses),
-			CodeIntegrityMode:  getEnumString(guard.CodeIntegrityPolicyEnforcementStatus, enforcementModes),
-			UMCIMode:           getEnumString(guard.UsermodeCodeIntegrityPolicyEnforcementStatus, enforcementModes),
-			ConfiguredServices: formatServices(guard.SecurityServicesConfigured),
-			RunningServices:    formatServices(guard.SecurityServicesRunning),
-		}
-		status = append(status, s)
+		s := result.NewResult(ctx, Schema)
+		s.Set("version", guard.Version)
+		s.Set("instance_identifier", guard.InstanceIdentifier)
+		s.Set("vbs_status", getEnumString(guard.VirtualizationBasedSecurityStatus, vbsStatuses))
+		s.Set("code_integrity_policy_enforcement_status", getEnumString(guard.CodeIntegrityPolicyEnforcementStatus, enforcementModes))
+		s.Set("umci_policy_status", getEnumString(guard.UsermodeCodeIntegrityPolicyEnforcementStatus, enforcementModes))
+		s.Set("configured_security_services", formatServices(guard.SecurityServicesConfigured))
+		s.Set("running_security_services", formatServices(guard.SecurityServicesRunning))
+		status.AppendResult(*s)
 	}
 
 	return status, nil

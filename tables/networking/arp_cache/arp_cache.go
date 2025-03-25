@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/StackExchange/wmi"
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 // MSFT_NetNeighbor represents the WMI MSFT_NetNeighbor class structure.
@@ -28,7 +28,7 @@ const (
 
 // GenARPCache retrieves the current ARP cache entries from the system.
 // It returns a slice of map[string]interface{} and an error if the operation fails.
-func GenARPCache(ctx context.Context) ([]map[string]interface{}, error) {
+func GenARPCache(ctx *sqlctx.Context) (*result.Results, error) {
 	var neighbors []MSFT_NetNeighbor
 	query := "SELECT * FROM MSFT_NetNeighbor"
 	namespace := `ROOT\StandardCimv2`
@@ -36,7 +36,7 @@ func GenARPCache(ctx context.Context) ([]map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to query MSFT_NetNeighbor: %w", err)
 	}
 
-	entries := make([]map[string]interface{}, 0, len(neighbors))
+	entries := result.NewQueryResult()
 	for _, n := range neighbors {
 		if n.AddressFamily != IPv4AddressFamily {
 			continue
@@ -46,25 +46,14 @@ func GenARPCache(ctx context.Context) ([]map[string]interface{}, error) {
 			continue
 		}
 
-		entry := specs.Init(ctx, Schema)
+		entry := result.NewResult(ctx, Schema)
 
-		if ctx.IsColumnUsed("address") {
-			entry["address"] = n.IPAddress
-		}
+		entry.Set("address", n.IPAddress)
+		entry.Set("mac", strings.ReplaceAll(n.LinkLayerAddress, "-", ":"))
+		entry.Set("interface", n.InterfaceAlias)
+		entry.Set("permanent", map[bool]string{true: "1", false: "0"}[n.State == PermanentState])
 
-		if ctx.IsColumnUsed("mac") {
-			entry["mac"] = strings.ReplaceAll(n.LinkLayerAddress, "-", ":")
-		}
-
-		if ctx.IsColumnUsed("interface") {
-			entry["interface"] = n.InterfaceAlias
-		}
-
-		if ctx.IsColumnUsed("permanent") {
-			entry["permanent"] = map[bool]string{true: "1", false: "0"}[n.State == PermanentState]
-		}
-
-		entries = append(entries, entry)
+		entries.AppendResult(*entry)
 	}
 
 	return entries, nil

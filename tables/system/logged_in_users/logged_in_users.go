@@ -6,6 +6,9 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 var (
@@ -37,17 +40,6 @@ var sessionStates = map[int32]string{
 	7: "reset",
 	8: "down",
 	9: "init",
-}
-
-type LoggedInUser struct {
-	User         string `json:"user"`
-	Type         string `json:"type"`
-	Tty          string `json:"tty"`
-	Host         string `json:"host"`
-	Time         int64  `json:"time"`
-	Pid          int32  `json:"pid"`
-	Sid          string `json:"sid"`
-	RegistryHive string `json:"registry_hive"`
 }
 
 // WTS_SESSION_INFO_1W structure
@@ -161,8 +153,8 @@ func getSid(domain, username string) (string, error) {
 	return windows.UTF16PtrToString(sidString), nil
 }
 
-func GenLoggedInUsers() ([]LoggedInUser, error) {
-	var users []LoggedInUser
+func GenLoggedInUsers(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	var count uint32
 	var pSessionInfo *WTS_SESSION_INFO_1W
 	level := uint32(1)
@@ -187,9 +179,7 @@ func GenLoggedInUsers() ([]LoggedInUser, error) {
 			continue
 		}
 
-		user := LoggedInUser{
-			Pid: -1, // Default PID as in osquery
-		}
+		user := result.NewResult(ctx, Schema)
 
 		// Get session info
 		var sessionInfo *WTSINFOW
@@ -203,43 +193,45 @@ func GenLoggedInUsers() ([]LoggedInUser, error) {
 		)
 		if ret != 0 {
 			wts := (*WTSINFOW)(unsafe.Pointer(sessionInfo))
-			user.User = windows.UTF16PtrToString(session.UserName)
-			user.Type = sessionStates[session.State]
-			user.Tty = windows.UTF16PtrToString(session.SessionName)
+			user.Set("user", windows.UTF16PtrToString(session.UserName))
+			user.Set("type", sessionStates[session.State])
+			user.Set("tty", windows.UTF16PtrToString(session.SessionName))
 			if wts.ConnectTime != 0 {
-				user.Time = filetimeToUnix(wts.ConnectTime)
+				user.Set("time", filetimeToUnix(wts.ConnectTime))
 			}
 			procWtsFreeMemory.Call(uintptr(unsafe.Pointer(sessionInfo)))
 		}
 
-		// Get client info
-		var clientInfo *WTSCLIENTW
-		ret, _, _ = procWtsQuerySessionInfo.Call(
-			uintptr(WTS_CURRENT_SERVER_HANDLE),
-			uintptr(session.SessionId),
-			uintptr(WTSClientInfo),
-			uintptr(unsafe.Pointer(&clientInfo)),
-			uintptr(unsafe.Pointer(&bytesRet)),
-		)
-		if ret != 0 {
-			client := (*WTSCLIENTW)(unsafe.Pointer(clientInfo))
-			user.Host = windows.UTF16ToString(client.ClientName[:])
-			procWtsFreeMemory.Call(uintptr(unsafe.Pointer(clientInfo)))
-		}
-
-		// Get SID
-		if user.User != "" {
-			domain := windows.UTF16PtrToString(session.DomainName)
-			if sid, err := getSid(domain, user.User); err == nil {
-				user.Sid = sid
-				user.RegistryHive = "HKEY_USERS\\" + sid
-			} else {
-				log.Printf("Failed to get SID for %s: %v", user.User, err)
+		if ctx.IsAnyOfColumnsUsed([]string{"host", "sid", "registry_hive"}) {
+			// Get client info
+			var clientInfo *WTSCLIENTW
+			ret, _, _ = procWtsQuerySessionInfo.Call(
+				uintptr(WTS_CURRENT_SERVER_HANDLE),
+				uintptr(session.SessionId),
+				uintptr(WTSClientInfo),
+				uintptr(unsafe.Pointer(&clientInfo)),
+				uintptr(unsafe.Pointer(&bytesRet)),
+			)
+			if ret != 0 {
+				client := (*WTSCLIENTW)(unsafe.Pointer(clientInfo))
+				user.Set("host", windows.UTF16ToString(client.ClientName[:]))
+				procWtsFreeMemory.Call(uintptr(unsafe.Pointer(clientInfo)))
 			}
-		}
 
-		users = append(users, user)
+			// Get SID
+			if user.Get("user") != "" {
+				domain := windows.UTF16PtrToString(session.DomainName)
+				if sid, err := getSid(domain, user.Get("user").(string)); err == nil {
+					user.Set("sid", sid)
+					user.Set("registry_hive", "HKEY_USERS\\"+sid)
+				} else {
+					log.Printf("Failed to get SID for %s: %v", user.Get("user"), err)
+				}
+			}
+
+			results.AppendResult(*user)
+		}
 	}
 
-	return users, nil
+	return results, nil
 }

@@ -2,17 +2,9 @@ package logical_drives
 
 import (
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-type LogicalDrive struct {
-	DeviceID      string `json:"device_id"`
-	Type          string `json:"type"`
-	Description   string `json:"description"`
-	FreeSpace     int64  `json:"free_space"`
-	Size          int64  `json:"size"`
-	FileSystem    string `json:"file_system"`
-	BootPartition int32  `json:"boot_partition"`
-}
 
 type Win32_LogicalDisk struct {
 	DeviceID    string
@@ -26,7 +18,8 @@ type Win32_BootConfiguration struct {
 	BootDirectory string
 }
 
-func GenLogicalDrives() ([]LogicalDrive, error) {
+func GenLogicalDrives(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	var disks []Win32_LogicalDisk
 	query := "SELECT * FROM Win32_LogicalDisk"
 	if err := wmi.Query(query, &disks); err != nil {
@@ -45,30 +38,28 @@ func GenLogicalDrives() ([]LogicalDrive, error) {
 		bootDrive = bootConfig[0].BootDirectory[:2]
 	}
 
-	var logicalDrives []LogicalDrive
 	for _, disk := range disks {
-		drive := LogicalDrive{
-			DeviceID:    disk.DeviceID,
-			Type:        "Unknown", // Always Unknown in OSQuery
-			Description: disk.Description,
-			FileSystem:  disk.FileSystem,
-		}
+		drive := result.NewResult(ctx, Schema)
+		drive.Set("device_id", disk.DeviceID)
+		drive.Set("type", "Unknown") // Always Unknown in OSQuery
+		drive.Set("description", disk.Description)
+		drive.Set("file_system", disk.FileSystem)
 
 		// Convert nullable uint64 to int64
 		if disk.FreeSpace != nil {
-			drive.FreeSpace = int64(*disk.FreeSpace)
+			drive.Set("free_space", int64(*disk.FreeSpace))
 		}
 		if disk.Size != nil {
-			drive.Size = int64(*disk.Size)
+			drive.Set("size", int64(*disk.Size))
 		}
 
 		// Set boot partition
 		if disk.DeviceID == bootDrive {
-			drive.BootPartition = 1
+			drive.Set("boot_partition", 1)
 		}
 
-		logicalDrives = append(logicalDrives, drive)
+		results.AppendResult(*drive)
 	}
 
-	return logicalDrives, nil
+	return results, nil
 }

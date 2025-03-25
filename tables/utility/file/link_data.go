@@ -8,7 +8,8 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -83,7 +84,7 @@ func showCmdToString(showCmd int) string {
 }
 
 // ParseLnkData parses a Windows shortcut file
-func ParseLnkData(ctx context.Context, linkPath string, lnkData *map[string]interface{}) error {
+func ParseLnkData(ctx *sqlctx.Context, linkPath string, lnkData *result.Result) error {
 	// Initialize COM
 	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	// if err != nil {

@@ -6,15 +6,10 @@ import (
 	"strings"
 
 	"golang.org/x/sys/windows"
-)
 
-type PipeInfo struct {
-	PID          uint32 `json:"pid"`
-	Name         string `json:"name"`
-	Instances    uint32 `json:"instances"`
-	MaxInstances uint32 `json:"max_instances"`
-	Flags        string `json:"flags"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 func pipeFlagsToString(flags uint32) string {
 	var flagString []string
@@ -33,7 +28,7 @@ func pipeFlagsToString(flags uint32) string {
 	return strings.Join(flagString, ",")
 }
 
-func GenPipes() ([]PipeInfo, error) {
+func GenPipes(ctx *sqlctx.Context) (*result.Results, error) {
 	var pipeSearch string = `\\.\pipe\*`
 	var findFileData windows.Win32finddata
 
@@ -43,18 +38,13 @@ func GenPipes() ([]PipeInfo, error) {
 	}
 	defer windows.FindClose(findHandle)
 
-	var pipes []PipeInfo
+	pipes := result.NewQueryResult()
 	for {
 		pipeName := windows.UTF16ToString(findFileData.FileName[:])
 		pipePath := `\\.\pipe\` + pipeName
 
-		pipeInfo := PipeInfo{
-			Name:         pipeName,
-			PID:          0,
-			Instances:    0,
-			MaxInstances: 0,
-			Flags:        "",
-		}
+		pipeInfo := result.NewResult(ctx, Schema)
+		pipeInfo.Set("name", pipeName)
 
 		pipeHandle, err := windows.CreateFile(
 			windows.StringToUTF16Ptr(pipePath),
@@ -66,18 +56,26 @@ func GenPipes() ([]PipeInfo, error) {
 			0,
 		)
 
-		if err == nil {
-			// Try to get server PID first, then client PID
-			if err = windows.GetNamedPipeServerProcessId(pipeHandle, &pipeInfo.PID); err != nil {
-				if err = windows.GetNamedPipeClientProcessId(pipeHandle, &pipeInfo.PID); err != nil {
-					log.Printf("failed to get pipe process ID: %v", err)
-				}
-			}
+		if err != nil {
+			log.Printf("failed to open pipe %s: %v", pipePath, err)
+			goto NextPipe
+		}
 
+		if ctx.IsColumnUsed("pid") {
+			// Try to get server PID first, then client PID
+			var pid uint32
+			if err = windows.GetNamedPipeServerProcessId(pipeHandle, &pid); err != nil {
+				log.Printf("failed to get pipe process ID: %v", err)
+			}
+			pipeInfo.Set("pid", pid)
+		}
+
+		if ctx.IsColumnUsed("instances") {
+			var instances uint32
 			if err = windows.GetNamedPipeHandleState(
 				pipeHandle,
 				nil,
-				&pipeInfo.Instances,
+				&instances,
 				nil,
 				nil,
 				nil,
@@ -85,25 +83,29 @@ func GenPipes() ([]PipeInfo, error) {
 			); err != nil {
 				log.Printf("failed to get pipe handle state: %v", err)
 			}
+			pipeInfo.Set("instances", instances)
+		}
 
+		if ctx.IsAnyOfColumnsUsed([]string{"max_instances", "flags"}) {
 			var pipeFlags uint32
+			var maxInstances uint32
 			if err = windows.GetNamedPipeInfo(
 				pipeHandle,
 				&pipeFlags,
 				nil,
 				nil,
-				&pipeInfo.MaxInstances,
+				&maxInstances,
 			); err != nil {
 				log.Printf("failed to get pipe info: %v", err)
 			} else {
-				pipeInfo.Flags = pipeFlagsToString(pipeFlags)
+				pipeInfo.Set("flags", pipeFlagsToString(pipeFlags))
+				pipeInfo.Set("max_instances", maxInstances)
 			}
-		} else {
-			log.Printf("failed to open pipe %s: %v", pipePath, err)
 		}
 
-		pipes = append(pipes, pipeInfo)
+		pipes.AppendResult(*pipeInfo)
 
+	NextPipe:
 		// Close the pipe handle
 		windows.CloseHandle(pipeHandle)
 

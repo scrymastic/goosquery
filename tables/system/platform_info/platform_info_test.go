@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenPlatformInfo(t *testing.T) {
-	info, err := GenPlatformInfo()
+	info, err := GenPlatformInfo(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get platform info: %v", err)
 	}
@@ -20,26 +22,30 @@ func TestGenPlatformInfo(t *testing.T) {
 	fmt.Printf("Platform Info Results:\n%s\n", string(jsonData))
 
 	// Basic validation of returned data
-	if len(info) != 1 {
-		t.Errorf("Expected exactly 1 platform info entry, got %d", len(info))
+	if info.Size() != 1 {
+		t.Errorf("Expected exactly 1 platform info entry, got %d", info.Size())
 		return
 	}
 
-	platformInfo := info[0]
+	platformInfo, ok := info.GetRow(0)
+	if !ok {
+		t.Error("Failed to get platform info")
+		return
+	}
 	// Check that essential fields are not empty
-	if platformInfo.Vendor == "" {
+	if platformInfo.Get("vendor") == "" {
 		t.Error("Vendor is empty")
 	}
-	if platformInfo.Version == "" {
+	if platformInfo.Get("version") == "" {
 		t.Error("Version is empty")
 	}
-	if platformInfo.Date == "" {
+	if platformInfo.Get("date") == "" {
 		t.Error("Date is empty")
 	}
-	if platformInfo.Revision == "" {
+	if platformInfo.Get("revision") == "" {
 		t.Error("Revision is empty")
 	}
-	if platformInfo.FirmwareType == "" {
+	if platformInfo.Get("firmware_type") == "" {
 		t.Error("FirmwareType is empty")
 	}
 }

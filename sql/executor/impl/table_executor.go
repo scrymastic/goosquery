@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
-	"github.com/scrymastic/goosquery/sql/context"
 	"github.com/scrymastic/goosquery/sql/executor/aggregation"
 	"github.com/scrymastic/goosquery/sql/executor/postops"
 	"github.com/scrymastic/goosquery/sql/executor/projection"
 	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 // DataGenerator is a function that generates data for a table
-type DataGenerator func(context.Context) ([]map[string]interface{}, error)
+type DataGenerator func(sqlctx.Context) ([]map[string]interface{}, error)
 
 // TableExecutor is a generic executor for tables that return []map[string]interface{}
 type TableExecutor struct {
@@ -22,7 +22,7 @@ type TableExecutor struct {
 }
 
 // Execute executes a query against the table using the provided data function
-func (e *TableExecutor) Execute(stmt *sqlparser.Select) (*result.QueryResult, error) {
+func (e *TableExecutor) Execute(stmt *sqlparser.Select) (*result.Results, error) {
 	// Check if the query uses aggregation functions
 	hasAggregations := aggregation.HasAggregations(stmt.SelectExprs)
 
@@ -36,7 +36,7 @@ func (e *TableExecutor) Execute(stmt *sqlparser.Select) (*result.QueryResult, er
 	requiredColumns := e.GetAllRequiredColumns(stmt)
 
 	// Create context for query execution
-	ctx := context.Context{}
+	ctx := sqlctx.Context{}
 
 	// Get constants from WHERE clause
 	if stmt.Where != nil {
@@ -59,7 +59,7 @@ func (e *TableExecutor) Execute(stmt *sqlparser.Select) (*result.QueryResult, er
 	for _, itemMap := range data {
 		if stmt.Where == nil || e.MatchesWhereClause(itemMap, stmt.Where.Expr) {
 			// Add all columns at this stage - we'll project down later
-			res.AddRecord(itemMap)
+			res.AppendResult(itemMap)
 		}
 	}
 

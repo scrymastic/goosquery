@@ -4,21 +4,9 @@ import (
 	"fmt"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-type DiskInfo struct {
-	Partitions    int32  `json:"partitions"`
-	DiskIndex     int32  `json:"disk_index"`
-	Type          string `json:"type"`
-	ID            string `json:"id"`
-	PnpDeviceID   string `json:"pnp_device_id"`
-	DiskSize      string `json:"disk_size"`
-	Manufacturer  string `json:"manufacturer"`
-	HardwareModel string `json:"hardware_model"`
-	Name          string `json:"name"`
-	Serial        string `json:"serial"`
-	Description   string `json:"description"`
-}
 
 // Win32_DiskDrive represents the WMI Win32_DiskDrive class
 type Win32_DiskDrive struct {
@@ -35,7 +23,7 @@ type Win32_DiskDrive struct {
 	Description   string
 }
 
-func GenDiskInfo() ([]DiskInfo, error) {
+func GenDiskInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	var diskDrives []Win32_DiskDrive
 	query := "SELECT * FROM Win32_DiskDrive"
 
@@ -43,23 +31,22 @@ func GenDiskInfo() ([]DiskInfo, error) {
 		return nil, fmt.Errorf("failed to query Win32_DiskDrive: %s, %v", query, err)
 	}
 
-	var results []DiskInfo
+	results := result.NewQueryResult()
 
 	for _, disk := range diskDrives {
-		result := DiskInfo{
-			Partitions:    int32(disk.Partitions),
-			DiskIndex:     int32(disk.Index),
-			Type:          disk.InterfaceType,
-			ID:            disk.DeviceID,
-			PnpDeviceID:   disk.PNPDeviceID,
-			DiskSize:      disk.Size,
-			Manufacturer:  disk.Manufacturer,
-			HardwareModel: disk.Model,
-			Name:          disk.Name,
-			Serial:        disk.SerialNumber,
-			Description:   disk.Description,
-		}
-		results = append(results, result)
+		result := result.NewResult(ctx, Schema)
+		result.Set("partitions", int32(disk.Partitions))
+		result.Set("disk_index", int32(disk.Index))
+		result.Set("type", disk.InterfaceType)
+		result.Set("id", disk.DeviceID)
+		result.Set("pnp_device_id", disk.PNPDeviceID)
+		result.Set("disk_size", disk.Size)
+		result.Set("manufacturer", disk.Manufacturer)
+		result.Set("hardware_model", disk.Model)
+		result.Set("name", disk.Name)
+		result.Set("serial", disk.SerialNumber)
+		result.Set("description", disk.Description)
+		results.AppendResult(*result)
 	}
 
 	return results, nil

@@ -10,7 +10,7 @@ import (
 )
 
 // ApplyPostQueryOperations applies operations that work on the result set (ORDER BY, LIMIT, etc.)
-func ApplyPostQueryOperations(results *result.QueryResult, stmt *sqlparser.Select) (*result.QueryResult, error) {
+func ApplyPostQueryOperations(results *result.Results, stmt *sqlparser.Select) (*result.Results, error) {
 	// Apply ORDER BY if present
 	if len(stmt.OrderBy) > 0 {
 		if err := operations.SortResults(results, stmt.OrderBy); err != nil {
@@ -52,7 +52,7 @@ func ApplyPostQueryOperations(results *result.QueryResult, stmt *sqlparser.Selec
 		// Apply limit and offset
 		if offsetNum >= len(*results) {
 			// If offset is beyond the result set, return empty results
-			*results = result.QueryResult{}
+			*results = result.Results{}
 			return results, nil
 		}
 

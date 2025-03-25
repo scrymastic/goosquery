@@ -6,13 +6,10 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-)
 
-type DNSCache struct {
-	Name  string `json:"name"`
-	Type  string `json:"type"`
-	Flags int32  `json:"flags"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 // DNS_CACHE_ENTRY represents the Windows DNS cache entry structure
 // https://github.com/malcomvetter/DnsCache/blob/master/DnsCache/DnsCache.cpp
@@ -76,7 +73,7 @@ var (
 	}
 )
 
-func GenDNSCache() ([]DNSCache, error) {
+func GenDNSCache(ctx *sqlctx.Context) (*result.Results, error) {
 	modDnsapi := windows.NewLazySystemDLL("dnsapi.dll")
 	if modDnsapi.Load() != nil {
 		return nil, fmt.Errorf("failed to load dnsapi.dll")
@@ -93,7 +90,7 @@ func GenDNSCache() ([]DNSCache, error) {
 		return nil, fmt.Errorf("error calling DnsGetCacheDataTable: %v", err)
 	}
 
-	var dnsCache []DNSCache
+	results := result.NewQueryResult()
 
 	dnsType := dnsTypeMap[entry.wType]
 	if dnsType == "" {
@@ -102,14 +99,14 @@ func GenDNSCache() ([]DNSCache, error) {
 
 	// Iterate through the linked list of DNS_CACHE_ENTRY
 	for entry != nil {
-		dnsCache = append(dnsCache, DNSCache{
-			Name:  windows.UTF16PtrToString(entry.pszName),
-			Type:  dnsType,
-			Flags: int32(entry.dwFlags),
-		})
+		cache := result.NewResult(ctx, Schema)
+		cache.Set("name", windows.UTF16PtrToString(entry.pszName))
+		cache.Set("type", dnsType)
+		cache.Set("flags", int32(entry.dwFlags))
+		results.AppendResult(*cache)
 
 		entry = entry.pNext
 	}
 
-	return dnsCache, nil
+	return results, nil
 }

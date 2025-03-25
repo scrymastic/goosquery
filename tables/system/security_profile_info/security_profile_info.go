@@ -6,6 +6,9 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
+
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 type SecurityProfileInfo struct {
@@ -108,8 +111,8 @@ func isValidSceProfileData(profileData uintptr) error {
 	return nil
 }
 
-func GenSecurityProfileInfo() ([]SecurityProfileInfo, error) {
-	var profileInfo []SecurityProfileInfo
+func GenSecurityProfileInfo(ctx *sqlctx.Context) (*result.Results, error) {
+	secInfos := result.NewQueryResult()
 	modScecli := windows.NewLazySystemDLL("scecli.dll")
 	procSceFreeMemory := modScecli.NewProc("SceFreeMemory")
 	procSceGetSecProfileInfo := modScecli.NewProc("SceGetSecurityProfileInfo")
@@ -145,12 +148,12 @@ func GenSecurityProfileInfo() ([]SecurityProfileInfo, error) {
 
 	// Cast profileDataPtr to sceProfileInfo
 	sceProfileInfoPtr := (*sceProfileInfo)(unsafe.Pointer(profileDataPtr))
-	profileInfo = append(profileInfo, SecurityProfileInfo{
-		MinimumPasswordAge:    sceProfileInfoPtr.MinPasswdAge,
-		MaximumPasswordAge:    sceProfileInfoPtr.MaxPasswdAge,
-		MinimumPasswordLength: sceProfileInfoPtr.MinPasswdLen,
-		PasswordComplexity:    sceProfileInfoPtr.PasswdComplexity,
-	})
+	secInfo := result.NewResult(ctx, Schema)
+	secInfo.Set("minimum_password_age", sceProfileInfoPtr.MinPasswdAge)
+	secInfo.Set("maximum_password_age", sceProfileInfoPtr.MaxPasswdAge)
+	secInfo.Set("minimum_password_length", sceProfileInfoPtr.MinPasswdLen)
+	secInfo.Set("password_complexity", sceProfileInfoPtr.PasswdComplexity)
+	secInfos.AppendResult(*secInfo)
 
-	return profileInfo, nil
+	return secInfos, nil
 }

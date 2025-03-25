@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func getSystemRoot() string {
@@ -19,7 +19,7 @@ func getSystemRoot() string {
 	return systemRoot
 }
 
-func parseServiceEntry(line string, ctx context.Context) (map[string]interface{}, bool) {
+func parseServiceEntry(line string, ctx *sqlctx.Context) (*result.Result, bool) {
 	// Skip empty lines and comments
 	if len(line) == 0 || strings.HasPrefix(line, "#") {
 		return nil, false
@@ -47,54 +47,38 @@ func parseServiceEntry(line string, ctx context.Context) (map[string]interface{}
 	}
 
 	// Create service entry
-	entry := specs.Init(ctx, Schema)
+	entry := result.NewResult(ctx, Schema)
 
-	if ctx.IsColumnUsed("name") {
-		entry["name"] = serviceInfo[0]
-	}
-
-	if ctx.IsColumnUsed("port") {
-		entry["port"] = uint16(port)
-	}
-
-	if ctx.IsColumnUsed("protocol") {
-		entry["protocol"] = portProto[1]
-	}
+	entry.Set("name", serviceInfo[0])
+	entry.Set("port", uint16(port))
+	entry.Set("protocol", portProto[1])
 
 	// Handle aliases (if any)
-	if ctx.IsColumnUsed("aliases") {
-		if len(serviceInfo) > 2 {
-			entry["aliases"] = strings.Join(serviceInfo[2:], " ")
-		} else {
-			entry["aliases"] = ""
-		}
+	if len(serviceInfo) > 2 {
+		entry.Set("aliases", strings.Join(serviceInfo[2:], " "))
 	}
 
 	// Handle comment (if any)
-	if ctx.IsColumnUsed("comment") {
-		if len(parts) > 1 {
-			entry["comment"] = strings.TrimSpace(parts[1])
-		} else {
-			entry["comment"] = ""
-		}
+	if len(parts) > 1 {
+		entry.Set("comment", strings.TrimSpace(parts[1]))
 	}
 
 	return entry, true
 }
 
-func parseServicesFile(path string, ctx context.Context) ([]map[string]interface{}, error) {
+func parseServicesFile(path string, ctx *sqlctx.Context) (*result.Results, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	var services []map[string]interface{}
+	entries := result.NewQueryResult()
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
 		if entry, ok := parseServiceEntry(scanner.Text(), ctx); ok {
-			services = append(services, entry)
+			entries.AppendResult(*entry)
 		}
 	}
 
@@ -102,12 +86,12 @@ func parseServicesFile(path string, ctx context.Context) ([]map[string]interface
 		return nil, fmt.Errorf("failed to scan file: %v", err)
 	}
 
-	return services, nil
+	return entries, nil
 }
 
 // GenEtcServices retrieves the contents of the services file from the system.
 // It returns a slice of map[string]interface{} and an error if the operation fails.
-func GenEtcServices(ctx context.Context) ([]map[string]interface{}, error) {
+func GenEtcServices(ctx *sqlctx.Context) (*result.Results, error) {
 	// Get Windows system root
 	sysRoot := getSystemRoot()
 

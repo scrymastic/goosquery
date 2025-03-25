@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenMemoryDevices(t *testing.T) {
-	devices, err := GenMemoryDevices()
+	devices, err := GenMemoryDevices(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get memory devices: %v", err)
 	}
@@ -18,19 +20,19 @@ func TestGenMemoryDevices(t *testing.T) {
 		t.Fatalf("Failed to marshal memory devices to JSON: %v", err)
 	}
 	fmt.Printf("Memory Devices Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total devices: %d\n", len(devices))
+	fmt.Printf("Total devices: %d\n", devices.Size())
 
 	// Basic validation of returned data
-	for i, device := range devices {
+	for i, device := range *devices {
 		// Check that essential fields are not empty
-		if device.DeviceLocator == "" {
+		if device.Get("device_locator") == "" {
 			t.Errorf("Device %d: DeviceLocator is empty", i)
 		}
-		if device.MemoryType == "" {
+		if device.Get("memory_type") == "" {
 			t.Errorf("Device %d: MemoryType is empty", i)
 		}
 		// Validate size is reasonable (greater than 0)
-		if device.Size == 0 {
+		if device.Get("size") == 0 {
 			t.Errorf("Device %d: Size is 0", i)
 		}
 	}

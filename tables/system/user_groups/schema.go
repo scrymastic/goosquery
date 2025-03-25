@@ -1,12 +1,12 @@
 package user_groups
 
 import (
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
 )
 
 var TableName = "user_groups"
 var Description = "Local system user group relationships."
-var Schema = specs.Schema{
-	specs.Column{Name: "uid", Type: "BIGINT", Description: "User ID"},
-	specs.Column{Name: "gid", Type: "BIGINT", Description: "Group ID"},
+var Schema = result.Schema{
+	result.Column{Name: "uid", Type: "BIGINT", Description: "User ID"},
+	result.Column{Name: "gid", Type: "BIGINT", Description: "Group ID"},
 }

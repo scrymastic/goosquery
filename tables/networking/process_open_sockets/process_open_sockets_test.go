@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenProcessOpenSockets(t *testing.T) {
 	// Create context with all columns used
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	// Add all possible columns to ensure they're all included in test
-	ctx.Columns = []string{"pid", "fd", "socket", "family", "proto", "local_address", "remote_address", "local_port", "remote_port", "path", "state", "net_namespace"}
+	ctx.Columns = []string{"pid", "fd", "socket", "family", "protocol", "local_address", "remote_address", "local_port", "remote_port", "path", "state", "net_namespace"}
 
 	sockets, err := GenProcessOpenSockets(ctx)
 	if err != nil {
@@ -25,5 +25,5 @@ func TestGenProcessOpenSockets(t *testing.T) {
 		t.Fatalf("Failed to marshal open sockets: %v", err)
 	}
 	fmt.Printf("Process Open Sockets:\n%s\n", string(jsonData))
-	fmt.Printf("Total open sockets: %d\n", len(sockets))
+	fmt.Printf("Total open sockets: %d\n", sockets.Size())
 }

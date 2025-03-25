@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -25,8 +25,8 @@ func fileTimeToUnix(windowsFileTime int64) int64 {
 
 // GenBackgroundActivitiesModerator generates the information about the background activities moderator
 // The background activities moderator is a service that controls the background activities of the system
-func GenBackgroundActivitiesModerator(ctx context.Context) ([]map[string]interface{}, error) {
-	var results []map[string]interface{}
+func GenBackgroundActivitiesModerator(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 
 	// Open the BAM registry key
 	bamKey, err := registry.OpenKey(registry.LOCAL_MACHINE, regKeyBam, registry.READ)
@@ -65,37 +65,32 @@ func GenBackgroundActivitiesModerator(ctx context.Context) ([]map[string]interfa
 				continue
 			}
 
-			entry := specs.Init(ctx, Schema)
+			entry := result.NewResult(ctx, Schema)
+			entry.Set("path", name)
 
-			if ctx.IsColumnUsed("path") {
-				entry["path"] = name
-			}
-
-			if ctx.IsColumnUsed("sid") {
-				entry["sid"] = userKey
-			}
+			entry.Set("sid", userKey)
 
 			// Read the binary data
 			if ctx.IsColumnUsed("last_execution_time") {
 				data, _, err := userBamKey.GetBinaryValue(name)
 				if err != nil {
-					entry["last_execution_time"] = 0
+					entry.Set("last_execution_time", 0)
 				} else {
 					// Convert the first 8 bytes to Windows FILETIME
 					if len(data) < 8 {
-						entry["last_execution_time"] = 0
+						entry.Set("last_execution_time", 0)
 					} else {
 						fileTime := int64(
 							uint64(data[0]) | uint64(data[1])<<8 | uint64(data[2])<<16 | uint64(data[3])<<24 |
 								uint64(data[4])<<32 | uint64(data[5])<<40 | uint64(data[6])<<48 | uint64(data[7])<<56,
 						)
 
-						entry["last_execution_time"] = fileTimeToUnix(fileTime)
+						entry.Set("last_execution_time", fileTimeToUnix(fileTime))
 					}
 				}
 			}
 
-			results = append(results, entry)
+			results.AppendResult(*entry)
 		}
 	}
 

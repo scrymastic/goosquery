@@ -4,18 +4,9 @@ import (
 	"fmt"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-type NTDomain struct {
-	Name                    string `json:"name"`
-	ClientSiteName          string `json:"client_site_name"`
-	DCSiteName              string `json:"dc_site_name"`
-	DnsForestName           string `json:"dns_forest_name"`
-	DomainControllerAddress string `json:"domain_controller_address"`
-	DomainControllerName    string `json:"domain_controller_name"`
-	DomainName              string `json:"domain_name"`
-	Status                  string `json:"status"`
-}
 
 type Win32_NTDomain struct {
 	Name                    string
@@ -28,7 +19,7 @@ type Win32_NTDomain struct {
 	Status                  string
 }
 
-func GenNTDomains() ([]NTDomain, error) {
+func GenNTDomains(ctx *sqlctx.Context) (*result.Results, error) {
 	query := `select * from Win32_NtDomain`
 	var dst []Win32_NTDomain
 	err := wmi.Query(query, &dst)
@@ -36,9 +27,18 @@ func GenNTDomains() ([]NTDomain, error) {
 		return nil, fmt.Errorf("failed to query Win32_NtDomain: %w", err)
 	}
 
-	results := make([]NTDomain, 0, len(dst))
+	domains := result.NewQueryResult()
 	for _, d := range dst {
-		results = append(results, NTDomain(d))
+		domainInfo := result.NewResult(ctx, Schema)
+		domainInfo.Set("name", d.Name)
+		domainInfo.Set("client_site_name", d.ClientSiteName)
+		domainInfo.Set("dc_site_name", d.DCSiteName)
+		domainInfo.Set("dns_forest_name", d.DnsForestName)
+		domainInfo.Set("domain_controller_address", d.DomainControllerAddress)
+		domainInfo.Set("domain_controller_name", d.DomainControllerName)
+		domainInfo.Set("domain_name", d.DomainName)
+		domainInfo.Set("status", d.Status)
+		domains.AppendResult(*domainInfo)
 	}
-	return results, nil
+	return domains, nil
 }

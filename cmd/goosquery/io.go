@@ -74,7 +74,7 @@ func printOutputMode(jsonOutput bool) {
 }
 
 // displayAsTable formats the query result as an ASCII table
-func displayAsTable(queryResult *result.QueryResult) {
+func displayAsTable(queryResult *result.Results) {
 	// Unpack the query result which is a slice of map[string]interface{}
 	records := *queryResult
 
@@ -137,7 +137,7 @@ func printTableDivider(columnNames []string, columnWidths map[string]int) {
 }
 
 // formatResultAsJSON converts the query result to JSON format
-func formatResultAsJSON(queryResult *result.QueryResult) (string, error) {
+func formatResultAsJSON(queryResult *result.Results) (string, error) {
 	jsonData, err := json.MarshalIndent(queryResult, "", "  ")
 	if err != nil {
 		return "", err

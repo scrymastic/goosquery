@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenCurl(t *testing.T) {
@@ -14,7 +14,7 @@ func TestGenCurl(t *testing.T) {
 	userAgent := ""
 
 	// Create context with URL
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	ctx.AddConstant("url", url)
 	if userAgent != "" {
 		ctx.AddConstant("user_agent", userAgent)
@@ -26,12 +26,12 @@ func TestGenCurl(t *testing.T) {
 		t.Fatalf("Failed to make request: %v", err)
 	}
 
-	if len(results) == 0 {
+	if results.Size() == 0 {
 		t.Fatalf("No results returned")
 	}
 
 	// Print results as JSON for debugging
-	jsonData, err := json.MarshalIndent(results[0], "", "  ")
+	jsonData, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		t.Fatalf("Failed to marshal result to JSON: %v", err)
 	}
@@ -40,7 +40,7 @@ func TestGenCurl(t *testing.T) {
 
 func TestGenCurl_InvalidURL(t *testing.T) {
 	// Test with invalid URL
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	ctx.AddConstant("url", "invalid-url")
 	ctx.AddConstant("user_agent", "test-agent")
 

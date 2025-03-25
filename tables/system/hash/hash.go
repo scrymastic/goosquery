@@ -9,6 +9,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 type Hash struct {
@@ -19,11 +22,10 @@ type Hash struct {
 	SHA256    string `json:"sha256"`
 }
 
-func GenHash(path string) (*Hash, error) {
-	hash := &Hash{
-		Path:      path,
-		Directory: filepath.Dir(path),
-	}
+func GenFileHash(ctx *sqlctx.Context, path string) (*result.Result, error) {
+	hash := result.NewResult(ctx, Schema)
+	hash.Set("path", path)
+	hash.Set("directory", filepath.Dir(path))
 
 	// Open the file
 	file, err := os.Open(path)
@@ -46,9 +48,60 @@ func GenHash(path string) (*Hash, error) {
 	}
 
 	// Get hash values
-	hash.MD5 = hex.EncodeToString(md5Hash.Sum(nil))
-	hash.SHA1 = hex.EncodeToString(sha1Hash.Sum(nil))
-	hash.SHA256 = hex.EncodeToString(sha256Hash.Sum(nil))
+	hash.Set("md5", hex.EncodeToString(md5Hash.Sum(nil)))
+	hash.Set("sha1", hex.EncodeToString(sha1Hash.Sum(nil)))
+	hash.Set("sha256", hex.EncodeToString(sha256Hash.Sum(nil)))
 
 	return hash, nil
+}
+
+func GenHash(ctx *sqlctx.Context) (*result.Results, error) {
+	files := ctx.GetConstants("file")
+	directories := ctx.GetConstants("directory")
+
+	if len(files) == 0 && len(directories) == 0 {
+		return nil, fmt.Errorf("no files or directories provided")
+	}
+
+	// Recursively list all files in the directories
+	results := result.NewQueryResult()
+
+	// Process individual files
+	for _, file := range files {
+		fileHash, err := GenFileHash(ctx, file)
+		if err != nil {
+			continue // Skip files with errors
+		}
+		results.AppendResult(*fileHash)
+	}
+
+	// Process directories recursively
+	for _, dir := range directories {
+		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil // Skip files/directories with errors
+			}
+
+			// Skip directories
+			if info.IsDir() {
+				return nil
+			}
+
+			// Process regular files
+			fileHash, err := GenFileHash(ctx, path)
+			if err != nil {
+				return nil // Skip files with errors
+			}
+
+			results.AppendResult(*fileHash)
+			return nil
+		})
+
+		if err != nil {
+			// Continue processing other directories even if one fails
+			continue
+		}
+	}
+
+	return results, nil
 }

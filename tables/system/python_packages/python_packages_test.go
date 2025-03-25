@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestPythonPackages(t *testing.T) {
-	packages, err := GenPythonPackages()
+	packages, err := GenPythonPackages(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get python packages: %v", err)
 	}

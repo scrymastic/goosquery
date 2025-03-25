@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenCPUInfo(t *testing.T) {
-	cpuInfos, err := GenCPUInfo()
+	cpuInfos, err := GenCPUInfo(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get CPU info: %v", err)
 	}
@@ -18,5 +20,5 @@ func TestGenCPUInfo(t *testing.T) {
 		t.Fatalf("Failed to marshal CPU info: %v", err)
 	}
 	fmt.Printf("CPU Information:\n%s\n", string(jsonData))
-	fmt.Printf("Total CPU records: %d\n", len(cpuInfos))
+	fmt.Printf("Total CPU records: %d\n", cpuInfos.Size())
 }

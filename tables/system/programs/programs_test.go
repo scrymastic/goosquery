@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenPrograms(t *testing.T) {
-	programs, err := GenPrograms()
+	programs, err := GenPrograms(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get programs: %v", err)
 	}
@@ -19,5 +21,5 @@ func TestGenPrograms(t *testing.T) {
 	}
 
 	fmt.Printf("Programs Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total programs: %d\n", len(programs))
+	fmt.Printf("Total programs: %d\n", programs.Size())
 }

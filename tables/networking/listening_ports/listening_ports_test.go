@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenListeningPorts(t *testing.T) {
 	// Create context with all columns used
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	// Add all possible columns to ensure they're all included in test
 	ctx.Columns = []string{"pid", "port", "protocol", "family", "address", "fd", "socket", "path"}
 
@@ -25,11 +25,11 @@ func TestGenListeningPorts(t *testing.T) {
 		t.Fatalf("Failed to marshal listening ports to JSON: %v", err)
 	}
 	fmt.Printf("Listening Ports Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total listening ports: %d\n", len(ports))
+	fmt.Printf("Total listening ports: %d\n", ports.Size())
 }
 
 func TestPort22(t *testing.T) {
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	ctx.Columns = []string{"pid", "port", "protocol", "family", "address", "fd", "socket", "path"}
 	ctx.AddConstant("port", "22")
 
@@ -43,5 +43,5 @@ func TestPort22(t *testing.T) {
 		t.Fatalf("Failed to marshal listening ports to JSON: %v", err)
 	}
 	fmt.Printf("Listening Ports Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total listening ports: %d\n", len(ports))
+	fmt.Printf("Total listening ports: %d\n", ports.Size())
 }

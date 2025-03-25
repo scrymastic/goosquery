@@ -2,30 +2,11 @@ package time_info
 
 import (
 	"fmt"
-	"runtime"
 	"time"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-// Time represents the system time information matching osquery's time table schema
-type Time struct {
-	Weekday       string `json:"weekday"`
-	Year          int32  `json:"year"`
-	Month         int32  `json:"month"`
-	Day           int32  `json:"day"`
-	Hour          int32  `json:"hour"`
-	Minutes       int32  `json:"minutes"`
-	Seconds       int32  `json:"seconds"`
-	Timezone      string `json:"timezone"`
-	LocalTimezone string `json:"local_timezone"`
-	UnixTime      int64  `json:"unix_time"`
-	Timestamp     string `json:"timestamp"`
-	Datetime      string `json:"datetime"`
-	ISO8601       string `json:"iso_8601"`
-	WinTimestamp  *int64 `json:"win_timestamp,omitempty"`
-}
 
 const (
 	WINDOWS_TICK      = 100         // nanoseconds
@@ -33,70 +14,31 @@ const (
 )
 
 // GenTime returns the current system time information
-func GenTime(ctx context.Context) ([]map[string]interface{}, error) {
+func GenTime(ctx *sqlctx.Context) (*result.Results, error) {
 	utcNow := time.Now().UTC()
 
-	entry := specs.Init(ctx, Schema)
+	entry := result.NewResult(ctx, Schema)
+	entry.Set("weekday", utcNow.Weekday().String())
+	entry.Set("year", int32(utcNow.Year()))
+	entry.Set("month", int32(utcNow.Month()))
+	entry.Set("day", int32(utcNow.Day()))
+	entry.Set("hour", int32(utcNow.Hour()))
+	entry.Set("minutes", int32(utcNow.Minute()))
+	entry.Set("seconds", int32(utcNow.Second()))
+	entry.Set("timezone", "UTC")
 
-	if ctx.IsColumnUsed("weekday") {
-		entry["weekday"] = utcNow.Weekday().String()
-	}
+	_, offset := time.Now().Zone()
+	entry.Set("local_timezone", fmt.Sprintf("UTC%+d", offset/3600))
 
-	if ctx.IsColumnUsed("year") {
-		entry["year"] = int32(utcNow.Year())
-	}
+	entry.Set("unix_time", int32(utcNow.Unix()))
+	entry.Set("timestamp", utcNow.Format("Mon Jan _2 15:04:05 2006 UTC"))
+	entry.Set("datetime", utcNow.Format("2006-01-02 15:04:05"))
+	entry.Set("iso_8601", utcNow.Format("2006-01-02T15:04:05Z"))
+	// Convert Unix timestamp to Windows timestamp (100-nanosecond intervals since Jan 1, 1601)
+	winTime := (utcNow.Unix() + SEC_TO_UNIX_EPOCH) * 1e7
+	entry.Set("win_timestamp", int64(winTime))
 
-	if ctx.IsColumnUsed("month") {
-		entry["month"] = int32(utcNow.Month())
-	}
-
-	if ctx.IsColumnUsed("day") {
-		entry["day"] = int32(utcNow.Day())
-	}
-
-	if ctx.IsColumnUsed("hour") {
-		entry["hour"] = int32(utcNow.Hour())
-	}
-
-	if ctx.IsColumnUsed("minutes") {
-		entry["minutes"] = int32(utcNow.Minute())
-	}
-
-	if ctx.IsColumnUsed("seconds") {
-		entry["seconds"] = int32(utcNow.Second())
-	}
-
-	if ctx.IsColumnUsed("timezone") {
-		entry["timezone"] = "UTC"
-	}
-
-	if ctx.IsColumnUsed("local_timezone") {
-		_, offset := time.Now().Zone()
-		entry["local_timezone"] = fmt.Sprintf("UTC%+d", offset/3600)
-	}
-
-	if ctx.IsColumnUsed("unix_time") {
-		entry["unix_time"] = int32(utcNow.Unix())
-	}
-
-	if ctx.IsColumnUsed("timestamp") {
-		entry["timestamp"] = utcNow.Format("Mon Jan _2 15:04:05 2006 UTC")
-	}
-
-	if ctx.IsColumnUsed("datetime") {
-		entry["datetime"] = utcNow.Format("2006-01-02 15:04:05")
-	}
-
-	if ctx.IsColumnUsed("iso_8601") {
-		entry["iso_8601"] = utcNow.Format("2006-01-02T15:04:05Z")
-	}
-
-	// Windows-specific timestamp
-	if runtime.GOOS == "windows" && ctx.IsColumnUsed("win_timestamp") {
-		// Convert Unix timestamp to Windows timestamp (100-nanosecond intervals since Jan 1, 1601)
-		winTime := (utcNow.Unix() + SEC_TO_UNIX_EPOCH) * 1e7
-		entry["win_timestamp"] = int64(winTime)
-	}
-
-	return []map[string]interface{}{entry}, nil
+	results := result.NewQueryResult()
+	results.AppendResult(*entry)
+	return results, nil
 }

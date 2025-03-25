@@ -5,19 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows/registry"
 )
-
-type AppCompatShim struct {
-	Executable  string `json:"executable"`
-	Path        string `json:"path"`
-	Description string `json:"description"`
-	InstallTime int32  `json:"install_time"`
-	Type        string `json:"type"`
-	SdbId       string `json:"sdb_id"`
-}
 
 type sdb struct {
 	description      string
@@ -33,8 +24,8 @@ const (
 
 // GenAppCompatShims generates the information about the appcompat shims
 // A shim is a compatibility layer that allows a program to run on a newer version of Windows
-func GenAppCompatShims(ctx context.Context) ([]map[string]interface{}, error) {
-	var results []map[string]interface{}
+func GenAppCompatShims(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	sdbs := make(map[string]sdb)
 
 	// Query installed SDBs
@@ -125,33 +116,16 @@ func GenAppCompatShims(ctx context.Context) ([]map[string]interface{}, error) {
 			sdbId := valueName[:len(valueName)-4]
 
 			if sdbInfo, exists := sdbs[sdbId]; exists {
-				entry := specs.Init(ctx, Schema)
+				entry := result.NewResult(ctx, Schema)
 
-				if ctx.IsColumnUsed("executable") {
-					entry["executable"] = exeName
-				}
+				entry.Set("executable", exeName)
+				entry.Set("path", sdbInfo.path)
+				entry.Set("description", sdbInfo.description)
+				entry.Set("install_time", int32(sdbInfo.installTimestamp))
+				entry.Set("type", sdbInfo.shimType)
+				entry.Set("sdb_id", sdbId)
 
-				if ctx.IsColumnUsed("path") {
-					entry["path"] = sdbInfo.path
-				}
-
-				if ctx.IsColumnUsed("description") {
-					entry["description"] = sdbInfo.description
-				}
-
-				if ctx.IsColumnUsed("install_time") {
-					entry["install_time"] = int32(sdbInfo.installTimestamp)
-				}
-
-				if ctx.IsColumnUsed("type") {
-					entry["type"] = sdbInfo.shimType
-				}
-
-				if ctx.IsColumnUsed("sdb_id") {
-					entry["sdb_id"] = sdbId
-				}
-
-				results = append(results, entry)
+				results.AppendResult(*entry)
 			}
 		}
 	}

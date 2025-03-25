@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenLogicalDrives(t *testing.T) {
-	drives, err := GenLogicalDrives()
+	ctx := sqlctx.NewContext()
+	drives, err := GenLogicalDrives(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get logical drives: %v", err)
 	}
@@ -18,5 +21,5 @@ func TestGenLogicalDrives(t *testing.T) {
 		t.Fatalf("Failed to marshal logical drives to JSON: %v", err)
 	}
 	fmt.Printf("Logical Drives Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total drives: %d\n", len(drives))
+	fmt.Printf("Total drives: %d\n", drives.Size())
 }

@@ -7,26 +7,11 @@ import (
 
 	"github.com/StackExchange/wmi"
 	"github.com/go-ole/go-ole"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
-
-type Driver struct {
-	DeviceID     string `json:"device_id"`
-	DeviceName   string `json:"device_name"`
-	Image        string `json:"image"`
-	Description  string `json:"description"`
-	Service      string `json:"service"`
-	ServiceKey   string `json:"service_key"`
-	Version      string `json:"version"`
-	Inf          string `json:"inf"`
-	Class        string `json:"class"`
-	Provider     string `json:"provider"`
-	Manufacturer string `json:"manufacturer"`
-	DriverKey    string `json:"driver_key"`
-	Date         int64  `json:"date"`
-	Signed       int32  `json:"signed"`
-}
 
 type partialDevInfo struct {
 	DeviceID   string
@@ -251,7 +236,8 @@ func getDriverImagePath(svcName string) (string, error) {
 	return imagePath, nil
 }
 
-func GenDrivers() ([]Driver, error) {
+func GenDrivers(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 
 	// Get device set handle
 	devInfoSet, err := windows.SetupDiGetClassDevsEx(
@@ -338,7 +324,6 @@ func GenDrivers() ([]Driver, error) {
 	}
 
 	// Get driver list via WMI
-	var drivers []Driver
 	var wmiDriverList []Win32_PnPSignedDriver
 	query := "SELECT * FROM Win32_PnPSignedDriver"
 	namespace := `root\CIMV2`
@@ -347,35 +332,34 @@ func GenDrivers() ([]Driver, error) {
 	}
 
 	for _, wmiDriver := range wmiDriverList {
-		driver := Driver{
-			DeviceID:     wmiDriver.DeviceID,
-			DeviceName:   wmiDriver.DeviceName,
-			Description:  wmiDriver.Description,
-			Class:        wmiDriver.DeviceClass,
-			Version:      wmiDriver.DriverVersion,
-			Manufacturer: wmiDriver.Manufacturer,
-			Provider:     wmiDriver.DriverProviderName,
-			Signed:       boolToInt32(wmiDriver.IsSigned),
-		}
+		driver := result.NewResult(ctx, Schema)
+		driver.Set("device_id", wmiDriver.DeviceID)
+		driver.Set("device_name", wmiDriver.DeviceName)
+		driver.Set("description", wmiDriver.Description)
+		driver.Set("class", wmiDriver.DeviceClass)
+		driver.Set("version", wmiDriver.DriverVersion)
+		driver.Set("manufacturer", wmiDriver.Manufacturer)
+		driver.Set("provider", wmiDriver.DriverProviderName)
+		driver.Set("signed", boolToInt32(wmiDriver.IsSigned))
 
 		infPath, err := getInfPath(wmiDriver.InfName)
 		if err != nil {
 			infPath = wmiDriver.InfName
 		}
 
-		driver.Inf = infPath
+		driver.Set("inf", infPath)
 
 		// Add additional information from API
 		if devInfo, ok := apiDevInfos[wmiDriver.DeviceID]; ok {
-			driver.Service = devInfo.Service
-			driver.ServiceKey = devInfo.ServiceKey
-			driver.DriverKey = devInfo.DriverKey
-			driver.Image = devInfo.Image
-			driver.Date = devInfo.Date
+			driver.Set("service", devInfo.Service)
+			driver.Set("service_key", devInfo.ServiceKey)
+			driver.Set("driver_key", devInfo.DriverKey)
+			driver.Set("image", devInfo.Image)
+			driver.Set("date", devInfo.Date)
 		}
 
-		drivers = append(drivers, driver)
+		results.AppendResult(*driver)
 	}
 
-	return drivers, nil
+	return results, nil
 }

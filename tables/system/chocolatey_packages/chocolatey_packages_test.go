@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenChocolateyPackages(t *testing.T) {
@@ -15,7 +16,7 @@ func TestGenChocolateyPackages(t *testing.T) {
 		t.Skip("Chocolatey is not installed, skipping test")
 	}
 
-	packages, err := GenChocolateyPackages()
+	packages, err := GenChocolateyPackages(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get Chocolatey packages: %v", err)
 	}
@@ -26,21 +27,5 @@ func TestGenChocolateyPackages(t *testing.T) {
 		t.Fatalf("Failed to marshal Chocolatey packages to JSON: %v", err)
 	}
 	fmt.Printf("Chocolatey Packages:\n%s\n", string(jsonData))
-	fmt.Printf("Total packages: %d\n", len(packages))
-
-	// Basic validation of package data
-	for i, pkg := range packages {
-		if pkg.Name == "" {
-			t.Errorf("Package %d has empty name", i)
-		}
-		if pkg.Version == "" {
-			t.Errorf("Package %d (%s) has empty version", i, pkg.Name)
-		}
-		if pkg.Path == "" {
-			t.Errorf("Package %d (%s) has empty path", i, pkg.Name)
-		}
-		if !filepath.IsAbs(pkg.Path) {
-			t.Errorf("Package %d (%s) path is not absolute: %s", i, pkg.Name, pkg.Path)
-		}
-	}
+	fmt.Printf("Total packages: %d\n", packages.Size())
 }

@@ -6,31 +6,9 @@ import (
 	"strconv"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-// MemoryDevice represents information about a physical memory device
-type MemoryDevice struct {
-	Handle               string `json:"handle"`
-	ArrayHandle          string `json:"array_handle"`
-	FormFactor           string `json:"form_factor"`
-	TotalWidth           int32  `json:"total_width"`
-	DataWidth            int32  `json:"data_width"`
-	Size                 int32  `json:"size"`
-	Set                  int32  `json:"set"`
-	DeviceLocator        string `json:"device_locator"`
-	BankLocator          string `json:"bank_locator"`
-	MemoryType           string `json:"memory_type"`
-	MemoryTypeDetails    string `json:"memory_type_details"`
-	MaxSpeed             int32  `json:"max_speed"`
-	ConfiguredClockSpeed int32  `json:"configured_clock_speed"`
-	Manufacturer         string `json:"manufacturer"`
-	SerialNumber         string `json:"serial_number"`
-	AssetTag             string `json:"asset_tag"`
-	PartNumber           string `json:"part_number"`
-	MinVoltage           int32  `json:"min_voltage"`
-	MaxVoltage           int32  `json:"max_voltage"`
-	ConfiguredVoltage    int32  `json:"configured_voltage"`
-}
 
 type Win32_PhysicalMemory struct {
 	FormFactor           int16
@@ -134,9 +112,9 @@ func getMemorySize(capacityStr string) uint32 {
 }
 
 // GenMemoryDevices retrieves information about physical memory devices
-func GenMemoryDevices() ([]MemoryDevice, error) {
+func GenMemoryDevices(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	var wmiDevices []Win32_PhysicalMemory
-	var devices []MemoryDevice
 
 	// WMI query to get physical memory information
 	query := "SELECT * FROM Win32_PhysicalMemory"
@@ -147,31 +125,30 @@ func GenMemoryDevices() ([]MemoryDevice, error) {
 	}
 
 	// Process each memory device
-	for _, result := range wmiDevices {
-		device := MemoryDevice{
-			FormFactor:           getFormFactor(int64(result.FormFactor)),
-			TotalWidth:           int32(result.TotalWidth),
-			DataWidth:            int32(result.DataWidth),
-			Size:                 int32(getMemorySize(result.Capacity)),
-			DeviceLocator:        result.DeviceLocator,
-			BankLocator:          result.BankLabel,
-			MemoryType:           getMemoryType(int64(result.MemoryType)),
-			MemoryTypeDetails:    getMemoryTypeDetails(int64(result.TypeDetail)),
-			MaxSpeed:             int32(result.Speed),
-			ConfiguredClockSpeed: int32(result.ConfiguredClockSpeed),
-			Manufacturer:         result.Manufacturer,
-			SerialNumber:         result.SerialNumber,
-			AssetTag:             result.Tag,
-			PartNumber:           result.PartNumber,
-			MinVoltage:           int32(result.MinVoltage),
-			MaxVoltage:           int32(result.MaxVoltage),
-			ConfiguredVoltage:    int32(result.ConfiguredVoltage),
-			Handle:               "",
-			ArrayHandle:          "",
-			Set:                  0,
-		}
-		devices = append(devices, device)
+	for _, wmvDevice := range wmiDevices {
+		device := result.NewResult(ctx, Schema)
+		device.Set("form_factor", getFormFactor(int64(wmvDevice.FormFactor)))
+		device.Set("total_width", int32(wmvDevice.TotalWidth))
+		device.Set("data_width", int32(wmvDevice.DataWidth))
+		device.Set("size", int32(getMemorySize(wmvDevice.Capacity)))
+		device.Set("device_locator", wmvDevice.DeviceLocator)
+		device.Set("bank_locator", wmvDevice.BankLabel)
+		device.Set("memory_type", getMemoryType(int64(wmvDevice.MemoryType)))
+		device.Set("memory_type_details", getMemoryTypeDetails(int64(wmvDevice.TypeDetail)))
+		device.Set("max_speed", int32(wmvDevice.Speed))
+		device.Set("configured_clock_speed", int32(wmvDevice.ConfiguredClockSpeed))
+		device.Set("manufacturer", wmvDevice.Manufacturer)
+		device.Set("serial_number", wmvDevice.SerialNumber)
+		device.Set("asset_tag", wmvDevice.Tag)
+		device.Set("part_number", wmvDevice.PartNumber)
+		device.Set("min_voltage", int32(wmvDevice.MinVoltage))
+		device.Set("max_voltage", int32(wmvDevice.MaxVoltage))
+		device.Set("configured_voltage", int32(wmvDevice.ConfiguredVoltage))
+		device.Set("handle", "")
+		device.Set("array_handle", "")
+		device.Set("set", 0)
+		results.AppendResult(*device)
 	}
 
-	return devices, nil
+	return results, nil
 }

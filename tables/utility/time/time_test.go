@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestTime(t *testing.T) {
-	time, err := GenTime(context.Context{})
+	time, err := GenTime(sqlctx.NewContext())
 	if err != nil {
 		t.Errorf("Error generating time: %v", err)
 	}

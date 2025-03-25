@@ -6,8 +6,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -164,7 +164,7 @@ func formatIPv4Address(addr uint32) string {
 	return ip.String()
 }
 
-func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map[string]interface{}, error) {
+func parseSocketTable(sockType string, table []byte, ctx *sqlctx.Context) (*result.Results, error) {
 	// Get the size of the TCP table
 	DwNumEntries := *(*uint32)(unsafe.Pointer(&table[0]))
 
@@ -174,45 +174,24 @@ func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map
 		row := (*MIB_TCPROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the TCP table
-		sockets := make([]map[string]interface{}, 0, DwNumEntries)
+		sockets := result.NewQueryResult()
 		for i := uint32(0); i < DwNumEntries; i++ {
-			socket := specs.Init(ctx, Schema)
+			socket := result.NewResult(ctx, Schema)
 
-			if ctx.IsColumnUsed("pid") {
-				socket["pid"] = int32(row.DwOwningPid)
-			}
-			if ctx.IsColumnUsed("fd") {
-				socket["fd"] = int32(0)
-			}
-			if ctx.IsColumnUsed("socket") {
-				socket["socket"] = int32(0)
-			}
-			if ctx.IsColumnUsed("family") {
-				socket["family"] = int32(syscall.AF_INET)
-			}
-			if ctx.IsColumnUsed("proto") {
-				socket["proto"] = int32(syscall.IPPROTO_TCP)
-			}
-			if ctx.IsColumnUsed("local_address") {
-				socket["local_address"] = formatIPv4Address(row.DwLocalAddr)
-			}
-			if ctx.IsColumnUsed("remote_address") {
-				socket["remote_address"] = formatIPv4Address(row.DwRemoteAddr)
-			}
-			if ctx.IsColumnUsed("local_port") {
-				socket["local_port"] = int32(networkToHostPort(row.DwLocalPort))
-			}
-			if ctx.IsColumnUsed("remote_port") {
-				socket["remote_port"] = int32(networkToHostPort(row.DwRemotePort))
-			}
-			if ctx.IsColumnUsed("path") {
-				socket["path"] = ""
-			}
-			if ctx.IsColumnUsed("state") {
-				socket["state"] = tcpStateToString(row.DwState)
-			}
+			socket.Set("pid", int32(row.DwOwningPid))
+			socket.Set("fd", int32(0))
+			socket.Set("socket", int32(0))
+			socket.Set("family", int32(syscall.AF_INET))
+			socket.Set("protocol", int32(syscall.IPPROTO_TCP))
+			socket.Set("local_address", formatIPv4Address(row.DwLocalAddr))
+			socket.Set("remote_address", formatIPv4Address(row.DwRemoteAddr))
+			socket.Set("local_port", int32(networkToHostPort(row.DwLocalPort)))
+			socket.Set("remote_port", int32(networkToHostPort(row.DwRemotePort)))
+			socket.Set("path", "")
+			socket.Set("state", tcpStateToString(row.DwState))
+			socket.Set("net_namespace", "")
 
-			sockets = append(sockets, socket)
+			sockets.AppendResult(*socket)
 			row = (*MIB_TCPROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
@@ -222,48 +201,24 @@ func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map
 		row := (*MIB_TCP6ROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the TCP6 table
-		sockets := make([]map[string]interface{}, 0, DwNumEntries)
+		sockets := result.NewQueryResult()
 		for i := uint32(0); i < DwNumEntries; i++ {
-			socket := make(map[string]interface{})
+			socket := result.NewResult(ctx, Schema)
 
-			if ctx.IsColumnUsed("pid") {
-				socket["pid"] = int32(row.DwOwningPid)
-			}
-			if ctx.IsColumnUsed("fd") {
-				socket["fd"] = int32(0)
-			}
-			if ctx.IsColumnUsed("socket") {
-				socket["socket"] = int32(0)
-			}
-			if ctx.IsColumnUsed("family") {
-				socket["family"] = int32(syscall.AF_INET6)
-			}
-			if ctx.IsColumnUsed("proto") {
-				socket["proto"] = int32(syscall.IPPROTO_TCP)
-			}
-			if ctx.IsColumnUsed("local_address") {
-				socket["local_address"] = formatIPv6Address(row.UcLocalAddr)
-			}
-			if ctx.IsColumnUsed("remote_address") {
-				socket["remote_address"] = formatIPv6Address(row.UcRemoteAddr)
-			}
-			if ctx.IsColumnUsed("local_port") {
-				socket["local_port"] = int32(networkToHostPort(row.DwLocalPort))
-			}
-			if ctx.IsColumnUsed("remote_port") {
-				socket["remote_port"] = int32(networkToHostPort(row.DwRemotePort))
-			}
-			if ctx.IsColumnUsed("path") {
-				socket["path"] = ""
-			}
-			if ctx.IsColumnUsed("state") {
-				socket["state"] = tcpStateToString(row.DwState)
-			}
-			if ctx.IsColumnUsed("net_namespace") {
-				socket["net_namespace"] = ""
-			}
+			socket.Set("pid", int32(row.DwOwningPid))
+			socket.Set("fd", int32(0))
+			socket.Set("socket", int32(0))
+			socket.Set("family", int32(syscall.AF_INET6))
+			socket.Set("protocol", int32(syscall.IPPROTO_TCP))
+			socket.Set("local_address", formatIPv6Address(row.UcLocalAddr))
+			socket.Set("remote_address", formatIPv6Address(row.UcRemoteAddr))
+			socket.Set("local_port", int32(networkToHostPort(row.DwLocalPort)))
+			socket.Set("remote_port", int32(networkToHostPort(row.DwRemotePort)))
+			socket.Set("path", "")
+			socket.Set("state", tcpStateToString(row.DwState))
+			socket.Set("net_namespace", "")
 
-			sockets = append(sockets, socket)
+			sockets.AppendResult(*socket)
 			row = (*MIB_TCP6ROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
@@ -273,48 +228,24 @@ func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map
 		row := (*MIB_UDPROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the UDP table
-		sockets := make([]map[string]interface{}, 0, DwNumEntries)
+		sockets := result.NewQueryResult()
 		for i := uint32(0); i < DwNumEntries; i++ {
-			socket := make(map[string]interface{})
+			socket := result.NewResult(ctx, Schema)
 
-			if ctx.IsColumnUsed("pid") {
-				socket["pid"] = int32(row.DwOwningPid)
-			}
-			if ctx.IsColumnUsed("fd") {
-				socket["fd"] = int32(0)
-			}
-			if ctx.IsColumnUsed("socket") {
-				socket["socket"] = int32(0)
-			}
-			if ctx.IsColumnUsed("family") {
-				socket["family"] = int32(syscall.AF_INET)
-			}
-			if ctx.IsColumnUsed("proto") {
-				socket["proto"] = int32(syscall.IPPROTO_UDP)
-			}
-			if ctx.IsColumnUsed("local_address") {
-				socket["local_address"] = formatIPv4Address(row.DwLocalAddr)
-			}
-			if ctx.IsColumnUsed("remote_address") {
-				socket["remote_address"] = ""
-			}
-			if ctx.IsColumnUsed("local_port") {
-				socket["local_port"] = int32(networkToHostPort(row.DwLocalPort))
-			}
-			if ctx.IsColumnUsed("remote_port") {
-				socket["remote_port"] = int32(0)
-			}
-			if ctx.IsColumnUsed("path") {
-				socket["path"] = ""
-			}
-			if ctx.IsColumnUsed("state") {
-				socket["state"] = ""
-			}
-			if ctx.IsColumnUsed("net_namespace") {
-				socket["net_namespace"] = ""
-			}
+			socket.Set("pid", int32(row.DwOwningPid))
+			socket.Set("fd", int32(0))
+			socket.Set("socket", int32(0))
+			socket.Set("family", int32(syscall.AF_INET))
+			socket.Set("protocol", int32(syscall.IPPROTO_UDP))
+			socket.Set("local_address", formatIPv4Address(row.DwLocalAddr))
+			socket.Set("remote_address", "")
+			socket.Set("local_port", int32(networkToHostPort(row.DwLocalPort)))
+			socket.Set("remote_port", int32(0))
+			socket.Set("path", "")
+			socket.Set("state", "")
+			socket.Set("net_namespace", "")
 
-			sockets = append(sockets, socket)
+			sockets.AppendResult(*socket)
 			row = (*MIB_UDPROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
@@ -324,48 +255,24 @@ func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map
 		row := (*MIB_UDP6ROW_OWNER_PID)(unsafe.Pointer(&table[4]))
 
 		// Parse the UDP6 table
-		sockets := make([]map[string]interface{}, 0, DwNumEntries)
+		sockets := result.NewQueryResult()
 		for i := uint32(0); i < DwNumEntries; i++ {
-			socket := make(map[string]interface{})
+			socket := result.NewResult(ctx, Schema)
 
-			if ctx.IsColumnUsed("pid") {
-				socket["pid"] = int32(row.DwOwningPid)
-			}
-			if ctx.IsColumnUsed("fd") {
-				socket["fd"] = int32(0)
-			}
-			if ctx.IsColumnUsed("socket") {
-				socket["socket"] = int32(0)
-			}
-			if ctx.IsColumnUsed("family") {
-				socket["family"] = int32(syscall.AF_INET6)
-			}
-			if ctx.IsColumnUsed("proto") {
-				socket["proto"] = int32(syscall.IPPROTO_UDP)
-			}
-			if ctx.IsColumnUsed("local_address") {
-				socket["local_address"] = formatIPv6Address(row.UcLocalAddr)
-			}
-			if ctx.IsColumnUsed("remote_address") {
-				socket["remote_address"] = ""
-			}
-			if ctx.IsColumnUsed("local_port") {
-				socket["local_port"] = int32(networkToHostPort(row.DwLocalPort))
-			}
-			if ctx.IsColumnUsed("remote_port") {
-				socket["remote_port"] = int32(0)
-			}
-			if ctx.IsColumnUsed("path") {
-				socket["path"] = ""
-			}
-			if ctx.IsColumnUsed("state") {
-				socket["state"] = ""
-			}
-			if ctx.IsColumnUsed("net_namespace") {
-				socket["net_namespace"] = ""
-			}
+			socket.Set("pid", int32(row.DwOwningPid))
+			socket.Set("fd", int32(0))
+			socket.Set("socket", int32(0))
+			socket.Set("family", int32(syscall.AF_INET6))
+			socket.Set("protocol", int32(syscall.IPPROTO_UDP))
+			socket.Set("local_address", formatIPv6Address(row.UcLocalAddr))
+			socket.Set("remote_address", "")
+			socket.Set("local_port", int32(networkToHostPort(row.DwLocalPort)))
+			socket.Set("remote_port", int32(0))
+			socket.Set("path", "")
+			socket.Set("state", "")
+			socket.Set("net_namespace", "")
 
-			sockets = append(sockets, socket)
+			sockets.AppendResult(*socket)
 			row = (*MIB_UDP6ROW_OWNER_PID)(unsafe.Pointer(uintptr(unsafe.Pointer(row)) + unsafe.Sizeof(*row)))
 		}
 		return sockets, nil
@@ -376,7 +283,7 @@ func parseSocketTable(sockType string, table []byte, ctx context.Context) ([]map
 }
 
 // GenProcessOpenSockets returns a list of open sockets for each process
-func GenProcessOpenSockets(ctx context.Context) ([]map[string]interface{}, error) {
+func GenProcessOpenSockets(ctx *sqlctx.Context) (*result.Results, error) {
 	if procGetExtendedTcpTable == nil || procGetExtendedUdpTable == nil {
 		return nil, fmt.Errorf("failed to initialize iphlpapi.dll")
 	}
@@ -430,9 +337,11 @@ func GenProcessOpenSockets(ctx context.Context) ([]map[string]interface{}, error
 	}
 
 	// Combine all sockets
-	sockets := append(tcpSockets, tcp6Sockets...)
-	sockets = append(sockets, udpSockets...)
-	sockets = append(sockets, udp6Sockets...)
+	sockets := result.NewQueryResult()
+	sockets.AppendResults(*tcpSockets)
+	sockets.AppendResults(*tcp6Sockets)
+	sockets.AppendResults(*udpSockets)
+	sockets.AppendResults(*udp6Sockets)
 
 	return sockets, nil
 }

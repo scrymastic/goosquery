@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -20,14 +20,14 @@ func getSystemRoot() string {
 	return systemRoot
 }
 
-func parseProtocolsFile(path string, ctx context.Context) ([]map[string]interface{}, error) {
+func parseProtocolsFile(path string, ctx *sqlctx.Context) (*result.Results, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("error opening protocols file: %w", err)
 	}
 	defer file.Close()
 
-	var protocols []map[string]interface{}
+	entries := result.NewQueryResult()
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -46,49 +46,41 @@ func parseProtocolsFile(path string, ctx context.Context) ([]map[string]interfac
 			continue
 		}
 
-		protocol := specs.Init(ctx, Schema)
+		protocol := result.NewResult(ctx, Schema)
 
-		if ctx.IsColumnUsed("name") {
-			protocol["name"] = protocolInfo[0]
-		}
+		protocol.Set("name", protocolInfo[0])
 
 		// Parse protocol number
 		var number uint32
 		fmt.Sscanf(protocolInfo[1], "%d", &number)
 
-		if ctx.IsColumnUsed("number") {
-			protocol["number"] = number
-		}
+		protocol.Set("number", number)
 
 		// Get alias if exists
-		if ctx.IsColumnUsed("alias") && len(protocolInfo) > 2 {
-			protocol["alias"] = protocolInfo[2]
-		} else if ctx.IsColumnUsed("alias") {
-			protocol["alias"] = ""
+		if len(protocolInfo) > 2 {
+			protocol.Set("alias", protocolInfo[2])
+		} else {
+			protocol.Set("alias", "")
 		}
 
 		// Get comment if exists
-		if ctx.IsColumnUsed("comment") {
-			if len(parts) > 1 {
-				protocol["comment"] = strings.TrimSpace(parts[1])
-			} else {
-				protocol["comment"] = ""
-			}
+		if len(parts) > 1 {
+			protocol.Set("comment", strings.TrimSpace(parts[1]))
 		}
 
-		protocols = append(protocols, protocol)
+		entries.AppendResult(*protocol)
 	}
 
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("error reading protocols file: %w", err)
 	}
 
-	return protocols, nil
+	return entries, nil
 }
 
 // GenEtcProtocols retrieves the contents of the protocols file from the system.
 // It returns a slice of map[string]interface{} and an error if the operation fails.
-func GenEtcProtocols(ctx context.Context) ([]map[string]interface{}, error) {
+func GenEtcProtocols(ctx *sqlctx.Context) (*result.Results, error) {
 	protocolsPath := filepath.Join(getSystemRoot(), "System32", "drivers", "etc", "protocol")
 	protocols, err := parseProtocolsFile(protocolsPath, ctx)
 	if err != nil {

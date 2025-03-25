@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"syscall"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"github.com/scrymastic/goosquery/tables/networking/process_open_sockets"
-	"github.com/scrymastic/goosquery/tables/specs"
 )
 
 // GenListeningPorts retrieves information about listening ports from all process sockets
-func GenListeningPorts(ctx context.Context) ([]map[string]interface{}, error) {
+func GenListeningPorts(ctx *sqlctx.Context) (*result.Results, error) {
 	// Remap columns
-	context := context.Context{}
+	context := sqlctx.NewContext()
 	if ctx.IsColumnUsed("pid") {
 		context.AddConstant("pid", "pid")
 	}
@@ -44,84 +44,67 @@ func GenListeningPorts(ctx context.Context) ([]map[string]interface{}, error) {
 		return nil, fmt.Errorf("error getting process open sockets: %w", err)
 	}
 
-	var results []map[string]interface{}
+	results := result.NewQueryResult()
 
-	for _, socket := range sockets {
+	for i := 0; i < sockets.Size(); i++ {
+		socket, _ := sockets.GetRow(i)
 		// Skip anonymous unix domain sockets
-		if family, ok := socket["family"].(int32); ok && family == syscall.AF_UNIX {
-			if path, ok := socket["path"].(string); ok && path == "" {
+		if family, ok := socket.Get("family").(int32); ok && family == syscall.AF_UNIX {
+			if path, ok := socket.Get("path").(string); ok && path == "" {
 				continue
 			}
 		}
 
 		// For IPv4/IPv6 sockets, only include those with remote_port = 0 (listening)
-		if family, ok := socket["family"].(int32); ok && (family == syscall.AF_INET || family == syscall.AF_INET6) {
-			if remotePort, ok := socket["remote_port"].(int32); ok && remotePort != 0 {
+		if family, ok := socket.Get("family").(int32); ok && (family == syscall.AF_INET || family == syscall.AF_INET6) {
+			if remotePort, ok := socket.Get("remote_port").(int32); ok && remotePort != 0 {
 				continue
 			}
 		}
 
 		// Initialize port map with default values for all requested columns
-		port := specs.Init(ctx, Schema)
+		port := result.NewResult(ctx, Schema)
 
 		// Copy values from socket map if they exist
-		if ctx.IsColumnUsed("pid") {
-			if pid, ok := socket["pid"].(int32); ok {
-				port["pid"] = pid
-			}
+		if pid, ok := socket.Get("pid").(int32); ok {
+			port.Set("pid", pid)
 		}
 
-		if ctx.IsColumnUsed("protocol") {
-			if proto, ok := socket["proto"].(int32); ok {
-				port["protocol"] = proto
-			}
+		if proto, ok := socket.Get("proto").(int32); ok {
+			port.Set("protocol", proto)
 		}
 
-		if ctx.IsColumnUsed("family") {
-			if family, ok := socket["family"].(int32); ok {
-				port["family"] = family
-			}
+		if family, ok := socket.Get("family").(int32); ok {
+			port.Set("family", family)
 		}
 
-		if ctx.IsColumnUsed("fd") {
-			if fd, ok := socket["fd"].(int32); ok {
-				port["fd"] = fd
-			}
+		if fd, ok := socket.Get("fd").(int32); ok {
+			port.Set("fd", fd)
 		}
 
-		if ctx.IsColumnUsed("socket") {
-			if sock, ok := socket["socket"].(int32); ok {
-				port["socket"] = sock
-			}
+		if sock, ok := socket.Get("socket").(int32); ok {
+			port.Set("socket", sock)
 		}
 
-		if ctx.IsColumnUsed("path") {
-			if path, ok := socket["path"].(string); ok {
-				port["path"] = path
-			}
+		if path, ok := socket.Get("path").(string); ok {
+			port.Set("path", path)
 		}
 
 		// Handle different socket families
-		if family, ok := socket["family"].(int32); ok {
+		if family, ok := socket.Get("family").(int32); ok {
 			if family == syscall.AF_UNIX {
-				if ctx.IsColumnUsed("port") {
-					port["port"] = int32(0)
-				}
+				port.Set("port", int32(0))
 			} else {
-				if ctx.IsColumnUsed("address") {
-					if addr, ok := socket["local_address"].(string); ok {
-						port["address"] = addr
-					}
+				if addr, ok := socket.Get("local_address").(string); ok {
+					port.Set("address", addr)
 				}
-				if ctx.IsColumnUsed("port") {
-					if lport, ok := socket["local_port"].(int32); ok {
-						port["port"] = lport
-					}
+				if lport, ok := socket.Get("local_port").(int32); ok {
+					port.Set("port", lport)
 				}
 			}
 		}
 
-		results = append(results, port)
+		results.AppendResult(*port)
 	}
 
 	return results, nil

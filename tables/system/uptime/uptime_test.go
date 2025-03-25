@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenUptime(t *testing.T) {
-	uptime, err := GenUptime(context.Context{})
+	uptime, err := GenUptime(sqlctx.Context{})
 	if err != nil {
 		t.Fatalf("Failed to get uptime: %v", err)
 	}

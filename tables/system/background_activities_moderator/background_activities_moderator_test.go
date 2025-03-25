@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestBackgroundActivitiesModerator(t *testing.T) {
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	results, err := GenBackgroundActivitiesModerator(ctx)
 	if err != nil {
 		t.Errorf("Error generating background activities moderator: %v", err)
@@ -21,5 +21,5 @@ func TestBackgroundActivitiesModerator(t *testing.T) {
 	}
 
 	fmt.Printf("Background activities moderator: %s", jsonData)
-	fmt.Println("Total: ", len(results))
+	fmt.Printf("Total: %d\n", results.Size())
 }

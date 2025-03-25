@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenSecurityProfileInfo(t *testing.T) {
-	profiles, err := GenSecurityProfileInfo()
+	ctx := sqlctx.NewContext()
+	profiles, err := GenSecurityProfileInfo(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get security profile info: %v", err)
 	}

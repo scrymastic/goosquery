@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
-	"github.com/scrymastic/goosquery/sql/context"
 	"github.com/scrymastic/goosquery/sql/executor/operations"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 // BaseExecutor provides common functionality for all executors
@@ -251,7 +251,7 @@ func (e *BaseExecutor) GetAggregationColumns(selectExprs sqlparser.SelectExprs) 
 }
 
 // GetConstants extracts constants from WHERE expressions and adds them to the context
-func (e *BaseExecutor) GetConstants(expr sqlparser.Expr, ctx *context.Context) {
+func (e *BaseExecutor) GetConstants(expr sqlparser.Expr, ctx *sqlctx.Context) {
 	switch expr := expr.(type) {
 	case *sqlparser.ComparisonExpr:
 		if colName, ok := expr.Left.(*sqlparser.ColName); ok {

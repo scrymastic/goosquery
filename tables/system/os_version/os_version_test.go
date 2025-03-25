@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGetOSVersion(t *testing.T) {
-	osVersions, err := GenOSVersion(context.Context{})
+	osVersions, err := GenOSVersion(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get OS version: %v", err)
 	}
 
-	if len(osVersions) == 0 {
+	if osVersions.Size() == 0 {
 		t.Fatalf("No OS version data returned")
 	}
 
 	// Print results as JSON
-	jsonData, err := json.MarshalIndent(osVersions[0], "", "  ")
+	jsonData, err := json.MarshalIndent(osVersions, "", "  ")
 	if err != nil {
 		t.Fatalf("Failed to marshal OS version to JSON: %v", err)
 	}

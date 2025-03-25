@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenEtcServices(t *testing.T) {
-	services, err := GenEtcServices(context.Context{})
+	services, err := GenEtcServices(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get etc services: %v", err)
 	}
@@ -19,7 +19,7 @@ func TestGenEtcServices(t *testing.T) {
 		t.Fatalf("Failed to marshal etc services to JSON: %v", err)
 	}
 	fmt.Printf("Etc Services Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total etc services: %d\n", len(services))
+	fmt.Printf("Total etc services: %d\n", services.Size())
 
 	// Verify some well-known services exist
 	wellKnownServices := map[string]uint16{
@@ -28,9 +28,9 @@ func TestGenEtcServices(t *testing.T) {
 	}
 
 	for name, port := range wellKnownServices {
-		for _, service := range services {
-			serviceName, nameOk := service["name"].(string)
-			servicePort, portOk := service["port"].(uint16)
+		for _, service := range *services {
+			serviceName, nameOk := service.Get("name").(string)
+			servicePort, portOk := service.Get("port").(uint16)
 
 			if nameOk && portOk && serviceName == name && servicePort == port {
 				fmt.Printf("Found service: %s (port %d)\n", name, port)

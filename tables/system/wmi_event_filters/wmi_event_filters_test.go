@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenWMIEventFilters(t *testing.T) {
-	filters, err := GenWMIEventFilters()
+	ctx := sqlctx.NewContext()
+	filters, err := GenWMIEventFilters(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get WMI event filters: %v", err)
 	}
@@ -18,5 +21,5 @@ func TestGenWMIEventFilters(t *testing.T) {
 		t.Fatalf("Failed to marshal WMI event filters to JSON: %v", err)
 	}
 	fmt.Printf("WMI Event Filters:\n%s\n", string(jsonData))
-	fmt.Printf("Total filters: %d\n", len(filters))
+	fmt.Printf("Total filters: %d\n", filters.Size())
 }

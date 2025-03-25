@@ -5,22 +5,10 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-)
 
-// KVASpeculativeInfo represents the table structure for KVA and speculative execution information
-type KVASpeculativeInfo struct {
-	KvaShadowEnabled     int32 `json:"kva_shadow_enabled"`
-	KvaShadowUserGlobal  int32 `json:"kva_shadow_user_global"`
-	KvaShadowPcid        int32 `json:"kva_shadow_pcid"`
-	KvaShadowInvPcid     int32 `json:"kva_shadow_inv_pcid"`
-	BpMitigations        int32 `json:"bp_mitigations"`
-	BpSystemPolDisabled  int32 `json:"bp_system_pol_disabled"`
-	BpMicrocodeDisabled  int32 `json:"bp_microcode_disabled"`
-	CpuSpecCtrlSupported int32 `json:"cpu_spec_ctrl_supported"`
-	IbrsSupportEnabled   int32 `json:"ibrs_support_enabled"`
-	StibpSupportEnabled  int32 `json:"stibp_support_enabled"`
-	CpuPredCmdSupported  int32 `json:"cpu_pred_cmd_supported"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 var (
 	modNtdll                     = windows.NewLazySystemDLL("ntdll.dll")
@@ -43,7 +31,7 @@ func boolToInt32(b bool) int32 {
 }
 
 // GenKVASpeculativeInfo generates KVA and speculative execution information
-func GenKVASpeculativeInfo() (*KVASpeculativeInfo, error) {
+func GenKVASpeculativeInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	var kvaInfo SYSTEM_KERNEL_VA_SHADOW_INFORMATION
 	var specInfo SYSTEM_SPECULATION_CONTROL_INFORMATION
 
@@ -81,19 +69,20 @@ func GenKVASpeculativeInfo() (*KVASpeculativeInfo, error) {
 	}
 
 	// Convert to table structure
-	result := &KVASpeculativeInfo{
-		KvaShadowEnabled:     boolToInt32(kvaInfo&0x1 != 0),
-		KvaShadowUserGlobal:  boolToInt32(kvaInfo&0x2 != 0),
-		KvaShadowPcid:        boolToInt32(kvaInfo&0x4 != 0),
-		KvaShadowInvPcid:     boolToInt32(kvaInfo&0x8 != 0),
-		BpMitigations:        boolToInt32(specInfo&0x1 != 0),
-		BpSystemPolDisabled:  boolToInt32(specInfo&0x2 != 0),
-		BpMicrocodeDisabled:  boolToInt32(specInfo&0x4 != 0),
-		CpuSpecCtrlSupported: boolToInt32(specInfo&0x8 != 0),
-		CpuPredCmdSupported:  boolToInt32(specInfo&0x10 != 0),
-		IbrsSupportEnabled:   boolToInt32(specInfo&0x20 != 0),
-		StibpSupportEnabled:  boolToInt32(specInfo&0x40 != 0),
-	}
+	kvaSpecInfo := result.NewResult(ctx, Schema)
+	kvaSpecInfo.Set("kva_shadow_enabled", boolToInt32(kvaInfo&0x1 != 0))
+	kvaSpecInfo.Set("kva_shadow_user_global", boolToInt32(kvaInfo&0x2 != 0))
+	kvaSpecInfo.Set("kva_shadow_pcid", boolToInt32(kvaInfo&0x4 != 0))
+	kvaSpecInfo.Set("kva_shadow_inv_pcid", boolToInt32(kvaInfo&0x8 != 0))
+	kvaSpecInfo.Set("bp_mitigations", boolToInt32(specInfo&0x1 != 0))
+	kvaSpecInfo.Set("bp_system_pol_disabled", boolToInt32(specInfo&0x2 != 0))
+	kvaSpecInfo.Set("bp_microcode_disabled", boolToInt32(specInfo&0x4 != 0))
+	kvaSpecInfo.Set("cpu_spec_ctrl_supported", boolToInt32(specInfo&0x8 != 0))
+	kvaSpecInfo.Set("cpu_pred_cmd_supported", boolToInt32(specInfo&0x10 != 0))
+	kvaSpecInfo.Set("ibrs_support_enabled", boolToInt32(specInfo&0x20 != 0))
+	kvaSpecInfo.Set("stibp_support_enabled", boolToInt32(specInfo&0x40 != 0))
 
-	return result, nil
+	results := result.NewQueryResult()
+	results.AppendResult(*kvaSpecInfo)
+	return results, nil
 }

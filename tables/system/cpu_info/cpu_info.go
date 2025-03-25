@@ -5,6 +5,8 @@ import (
 	"strconv"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 // Win32_Processor represents the WMI Win32_Processor class structure
@@ -24,49 +26,31 @@ type Win32_Processor struct {
 	LoadPercentage            uint16
 }
 
-// CPUInfo represents detailed information about a CPU
-type CPUInfo struct {
-	DeviceID          string `json:"device_id"`
-	Model             string `json:"model"`
-	Manufacturer      string `json:"manufacturer"`
-	ProcessorType     string `json:"processor_type"`
-	CPUStatus         int32  `json:"cpu_status"`
-	NumCores          string `json:"number_of_cores"`
-	LogicalProcessors int32  `json:"logical_processors"`
-	AddressWidth      string `json:"address_width"`
-	CurrentClockSpeed int32  `json:"current_clock_speed"`
-	MaxClockSpeed     int32  `json:"max_clock_speed"`
-	SocketDesignation string `json:"socket_designation"`
-	Availability      string `json:"availability"`
-	LoadPercentage    int32  `json:"load_percentage"`
-}
-
 // GenCPUInfo retrieves CPU information using WMI query
-func GenCPUInfo() ([]CPUInfo, error) {
+func GenCPUInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	var processors []Win32_Processor
 	query := "SELECT * FROM Win32_Processor"
 	if err := wmi.Query(query, &processors); err != nil {
 		return nil, fmt.Errorf("failed to query Win32_Processor: %w", err)
 	}
 
-	cpuInfo := make([]CPUInfo, 0, len(processors))
+	cpuInfo := result.NewQueryResult()
 	for _, proc := range processors {
-		info := CPUInfo{
-			DeviceID:          proc.DeviceID,
-			Model:             proc.Name,
-			Manufacturer:      proc.Manufacturer,
-			ProcessorType:     strconv.Itoa(int(proc.ProcessorType)),
-			CPUStatus:         int32(proc.CPUStatus),
-			NumCores:          strconv.Itoa(int(proc.NumberOfCores)),
-			LogicalProcessors: int32(proc.NumberOfLogicalProcessors),
-			AddressWidth:      strconv.Itoa(int(proc.AddressWidth)),
-			CurrentClockSpeed: int32(proc.CurrentClockSpeed),
-			MaxClockSpeed:     int32(proc.MaxClockSpeed),
-			SocketDesignation: proc.SocketDesignation,
-			Availability:      strconv.Itoa(int(proc.Availability)),
-			LoadPercentage:    int32(proc.LoadPercentage),
-		}
-		cpuInfo = append(cpuInfo, info)
+		info := result.NewResult(ctx, Schema)
+		info.Set("device_id", proc.DeviceID)
+		info.Set("model", proc.Name)
+		info.Set("manufacturer", proc.Manufacturer)
+		info.Set("processor_type", strconv.Itoa(int(proc.ProcessorType)))
+		info.Set("number_of_cores", strconv.Itoa(int(proc.NumberOfCores)))
+		info.Set("logical_processors", int32(proc.NumberOfLogicalProcessors))
+		info.Set("address_width", strconv.Itoa(int(proc.AddressWidth)))
+		info.Set("current_clock_speed", int32(proc.CurrentClockSpeed))
+		info.Set("max_clock_speed", int32(proc.MaxClockSpeed))
+		info.Set("socket_designation", proc.SocketDesignation)
+		info.Set("availability", strconv.Itoa(int(proc.Availability)))
+		info.Set("load_percentage", int32(proc.LoadPercentage))
+
+		cpuInfo.AppendResult(*info)
 	}
 
 	return cpuInfo, nil

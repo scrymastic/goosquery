@@ -5,16 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
-type ChocolateyPackage struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	Summary string `json:"summary"`
-	Author  string `json:"author"`
-	License string `json:"license"`
-	Path    string `json:"path"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 type NuspecXML struct {
 	XMLName  xml.Name `xml:"package"`
@@ -27,7 +21,7 @@ type NuspecXML struct {
 	} `xml:"metadata"`
 }
 
-func parseNuspec(nuspecPath string) (*ChocolateyPackage, error) {
+func parseNuspec(ctx *sqlctx.Context, nuspecPath string) (*result.Result, error) {
 	content, err := os.ReadFile(nuspecPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read nuspec file: %v", err)
@@ -38,17 +32,19 @@ func parseNuspec(nuspecPath string) (*ChocolateyPackage, error) {
 		return nil, fmt.Errorf("failed to unmarshal nuspec file: %v", err)
 	}
 
-	return &ChocolateyPackage{
-		Name:    nuspec.Metadata.ID,
-		Version: nuspec.Metadata.Version,
-		Summary: nuspec.Metadata.Summary,
-		Author:  nuspec.Metadata.Authors,
-		License: nuspec.Metadata.LicenseUrl,
-		Path:    nuspecPath,
-	}, nil
+	pkg := result.NewResult(ctx, Schema)
+
+	pkg.Set("name", nuspec.Metadata.ID)
+	pkg.Set("version", nuspec.Metadata.Version)
+	pkg.Set("summary", nuspec.Metadata.Summary)
+	pkg.Set("author", nuspec.Metadata.Authors)
+	pkg.Set("license", nuspec.Metadata.LicenseUrl)
+	pkg.Set("path", nuspecPath)
+
+	return pkg, nil
 }
 
-func GenChocolateyPackages() ([]ChocolateyPackage, error) {
+func GenChocolateyPackages(ctx *sqlctx.Context) (*result.Results, error) {
 	chocoInstall := os.Getenv("ChocolateyInstall")
 	if chocoInstall == "" {
 		return nil, nil
@@ -60,13 +56,13 @@ func GenChocolateyPackages() ([]ChocolateyPackage, error) {
 		return nil, fmt.Errorf("failed to glob nuspec files: %v", err)
 	}
 
-	var packages []ChocolateyPackage
+	packages := result.NewQueryResult()
 	for _, nuspecPath := range matches {
-		pkg, err := parseNuspec(nuspecPath)
+		pkg, err := parseNuspec(ctx, nuspecPath)
 		if err != nil {
 			continue
 		}
-		packages = append(packages, *pkg)
+		packages.AppendResult(*pkg)
 	}
 
 	return packages, nil

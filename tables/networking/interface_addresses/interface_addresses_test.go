@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenInterfaceAddresses(t *testing.T) {
-	addresses, err := GenInterfaceAddresses(context.Context{})
+	addresses, err := GenInterfaceAddresses(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get interface addresses: %v", err)
 	}
 
 	// Verify we got at least one interface
-	if len(addresses) == 0 {
+	if addresses.Size() == 0 {
 		t.Error("Expected at least one interface address, got none")
 	}
 
@@ -25,5 +25,5 @@ func TestGenInterfaceAddresses(t *testing.T) {
 		t.Fatalf("Failed to marshal interface addresses to JSON: %v", err)
 	}
 	fmt.Printf("Interface Addresses Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total interfaces: %d\n", len(addresses))
+	fmt.Printf("Total interfaces: %d\n", addresses.Size())
 }

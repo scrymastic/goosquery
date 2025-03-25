@@ -5,23 +5,9 @@ import (
 	"strings"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-type ChassisInfo struct {
-	AudibleAlarm      string `json:"audible_alarm"`
-	BreachDescription string `json:"breach_description"`
-	ChassisTypes      string `json:"chassis_types"`
-	Description       string `json:"description"`
-	Lock              string `json:"lock"`
-	Manufacturer      string `json:"manufacturer"`
-	Model             string `json:"model"`
-	SecurityBreach    string `json:"security_breach"`
-	Serial            string `json:"serial"`
-	SMBIOSTag         string `json:"smbios_tag"`
-	SKU               string `json:"sku"`
-	Status            string `json:"status"`
-	VisibleAlarm      string `json:"visible_alarm"`
-}
 
 // Select some fields from Win32_SystemEnclosure
 type Win32_SystemEnclosure struct {
@@ -106,32 +92,31 @@ func getSecurityBreachStatus(breach uint16) string {
 	return fmt.Sprintf("Unknown (%d)", breach)
 }
 
-func GenChassisInfo() ([]ChassisInfo, error) {
+func GenChassisInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	var enclosures []Win32_SystemEnclosure
 	query := "SELECT * FROM Win32_SystemEnclosure"
 	if err := wmi.Query(query, &enclosures); err != nil {
 		return nil, fmt.Errorf("failed to query Win32_SystemEnclosure: %v", err)
 	}
 
-	chassisInfo := make([]ChassisInfo, 0, len(enclosures))
-	for _, enclosure := range enclosures {
-		info := ChassisInfo{
-			AudibleAlarm:      map[bool]string{true: "True", false: "False"}[enclosure.AudibleAlarm],
-			BreachDescription: enclosure.BreachDescription,
-			ChassisTypes:      strings.Join(getChassisTypeStrings(enclosure.ChassisTypes), ","),
-			Description:       enclosure.Description,
-			Lock:              map[bool]string{true: "True", false: "False"}[enclosure.LockPresent],
-			Manufacturer:      enclosure.Manufacturer,
-			Model:             enclosure.Model,
-			SecurityBreach:    getSecurityBreachStatus(enclosure.SecurityBreach),
-			Serial:            enclosure.SerialNumber,
-			SMBIOSTag:         enclosure.SMBIOSAssetTag,
-			SKU:               enclosure.SKU,
-			Status:            enclosure.Status,
-			VisibleAlarm:      map[bool]string{true: "True", false: "False"}[enclosure.VisibleAlarm],
-		}
-		chassisInfo = append(chassisInfo, info)
-	}
+	chassisInfo := result.NewResult(ctx, Schema)
 
-	return chassisInfo, nil
+	chassisInfo.Set("audible_alarm", map[bool]string{true: "True", false: "False"}[enclosures[0].AudibleAlarm])
+	chassisInfo.Set("breach_description", enclosures[0].BreachDescription)
+	chassisInfo.Set("chassis_types", strings.Join(getChassisTypeStrings(enclosures[0].ChassisTypes), ","))
+	chassisInfo.Set("description", enclosures[0].Description)
+	chassisInfo.Set("lock", map[bool]string{true: "True", false: "False"}[enclosures[0].LockPresent])
+	chassisInfo.Set("manufacturer", enclosures[0].Manufacturer)
+	chassisInfo.Set("model", enclosures[0].Model)
+	chassisInfo.Set("security_breach", getSecurityBreachStatus(enclosures[0].SecurityBreach))
+	chassisInfo.Set("serial", enclosures[0].SerialNumber)
+	chassisInfo.Set("smbios_tag", enclosures[0].SMBIOSAssetTag)
+	chassisInfo.Set("sku", enclosures[0].SKU)
+	chassisInfo.Set("status", enclosures[0].Status)
+	chassisInfo.Set("visible_alarm", map[bool]string{true: "True", false: "False"}[enclosures[0].VisibleAlarm])
+
+	results := result.NewQueryResult()
+	results.AppendResult(*chassisInfo)
+
+	return results, nil
 }

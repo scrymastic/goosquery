@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenDefaultEnvironments(t *testing.T) {
-	environments, err := GenDefaultEnvironments(context.Context{})
+	environments, err := GenDefaultEnvironments(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to retrieve default environment variables: %v", err)
 	}

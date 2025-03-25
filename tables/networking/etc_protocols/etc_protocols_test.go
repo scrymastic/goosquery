@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenEtcProtocols(t *testing.T) {
-	protocols, err := GenEtcProtocols(context.Context{})
+	protocols, err := GenEtcProtocols(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get protocols: %v", err)
 	}
 
 	// Verify we got some protocols
-	if len(protocols) == 0 {
+	if protocols.Size() == 0 {
 		t.Fatal("No protocols were returned")
 	}
 
@@ -25,5 +25,5 @@ func TestGenEtcProtocols(t *testing.T) {
 		t.Fatalf("Failed to marshal protocols to JSON: %v", err)
 	}
 	fmt.Printf("Protocols Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total protocols: %d\n", len(protocols))
+	fmt.Printf("Total protocols: %d\n", protocols.Size())
 }

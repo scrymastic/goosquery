@@ -6,15 +6,10 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-)
 
-type Group struct {
-	GID       int64  `json:"gid"`
-	GIDSigned int64  `json:"gid_signed"`
-	Groupname string `json:"groupname"`
-	GroupSid  string `json:"group_sid"`
-	Comment   string `json:"comment"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 // Structure for NetLocalGroupEnum API
 type LOCALGROUP_INFO_1 struct {
@@ -81,8 +76,8 @@ func getRidFromSid(sid *windows.SID) int64 {
 	return int64(sid.SubAuthority(uint32(sid.SubAuthorityCount() - 1)))
 }
 
-func GenGroups() ([]Group, error) {
-	var groups []Group
+func GenGroups(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	var entriesRead uint32
 	var totalEntries uint32
 	var resumeHandle uint32
@@ -125,19 +120,18 @@ func GenGroups() ([]Group, error) {
 		// Get the RID from the SID
 		gid := getRidFromSid(sid)
 
-		group := Group{
-			GID:       gid,
-			GIDSigned: gid, // As per requirement, gid_signed is always gid
-			GroupSid:  sid.String(),
-			Comment:   comment,
-			Groupname: groupName,
-		}
+		group := result.NewResult(ctx, Schema)
+		group.Set("gid", gid)
+		group.Set("gid_signed", gid)
+		group.Set("groupname", groupName)
+		group.Set("group_sid", sid.String())
+		group.Set("comment", comment)
 
-		groups = append(groups, group)
+		results.AppendResult(*group)
 
 		// Move to the next entry
 		groupInfo = (*LOCALGROUP_INFO_1)(unsafe.Pointer(uintptr(unsafe.Pointer(groupInfo)) + unsafe.Sizeof(*groupInfo)))
 	}
 
-	return groups, nil
+	return results, nil
 }

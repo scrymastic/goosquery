@@ -6,12 +6,12 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGetRoutes(t *testing.T) {
 	// Create context with all columns used
-	ctx := context.Context{}
+	ctx := sqlctx.NewContext()
 	// Add all possible columns to ensure they're all included in test
 	ctx.Columns = []string{
 		"destination", "netmask", "gateway", "source",
@@ -29,7 +29,7 @@ func TestGetRoutes(t *testing.T) {
 		t.Fatalf("Failed to marshal routes to JSON: %v", err)
 	}
 	fmt.Printf("Routes Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total routes: %d\n", len(routes))
+	fmt.Printf("Total routes: %d\n", routes.Size())
 }
 
 // func TestMIB_IPINTERFACE_ROW(t *testing.T) {

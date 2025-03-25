@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 type _EventFilter struct {
@@ -17,15 +19,7 @@ type _EventFilter struct {
 	QueryLanguage  string
 }
 
-type WMIEventFilter struct {
-	Name          string `json:"name"`
-	Query         string `json:"query"`
-	QueryLanguage string `json:"query_language"`
-	Class         string `json:"class"`
-	RelativePath  string `json:"relative_path"`
-}
-
-func GenWMIEventFilters() ([]WMIEventFilter, error) {
+func GenWMIEventFilters(ctx *sqlctx.Context) (*result.Results, error) {
 
 	var filters []_EventFilter
 	query := "SELECT * FROM __EventFilter"
@@ -36,16 +30,15 @@ func GenWMIEventFilters() ([]WMIEventFilter, error) {
 
 	// Missing __CLASS and __RELPATH fields
 
-	filterInfo := make([]WMIEventFilter, 0, len(filters))
+	filterInfo := result.NewQueryResult()
 	for _, filter := range filters {
-		info := WMIEventFilter{
-			Name:          filter.Name,
-			Query:         filter.Query,
-			QueryLanguage: filter.QueryLanguage,
-			Class:         filter.__CLASS,
-			RelativePath:  filter.__RELPATH,
-		}
-		filterInfo = append(filterInfo, info)
+		info := result.NewResult(ctx, Schema)
+		info.Set("name", filter.Name)
+		info.Set("query", filter.Query)
+		info.Set("query_language", filter.QueryLanguage)
+		info.Set("class", filter.__CLASS)
+		info.Set("relative_path", filter.__RELPATH)
+		filterInfo.AppendResult(*info)
 		// fmt.Printf("Raw WMI Object: %+v\n", filter)
 	}
 

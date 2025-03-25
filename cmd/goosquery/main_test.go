@@ -30,7 +30,7 @@ func TestQuery(t *testing.T) {
 
 func TestDisplayAsTable(t *testing.T) {
 	// Create a sample query result
-	queryResult := &result.QueryResult{
+	queryResult := &result.Results{
 		{
 			"name":  "test1",
 			"value": int64(123),
@@ -105,7 +105,7 @@ func TestPrintTableDivider(t *testing.T) {
 
 func TestDisplayAsTableWithEmptyResults(t *testing.T) {
 	// Create an empty query result
-	queryResult := &result.QueryResult{}
+	queryResult := &result.Results{}
 
 	// Capture stdout
 	oldStdout := os.Stdout

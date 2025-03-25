@@ -10,7 +10,7 @@ import (
 
 // ProjectFinalResults applies final projection to the result to ensure only the requested columns are returned
 // It handles column selection, aliases from SELECT, and aggregation function results
-func ProjectFinalResults(results *result.QueryResult, stmt *sqlparser.Select) *result.QueryResult {
+func ProjectFinalResults(results *result.Results, stmt *sqlparser.Select) *result.Results {
 	// If there are no results, return empty result
 	if len(*results) == 0 {
 		return result.NewQueryResult()
@@ -54,7 +54,7 @@ func ProjectFinalResults(results *result.QueryResult, stmt *sqlparser.Select) *r
 			}
 		}
 
-		projectedResult.AddRecord(projectedRow)
+		projectedResult.AppendResult(projectedRow)
 	}
 
 	return projectedResult

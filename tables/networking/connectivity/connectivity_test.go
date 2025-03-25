@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenConnectivity(t *testing.T) {
-	connectivity, err := GenConnectivity(context.Context{})
+	connectivity, err := GenConnectivity(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get connectivity status: %v", err)
 	}
@@ -22,7 +22,7 @@ func TestGenConnectivity(t *testing.T) {
 	fmt.Printf("Connectivity Status:\n%s\n", string(jsonData))
 
 	// Basic validation
-	if len(connectivity) != 1 {
-		t.Errorf("Expected 1 connectivity result, got %d", len(connectivity))
+	if connectivity.Size() != 1 {
+		t.Errorf("Expected 1 connectivity result, got %d", connectivity.Size())
 	}
 }

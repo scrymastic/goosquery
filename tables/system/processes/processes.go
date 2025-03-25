@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -213,8 +213,7 @@ func getProcessElapsedTime(proc windows.Handle) (uint64, error) {
 }
 
 // Collect detailed information about a process and populate the procInfo map
-func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) error {
-	processID := uint32(procInfo["pid"].(int64))
+func getProcessDetails(ctx *sqlctx.Context, procInfo *result.Result, processID uint32) error {
 
 	// Try to open process with PROCESS_ALL_ACCESS first
 	procHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, processID)
@@ -236,7 +235,7 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 			0,
 			&pathBuf[0],
 			&pathLen); err == nil {
-			procInfo["path"] = windows.UTF16ToString(pathBuf[:pathLen])
+			procInfo.Set("path", windows.UTF16ToString(pathBuf[:pathLen]))
 		}
 	}
 
@@ -244,7 +243,7 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		// Get command line
 		cmdline, err := getProcessCommandLine(procHandle)
 		if err == nil {
-			procInfo["cmdline"] = cmdline
+			procInfo.Set("cmdline", cmdline)
 		}
 	}
 
@@ -253,9 +252,9 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		var exitCode uint32
 		if err := windows.GetExitCodeProcess(procHandle, &exitCode); err == nil {
 			if exitCode == STILL_ACTIVE {
-				procInfo["state"] = "STILL_ACTIVE"
+				procInfo.Set("state", "STILL_ACTIVE")
 			} else {
-				procInfo["state"] = "EXITED"
+				procInfo.Set("state", "EXITED")
 			}
 		}
 	}
@@ -264,24 +263,24 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		// Get working directory
 		cwd, err := getProcessWorkingDirectory(procHandle)
 		if err == nil {
-			procInfo["cwd"] = cwd
+			procInfo.Set("cwd", cwd)
 		}
 	}
 
 	if ctx.IsColumnUsed("root") {
 		// Get process root directory
-		if cwd, ok := procInfo["cwd"].(string); ok {
-			procInfo["root"] = cwd
+		if cwd, ok := procInfo.Get("cwd").(string); ok {
+			procInfo.Set("root", cwd)
 		}
 	}
 
 	if ctx.IsColumnUsed("on_disk") {
 		// Check if process is on disk
-		if path, ok := procInfo["path"].(string); ok {
+		if path, ok := procInfo.Get("path").(string); ok {
 			if _, err := os.Stat(path); err == nil {
-				procInfo["on_disk"] = int32(1)
+				procInfo.Set("on_disk", int32(1))
 			} else {
-				procInfo["on_disk"] = int32(0)
+				procInfo.Set("on_disk", int32(0))
 			}
 		}
 	}
@@ -290,15 +289,9 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		// Get process memory info
 		pmc, err := getProcessRssInfo(procHandle)
 		if err == nil {
-			if ctx.IsColumnUsed("wired_size") {
-				procInfo["wired_size"] = int64(pmc.QuotaNonPagedPoolUsage)
-			}
-			if ctx.IsColumnUsed("resident_size") {
-				procInfo["resident_size"] = int64(pmc.WorkingSetSize)
-			}
-			if ctx.IsColumnUsed("total_size") {
-				procInfo["total_size"] = int64(pmc.PrivateUsage)
-			}
+			procInfo.Set("wired_size", int64(pmc.QuotaNonPagedPoolUsage))
+			procInfo.Set("resident_size", int64(pmc.WorkingSetSize))
+			procInfo.Set("total_size", int64(pmc.PrivateUsage))
 		}
 	}
 
@@ -309,12 +302,8 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		if ret, _, _ := processIoCounters.Call(
 			uintptr(procHandle),
 			uintptr(unsafe.Pointer(&ioCounters))); ret != 0 {
-			if ctx.IsColumnUsed("disk_bytes_read") {
-				procInfo["disk_bytes_read"] = int64(ioCounters.ReadTransferCount)
-			}
-			if ctx.IsColumnUsed("disk_bytes_written") {
-				procInfo["disk_bytes_written"] = int64(ioCounters.WriteTransferCount)
-			}
+			procInfo.Set("disk_bytes_read", int64(ioCounters.ReadTransferCount))
+			procInfo.Set("disk_bytes_written", int64(ioCounters.WriteTransferCount))
 		}
 	}
 
@@ -322,7 +311,7 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		// Get nice value
 		nice, err := windows.GetPriorityClass(procHandle)
 		if err == nil {
-			procInfo["nice"] = int32(nice)
+			procInfo.Set("nice", int32(nice))
 		}
 	}
 
@@ -331,9 +320,9 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		elevated, err := isProcessElevated(procHandle)
 		if err == nil {
 			if elevated {
-				procInfo["elevated_token"] = int32(1)
+				procInfo.Set("elevated_token", int32(1))
 			} else {
-				procInfo["elevated_token"] = int32(0)
+				procInfo.Set("elevated_token", int32(0))
 			}
 		}
 	}
@@ -342,7 +331,7 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		// Get elapsed time
 		elapsedTime, err := getProcessElapsedTime(procHandle)
 		if err == nil {
-			procInfo["elapsed_time"] = int64(elapsedTime)
+			procInfo.Set("elapsed_time", int64(elapsedTime))
 		}
 	}
 
@@ -351,7 +340,7 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 		var handleCount uint32
 		procGetProcessHandleCount := kernel32.NewProc("GetProcessHandleCount")
 		if ret, _, _ := procGetProcessHandleCount.Call(uintptr(procHandle), uintptr(unsafe.Pointer(&handleCount))); ret != 0 {
-			procInfo["handle_count"] = int64(handleCount)
+			procInfo.Set("handle_count", int64(handleCount))
 		}
 	}
 
@@ -361,14 +350,14 @@ func getProcessDetails(ctx context.Context, procInfo map[string]interface{}) err
 }
 
 // GenProcesses returns information about all processes as a slice of maps
-func GenProcesses(ctx context.Context) ([]map[string]interface{}, error) {
+func GenProcesses(ctx *sqlctx.Context) (*result.Results, error) {
 	procs, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPALL, 0)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot: %v", err)
 	}
 	defer windows.CloseHandle(procs)
 
-	var processes []map[string]interface{}
+	procInfos := result.NewQueryResult()
 	var pe32 windows.ProcessEntry32
 	pe32.Size = uint32(unsafe.Sizeof(pe32))
 
@@ -380,32 +369,22 @@ func GenProcesses(ctx context.Context) ([]map[string]interface{}, error) {
 
 	for {
 		// Create a new map for the process
-		procInfo := make(map[string]interface{})
-
-		// Initialize all requested columns with default values
-		procInfo = specs.Init(ctx, Schema)
+		procInfo := result.NewResult(ctx, Schema)
 
 		// Always set pid regardless of whether it was explicitly requested
-		procInfo["pid"] = int64(pe32.ProcessID)
-
-		if ctx.IsColumnUsed("parent") {
-			procInfo["parent"] = int64(pe32.ParentProcessID)
-		}
-		if ctx.IsColumnUsed("name") {
-			procInfo["name"] = windows.UTF16ToString(pe32.ExeFile[:])
-		}
-		if ctx.IsColumnUsed("threads") {
-			procInfo["threads"] = int32(pe32.Threads)
-		}
+		procInfo.Set("pid", int64(pe32.ProcessID))
+		procInfo.Set("parent", int64(pe32.ParentProcessID))
+		procInfo.Set("name", windows.UTF16ToString(pe32.ExeFile[:]))
+		procInfo.Set("threads", int32(pe32.Threads))
 
 		// Get additional process details
-		err = getProcessDetails(ctx, procInfo)
+		err = getProcessDetails(ctx, procInfo, pe32.ProcessID)
 		if err != nil {
 			log.Printf("Failed to get process details: %v", err)
 		}
 
 		// Add process to the results
-		processes = append(processes, procInfo)
+		procInfos.AppendResult(*procInfo)
 
 		// Get next process
 		err = windows.Process32Next(procs, &pe32)
@@ -417,5 +396,5 @@ func GenProcesses(ctx context.Context) ([]map[string]interface{}, error) {
 		}
 	}
 
-	return processes, nil
+	return procInfos, nil
 }

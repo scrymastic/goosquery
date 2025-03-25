@@ -107,13 +107,13 @@ func ToFloat64(v interface{}) (float64, bool) {
 }
 
 // SortResults sorts the results based on ORDER BY clause
-func SortResults(results *result.QueryResult, orderBy sqlparser.OrderBy) error {
+func SortResults(results *result.Results, orderBy sqlparser.OrderBy) error {
 	if len(orderBy) == 0 || len(*results) == 0 {
 		return nil
 	}
 
 	// Create a copy of the results for sorting
-	sortedResults := append(result.QueryResult{}, *results...)
+	sortedResults := append(result.Results{}, *results...)
 
 	// Sort the results
 	sort.SliceStable(sortedResults, func(i, j int) bool {

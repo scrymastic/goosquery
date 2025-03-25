@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenAuthenticode(t *testing.T) {
@@ -18,7 +18,7 @@ func TestGenAuthenticode(t *testing.T) {
 		`C:\Windows\System32\ntoskrnl.exe`,
 	}
 	for _, path := range testPath {
-		ctx := context.Context{}
+		ctx := sqlctx.NewContext()
 		ctx.AddConstant("path", path)
 		entries, err := GenAuthenticode(ctx)
 		if err != nil {

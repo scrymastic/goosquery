@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenPatches(t *testing.T) {
-	patches, err := GenPatches()
+	patches, err := GenPatches(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get patches: %v", err)
 	}
@@ -18,5 +20,5 @@ func TestGenPatches(t *testing.T) {
 		t.Fatalf("Failed to marshal patches to JSON: %v", err)
 	}
 	fmt.Printf("Patches Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total patches: %d\n", len(patches))
+	fmt.Printf("Total patches: %d\n", patches.Size())
 }

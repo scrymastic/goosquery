@@ -9,7 +9,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 
 	"golang.org/x/sys/windows"
 )
@@ -240,7 +241,7 @@ func getOriginalFilename(path string) (string, error) {
 }
 
 // GetFileStat retrieves detailed file information
-func GetFileStat(ctx context.Context, path string, fileStat *map[string]interface{}) error {
+func GetFileStat(ctx *sqlctx.Context, path string, fileStat *result.Result) error {
 
 	fileInfo, err := os.Stat(path)
 	if err != nil {

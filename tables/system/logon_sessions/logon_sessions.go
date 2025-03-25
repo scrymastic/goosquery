@@ -5,26 +5,10 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-)
 
-// LogonSession represents a Windows logon session
-type LogonSession struct {
-	LogonID               int32  `json:"logon_id"`
-	User                  string `json:"user"`
-	LogonDomain           string `json:"logon_domain"`
-	AuthenticationPackage string `json:"authentication_package"`
-	LogonType             string `json:"logon_type"`
-	SessionID             int32  `json:"session_id"`
-	LogonSID              string `json:"logon_sid"`
-	LogonTime             int64  `json:"logon_time"`
-	LogonServer           string `json:"logon_server"`
-	DnsDomainName         string `json:"dns_domain_name"`
-	UPN                   string `json:"upn"`
-	LogonScript           string `json:"logon_script"`
-	ProfilePath           string `json:"profile_path"`
-	HomeDirectory         string `json:"home_directory"`
-	HomeDirectoryDrive    string `json:"home_directory_drive"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 var logonTypes = map[uint32]string{
 	0:  "Undefined Logon Type",
@@ -57,7 +41,8 @@ type SECURITY_LOGON_SESSION_DATA struct {
 	Upn                   windows.NTUnicodeString
 }
 
-func GenLogonSessions() ([]LogonSession, error) {
+func GenLogonSessions(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 	var sessionCount uint32
 	var sessionListPtr *windows.LUID
 
@@ -80,8 +65,6 @@ func GenLogonSessions() ([]LogonSession, error) {
 
 	sessionList := unsafe.Slice((*windows.LUID)(unsafe.Pointer(sessionListPtr)), sessionCount)
 
-	var sessions []LogonSession
-
 	for i := uint32(0); i < sessionCount; i++ {
 		var sessionDataPtr *SECURITY_LOGON_SESSION_DATA
 		ret, _, _ := procLsaGetLogonSessionData.Call(
@@ -95,24 +78,23 @@ func GenLogonSessions() ([]LogonSession, error) {
 
 		sessionData := (*SECURITY_LOGON_SESSION_DATA)(unsafe.Pointer(sessionDataPtr))
 
-		session := LogonSession{
-			LogonID:               int32(sessionData.LogonID.LowPart),
-			User:                  sessionData.UserName.String(),
-			LogonDomain:           sessionData.LogonDomain.String(),
-			AuthenticationPackage: sessionData.AuthenticationPackage.String(),
-			LogonType:             logonTypes[sessionData.LogonType],
-			SessionID:             int32(sessionData.Session),
-			LogonSID:              sessionData.Sid.String(),
-			LogonTime:             int64(sessionData.LogonTime.Nanoseconds() / 1e9),
-			LogonServer:           sessionData.LogonServer.String(),
-			DnsDomainName:         sessionData.DnsDomainName.String(),
-			UPN:                   sessionData.Upn.String(),
-		}
+		session := result.NewResult(ctx, Schema)
+		session.Set("logon_id", int32(sessionData.LogonID.LowPart))
+		session.Set("user", sessionData.UserName.String())
+		session.Set("logon_domain", sessionData.LogonDomain.String())
+		session.Set("authentication_package", sessionData.AuthenticationPackage.String())
+		session.Set("logon_type", logonTypes[sessionData.LogonType])
+		session.Set("session_id", int32(sessionData.Session))
+		session.Set("logon_sid", sessionData.Sid.String())
+		session.Set("logon_time", int64(sessionData.LogonTime.Nanoseconds()/1e9))
+		session.Set("logon_server", sessionData.LogonServer.String())
+		session.Set("dns_domain_name", sessionData.DnsDomainName.String())
+		session.Set("upn", sessionData.Upn.String())
 
-		sessions = append(sessions, session)
+		results.AppendResult(*session)
 		procLsaFreeReturnBuffer.Call(uintptr(unsafe.Pointer(sessionDataPtr)))
 
 	}
 
-	return sessions, nil
+	return results, nil
 }

@@ -5,21 +5,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows/registry"
 )
-
-type Program struct {
-	Name              string `json:"name"`
-	Version           string `json:"version"`
-	InstallLocation   string `json:"install_location"`
-	InstallSource     string `json:"install_source"`
-	Language          string `json:"language"`
-	Publisher         string `json:"publisher"`
-	UninstallString   string `json:"uninstall_string"`
-	InstallDate       string `json:"install_date"`
-	IdentifyingNumber string `json:"identifying_number"`
-	// RegKey            string `json:"reg_key"`
-}
 
 func genUserSIDs() ([]string, error) {
 	k, err := registry.OpenKey(registry.USERS, "", registry.READ)
@@ -51,8 +40,8 @@ func genUserSIDs() ([]string, error) {
 	return validSIDs, nil
 }
 
-func keyEnumProgram(hive registry.Key, key string) ([]Program, error) {
-	var programs []Program
+func keyEnumProgram(hive registry.Key, key string, ctx *sqlctx.Context) (*result.Results, error) {
+	programs := result.NewQueryResult()
 
 	k, err := registry.OpenKey(hive, key, registry.READ)
 	if err != nil {
@@ -80,50 +69,78 @@ func keyEnumProgram(hive registry.Key, key string) ([]Program, error) {
 			return nil, fmt.Errorf("failed to open subkey: %v", err)
 		}
 
-		// Initialize identifyingNumber
-		var identifyingNumber string
+		// Initialize program
+		prog := result.NewResult(ctx, Schema)
 
-		// Check if subkey is a GUID
-		if guidRegex.MatchString(subkey) {
-			identifyingNumber = subkey
-		} else {
-			identifyingNumber, _, _ = subk.GetStringValue("BundleIdentifier")
+		// Initialize identifyingNumber
+		var val string
+
+		if ctx.IsColumnUsed("identifying_number") {
+			// Check if subkey is a GUID
+			if guidRegex.MatchString(subkey) {
+				val = subkey
+			} else {
+				val, _, _ = subk.GetStringValue("BundleIdentifier")
+			}
+			prog.Set("identifying_number", val)
 		}
 
-		// Initialize program
-		var prog Program
-		prog.Name, _, _ = subk.GetStringValue("DisplayName")
-		prog.Version, _, _ = subk.GetStringValue("DisplayVersion")
-		prog.InstallLocation, _, _ = subk.GetStringValue("InstallLocation")
-		prog.InstallSource, _, _ = subk.GetStringValue("InstallSource")
-		prog.Language, _, _ = subk.GetStringValue("Language")
-		prog.Publisher, _, _ = subk.GetStringValue("Publisher")
-		prog.UninstallString, _, _ = subk.GetStringValue("UninstallString")
-		prog.InstallDate, _, _ = subk.GetStringValue("InstallDate")
-		prog.IdentifyingNumber = identifyingNumber
+		if ctx.IsColumnUsed("name") {
+			val, _, _ = subk.GetStringValue("DisplayName")
+			prog.Set("name", val)
+		}
+		if ctx.IsColumnUsed("version") {
+			val, _, _ = subk.GetStringValue("DisplayVersion")
+			prog.Set("version", val)
+		}
+		if ctx.IsColumnUsed("install_location") {
+			val, _, _ = subk.GetStringValue("InstallLocation")
+			prog.Set("install_location", val)
+		}
+		if ctx.IsColumnUsed("install_source") {
+			val, _, _ = subk.GetStringValue("InstallSource")
+			prog.Set("install_source", val)
+		}
+		if ctx.IsColumnUsed("language") {
+			val, _, _ = subk.GetStringValue("Language")
+			prog.Set("language", val)
+		}
+		if ctx.IsColumnUsed("publisher") {
+			val, _, _ = subk.GetStringValue("Publisher")
+			prog.Set("publisher", val)
+		}
+		if ctx.IsColumnUsed("uninstall_string") {
+			val, _, _ = subk.GetStringValue("UninstallString")
+			prog.Set("uninstall_string", val)
+		}
+		if ctx.IsColumnUsed("install_date") {
+			val, _, _ = subk.GetStringValue("InstallDate")
+			prog.Set("install_date", val)
+		}
+
 		// prog.RegKey = key + `\` + subkey
 
 		// Check if the program does not empty
-		if prog.Name == "" &&
-			prog.Version == "" &&
-			prog.InstallLocation == "" &&
-			prog.InstallSource == "" &&
-			prog.Language == "" &&
-			prog.Publisher == "" &&
-			prog.UninstallString == "" &&
-			prog.InstallDate == "" &&
-			prog.IdentifyingNumber == "" {
+		if prog.Get("name") == "" &&
+			prog.Get("version") == "" &&
+			prog.Get("install_location") == "" &&
+			prog.Get("install_source") == "" &&
+			prog.Get("language") == "" &&
+			prog.Get("publisher") == "" &&
+			prog.Get("uninstall_string") == "" &&
+			prog.Get("install_date") == "" &&
+			prog.Get("identifying_number") == "" {
 			continue
 		}
 
-		programs = append(programs, prog)
+		programs.AppendResult(*prog)
 		subk.Close()
 	}
 
 	return programs, nil
 }
 
-func GenPrograms() ([]Program, error) {
+func GenPrograms(ctx *sqlctx.Context) (*result.Results, error) {
 	var localProgramKeys = []string{
 		`SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`,
 		`SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall`,
@@ -141,21 +158,21 @@ func GenPrograms() ([]Program, error) {
 		userProgramKeys = append(userProgramKeys, fmt.Sprintf(userProgramKey, userSID))
 	}
 
-	programs := make([]Program, 0, len(localProgramKeys)+len(userProgramKeys))
+	programs := result.NewQueryResult()
 	for _, key := range localProgramKeys {
-		prog, err := keyEnumProgram(registry.LOCAL_MACHINE, key)
+		prog, err := keyEnumProgram(registry.LOCAL_MACHINE, key, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get programs from %s: %v", key, err)
 		}
-		programs = append(programs, prog...)
+		programs.AppendResults(*prog)
 	}
 
 	for _, key := range userProgramKeys {
-		prog, err := keyEnumProgram(registry.USERS, key)
+		prog, err := keyEnumProgram(registry.USERS, key, ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get programs from %s: %v", key, err)
 		}
-		programs = append(programs, prog...)
+		programs.AppendResults(*prog)
 	}
 
 	return programs, nil

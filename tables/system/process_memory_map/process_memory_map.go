@@ -2,9 +2,12 @@ package process_memory_map
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"unsafe"
 
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -44,14 +47,23 @@ func formatPermissions(perm uint32) string {
 	return strings.Join(perms, "|")
 }
 
-func GenProcessMemoryMap(pid uint32) ([]ProcessMemoryMap, error) {
+func GenProcessMemoryMap(ctx *sqlctx.Context) (*result.Results, error) {
+	pids := ctx.GetConstants("pid")
+	if len(pids) == 0 {
+		return nil, fmt.Errorf("pid is not set")
+	}
+	pid64, err := strconv.ParseUint(pids[0], 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid pid: %v", err)
+	}
+	pid := uint32(pid64)
 	proc, err := windows.OpenProcess(windows.PROCESS_QUERY_INFORMATION, false, pid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open process: %v", err)
 	}
 	defer windows.CloseHandle(proc)
 
-	var memoryMaps []ProcessMemoryMap
+	memoryMaps := result.NewQueryResult()
 
 	modSnap, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPMODULE|windows.TH32CS_SNAPMODULE32, pid)
 	if err != nil {
@@ -69,18 +81,17 @@ func GenProcessMemoryMap(pid uint32) ([]ProcessMemoryMap, error) {
 		for addr := uintptr(me.ModBaseAddr); windows.VirtualQueryEx(proc, addr, &memInfo, unsafe.Sizeof(memInfo)) == nil &&
 			addr < me.ModBaseAddr+uintptr(me.ModBaseSize); addr += uintptr(memInfo.RegionSize) {
 			// Get the path for the module
-			memMap := ProcessMemoryMap{
-				PID:         int64(pid),
-				Start:       int64(memInfo.BaseAddress),
-				End:         int64(memInfo.BaseAddress + memInfo.RegionSize),
-				Permissions: formatPermissions(memInfo.Protect),
-				Offset:      int64(memInfo.AllocationBase),
-				Device:      "",
-				Inode:       0,
-				Path:        windows.UTF16PtrToString(&me.ExePath[0]),
-				Pseudo:      0,
-			}
-			memoryMaps = append(memoryMaps, memMap)
+			memMap := result.NewResult(ctx, Schema)
+			memMap.Set("pid", int64(pid))
+			memMap.Set("start", int64(memInfo.BaseAddress))
+			memMap.Set("end", int64(memInfo.BaseAddress+memInfo.RegionSize))
+			memMap.Set("permissions", formatPermissions(memInfo.Protect))
+			memMap.Set("offset", int64(memInfo.AllocationBase))
+			memMap.Set("device", "")
+			memMap.Set("inode", 0)
+			memMap.Set("path", windows.UTF16PtrToString(&me.ExePath[0]))
+			memMap.Set("pseudo", 0)
+			memoryMaps.AppendResult(*memMap)
 		}
 		ret = windows.Module32Next(modSnap, &me)
 	}

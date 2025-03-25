@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenChassisInfo(t *testing.T) {
-	info, err := GenChassisInfo()
+	ctx := sqlctx.NewContext()
+	info, err := GenChassisInfo(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get chassis info: %v", err)
 	}
@@ -18,5 +21,5 @@ func TestGenChassisInfo(t *testing.T) {
 		t.Fatalf("Failed to marshal chassis info to JSON: %v", err)
 	}
 	fmt.Printf("Chassis Info Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total entries: %d\n", len(info))
+	fmt.Printf("Total entries: %d\n", info.Size())
 }

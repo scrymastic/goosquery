@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenEtcHosts(t *testing.T) {
-	entries, err := GenEtcHosts(context.Context{})
+	entries, err := GenEtcHosts(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get hosts entries: %v", err)
 	}
@@ -20,10 +20,10 @@ func TestGenEtcHosts(t *testing.T) {
 		t.Fatalf("Failed to marshal hosts entries to JSON: %v", err)
 	}
 	fmt.Printf("Hosts File Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total entries: %d\n", len(entries))
+	fmt.Printf("Total entries: %d\n", entries.Size())
 
 	// Basic validation of entries
-	for i, entry := range entries {
+	for i, entry := range *entries {
 		if address, ok := entry["address"]; !ok || address.(string) == "" {
 			t.Errorf("Entry %d has empty or missing address", i)
 		}

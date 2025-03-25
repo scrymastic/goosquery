@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenHash(t *testing.T) {
 	file := "C:\\Windows\\System32\\drivers\\etc\\hosts"
-	hash, err := GenHash(file)
+	hash, err := GenFileHash(sqlctx.NewContext(), file)
 	if err != nil {
 		t.Fatalf("Failed to generate hash: %v", err)
 	}

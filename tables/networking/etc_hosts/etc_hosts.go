@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -20,14 +20,14 @@ func getSystemRoot() string {
 	return systemRoot
 }
 
-func parseHostsFile(path string, ctx context.Context) ([]map[string]interface{}, error) {
+func parseHostsFile(path string, ctx *sqlctx.Context) (*result.Results, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
-	var entries []map[string]interface{}
+	entries := result.NewQueryResult()
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -57,17 +57,12 @@ func parseHostsFile(path string, ctx context.Context) ([]map[string]interface{},
 		}
 
 		if len(hostnames) > 0 {
-			entry := specs.Init(ctx, Schema)
+			entry := result.NewResult(ctx, Schema)
 
-			if ctx.IsColumnUsed("address") {
-				entry["address"] = address
-			}
+			entry.Set("address", address)
+			entry.Set("hostnames", strings.Join(hostnames, " "))
 
-			if ctx.IsColumnUsed("hostnames") {
-				entry["hostnames"] = strings.Join(hostnames, " ")
-			}
-
-			entries = append(entries, entry)
+			entries.AppendResult(*entry)
 		}
 	}
 
@@ -80,7 +75,7 @@ func parseHostsFile(path string, ctx context.Context) ([]map[string]interface{},
 
 // GenEtcHosts retrieves the contents of the hosts file from the system.
 // It returns a slice of map[string]interface{} and an error if the operation fails.
-func GenEtcHosts(ctx context.Context) ([]map[string]interface{}, error) {
+func GenEtcHosts(ctx *sqlctx.Context) (*result.Results, error) {
 	// Get Windows system root
 	sysRoot := getSystemRoot()
 
@@ -97,7 +92,7 @@ func GenEtcHosts(ctx context.Context) ([]map[string]interface{}, error) {
 	// Read and parse ICS hosts file if it exists
 	icsEntries, err := parseHostsFile(hostsIcsPath, ctx)
 	if err == nil {
-		entries = append(entries, icsEntries...)
+		entries.AppendResults(*icsEntries)
 	}
 
 	return entries, nil

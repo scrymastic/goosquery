@@ -18,7 +18,7 @@ func NewEngine() *Engine {
 }
 
 // Execute executes a SQL query and returns the result
-func (e *Engine) Execute(query string) (*result.QueryResult, error) {
+func (e *Engine) Execute(query string) (*result.Results, error) {
 	// Parse the SQL query
 	parsedQuery, err := parser.Parse(query)
 	if err != nil {

@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenLogonSessions(t *testing.T) {
-	sessions, err := GenLogonSessions()
+	sessions, err := GenLogonSessions(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get logon sessions: %v", err)
 	}
@@ -18,5 +20,5 @@ func TestGenLogonSessions(t *testing.T) {
 		t.Fatalf("Failed to marshal logon sessions: %v", err)
 	}
 	fmt.Printf("Logon Sessions:\n%s\n", string(jsonData))
-	fmt.Printf("Total logon sessions: %d\n", len(sessions))
+	fmt.Printf("Total logon sessions: %d\n", sessions.Size())
 }

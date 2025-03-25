@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/scrymastic/goosquery/sql/context"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenAppCompatShims(t *testing.T) {
-	shims, err := GenAppCompatShims(context.Context{})
+	shims, err := GenAppCompatShims(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get AppCompat shims: %v", err)
 	}
@@ -20,5 +20,5 @@ func TestGenAppCompatShims(t *testing.T) {
 		t.Fatalf("Failed to marshal AppCompat shims to JSON: %v", err)
 	}
 	fmt.Printf("AppCompat Shims Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total entries: %d\n", len(shims))
+	fmt.Printf("Total entries: %d\n", shims.Size())
 }

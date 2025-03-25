@@ -7,15 +7,10 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
-)
 
-// KernelInfo represents the kernel information table structure
-type KernelInfo struct {
-	Version   string `json:"version"`
-	Arguments string `json:"arguments"`
-	Path      string `json:"path"`
-	Device    string `json:"device"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 func HIWORD(l uint32) uint16 {
 	return uint16(l >> 16)
@@ -110,24 +105,34 @@ func getKernelVersion() (string, error) {
 }
 
 // GenKernelInfo generates the kernel information
-func GenKernelInfo() (*KernelInfo, error) {
-	info := &KernelInfo{}
+func GenKernelInfo(ctx *sqlctx.Context) (*result.Results, error) {
+	info := result.NewResult(ctx, Schema)
 
-	// Get kernel version
-	version, _ := getKernelVersion()
-	info.Version = version
+	if ctx.IsColumnUsed("version") {
+		// Get kernel version
+		version, _ := getKernelVersion()
+		info.Set("version", version)
+	}
 
-	// Get boot arguments
-	bootArgs, _ := getBootArgs()
-	info.Arguments = bootArgs
+	if ctx.IsColumnUsed("arguments") {
+		// Get boot arguments
+		bootArgs, _ := getBootArgs()
+		info.Set("arguments", bootArgs)
+	}
 
-	// Get system drive GUID
-	sysDriveGUID, _ := getSystemDriveGUID()
-	info.Device = sysDriveGUID
+	if ctx.IsColumnUsed("device") {
+		// Get system drive GUID
+		sysDriveGUID, _ := getSystemDriveGUID()
+		info.Set("device", sysDriveGUID)
+	}
 
-	// Get kernel path
-	sysRoot, _ := getSystemRoot()
-	info.Path = filepath.Join(sysRoot, "System32", "ntoskrnl.exe")
+	if ctx.IsColumnUsed("path") {
+		// Get kernel path
+		sysRoot, _ := getSystemRoot()
+		info.Set("path", filepath.Join(sysRoot, "System32", "ntoskrnl.exe"))
+	}
 
-	return info, nil
+	results := result.NewQueryResult()
+	results.AppendResult(*info)
+	return results, nil
 }

@@ -5,8 +5,8 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
-	"github.com/scrymastic/goosquery/sql/context"
-	"github.com/scrymastic/goosquery/tables/specs"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 const (
@@ -20,11 +20,19 @@ const (
 	NET_FW_PROFILE2_PUBLIC  = 4
 )
 
+// boolToInt32 converts a boolean to an int32.
+func boolToInt32(b bool) int32 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 // renderFirewallRule reads properties from the COM object ruleDisp
 // and maps them into a map[string]interface{} based on the context columns.
 // It returns the map or an error if something goes wrong.
-func renderFirewallRule(ruleDisp *ole.IDispatch, ctx context.Context) (map[string]interface{}, error) {
-	rule := specs.Init(ctx, Schema)
+func renderFirewallRule(ruleDisp *ole.IDispatch, ctx *sqlctx.Context) (*result.Result, error) {
+	rule := result.NewResult(ctx, Schema)
 
 	// Helper to get a string property.
 	getStringProp := func(name string) (string, error) {
@@ -46,71 +54,48 @@ func renderFirewallRule(ruleDisp *ole.IDispatch, ctx context.Context) (map[strin
 		return int(v.Val), nil
 	}
 
-	// Name.
-	if ctx.IsColumnUsed("name") {
-		if s, err := getStringProp("Name"); err != nil {
-			return nil, err
-		} else {
-			rule["name"] = s
-		}
+	if s, err := getStringProp("Name"); err == nil {
+		rule.Set("name", s)
 	}
 
 	// ApplicationName.
-	if ctx.IsColumnUsed("app_name") {
-		if s, err := getStringProp("ApplicationName"); err != nil {
-			return nil, err
-		} else {
-			rule["app_name"] = s
-		}
+	if s, err := getStringProp("ApplicationName"); err == nil {
+		rule.Set("app_name", s)
 	}
 
 	// Action (numeric: 0 for Block, 1 for Allow).
-	if ctx.IsColumnUsed("action") {
-		actionVal, err := getIntProp("Action")
-		if err != nil {
-			return nil, err
-		}
+	actionVal, err := getIntProp("Action")
+	if err == nil {
 		switch actionVal {
 		case 0:
-			rule["action"] = "Block"
+			rule.Set("action", "Block")
 		case 1:
-			rule["action"] = "Allow"
+			rule.Set("action", "Allow")
 		default:
-			rule["action"] = ""
+			rule.Set("action", "")
 		}
 	}
 
 	// Enabled (VARIANT_BOOL, nonzero is true).
-	if ctx.IsColumnUsed("enabled") {
-		enabledVal, err := getIntProp("Enabled")
-		if err != nil {
-			return nil, err
-		}
-		rule["enabled"] = (enabledVal != 0)
+	enabledVal, err := getIntProp("Enabled")
+	if err == nil {
+		rule.Set("enabled", enabledVal != 0)
 	}
 
 	// Grouping.
-	if ctx.IsColumnUsed("grouping") {
-		if s, err := getStringProp("Grouping"); err != nil {
-			return nil, err
-		} else {
-			rule["grouping"] = s
-		}
+	if s, err := getStringProp("Grouping"); err == nil {
+		rule.Set("grouping", s)
 	}
 
 	// Direction (numeric: 1 for In, 2 for Out).
-	if ctx.IsColumnUsed("direction") {
-		directionVal, err := getIntProp("Direction")
-		if err != nil {
-			return nil, err
-		}
+	if directionVal, err := getIntProp("Direction"); err == nil {
 		switch directionVal {
 		case 1:
-			rule["direction"] = "In"
+			rule.Set("direction", "In")
 		case 2:
-			rule["direction"] = "Out"
+			rule.Set("direction", "Out")
 		default:
-			rule["direction"] = ""
+			rule.Set("direction", "")
 		}
 	}
 
@@ -118,75 +103,43 @@ func renderFirewallRule(ruleDisp *ole.IDispatch, ctx context.Context) (map[strin
 	// According to the Windows Firewall API:
 	//   TCP: 6, UDP: 17, Any: 256, ICMP: typically 1.
 	protocolVal := 0
-	if ctx.IsColumnUsed("protocol") {
-		var err error
-		protocolVal, err = getIntProp("Protocol")
-		if err != nil {
-			return nil, err
-		}
+	if protocolVal, err := getIntProp("Protocol"); err == nil {
 		switch protocolVal {
 		case NET_FW_IP_PROTOCOL_TCP:
-			rule["protocol"] = "TCP"
+			rule.Set("protocol", "TCP")
 		case NET_FW_IP_PROTOCOL_UDP:
-			rule["protocol"] = "UDP"
+			rule.Set("protocol", "UDP")
 		case NET_FW_IP_PROTOCOL_ANY:
-			rule["protocol"] = "Any"
+			rule.Set("protocol", "Any")
 		default:
-			rule["protocol"] = ""
-		}
-	} else {
-		// Still need to get the protocol value for determining ports vs ICMP types
-		var err error
-		protocolVal, err = getIntProp("Protocol")
-		if err != nil {
-			return nil, err
+			rule.Set("protocol", "")
 		}
 	}
 
 	// LocalAddresses.
-	if ctx.IsColumnUsed("local_addresses") {
-		if s, err := getStringProp("LocalAddresses"); err != nil {
-			return nil, err
-		} else {
-			rule["local_addresses"] = s
-		}
+	if s, err := getStringProp("LocalAddresses"); err == nil {
+		rule.Set("local_addresses", s)
 	}
 
 	// RemoteAddresses.
-	if ctx.IsColumnUsed("remote_addresses") {
-		if s, err := getStringProp("RemoteAddresses"); err != nil {
-			return nil, err
-		} else {
-			rule["remote_addresses"] = s
-		}
+	if s, err := getStringProp("RemoteAddresses"); err == nil {
+		rule.Set("remote_addresses", s)
 	}
 
 	// Depending on the protocol, decide whether to show ports or ICMP types.
 	if protocolVal != NET_FW_IP_VERSION_V4 && protocolVal != NET_FW_IP_VERSION_V6 {
 		// Get LocalPorts.
-		if ctx.IsColumnUsed("local_ports") {
-			if s, err := getStringProp("LocalPorts"); err != nil {
-				return nil, err
-			} else {
-				rule["local_ports"] = s
-			}
+		if s, err := getStringProp("LocalPorts"); err == nil {
+			rule.Set("local_ports", s)
 		}
 		// Get RemotePorts.
-		if ctx.IsColumnUsed("remote_ports") {
-			if s, err := getStringProp("RemotePorts"); err != nil {
-				return nil, err
-			} else {
-				rule["remote_ports"] = s
-			}
+		if s, err := getStringProp("RemotePorts"); err == nil {
+			rule.Set("remote_ports", s)
 		}
 	} else {
 		// Get IcmpTypesAndCodes.
-		if ctx.IsColumnUsed("icmp_types_codes") {
-			if s, err := getStringProp("IcmpTypesAndCodes"); err != nil {
-				return nil, err
-			} else {
-				rule["icmp_types_codes"] = s
-			}
+		if s, err := getStringProp("IcmpTypesAndCodes"); err == nil {
+			rule.Set("icmp_types_codes", s)
 		}
 	}
 
@@ -197,32 +150,22 @@ func renderFirewallRule(ruleDisp *ole.IDispatch, ctx context.Context) (map[strin
 			return nil, err
 		}
 		// The bitmask: 1 = Domain, 2 = Private, 4 = Public.
-		if ctx.IsColumnUsed("profile_domain") {
-			rule["profile_domain"] = (profilesVal & NET_FW_PROFILE2_DOMAIN) != 0
-		}
-		if ctx.IsColumnUsed("profile_private") {
-			rule["profile_private"] = (profilesVal & NET_FW_PROFILE2_PRIVATE) != 0
-		}
-		if ctx.IsColumnUsed("profile_public") {
-			rule["profile_public"] = (profilesVal & NET_FW_PROFILE2_PUBLIC) != 0
-		}
+		rule.Set("profile_domain", boolToInt32((profilesVal&NET_FW_PROFILE2_DOMAIN) != 0))
+		rule.Set("profile_private", boolToInt32((profilesVal&NET_FW_PROFILE2_PRIVATE) != 0))
+		rule.Set("profile_public", boolToInt32((profilesVal&NET_FW_PROFILE2_PUBLIC) != 0))
 	}
 
 	// ServiceName.
-	if ctx.IsColumnUsed("service_name") {
-		if s, err := getStringProp("ServiceName"); err != nil {
-			return nil, err
-		} else {
-			rule["service_name"] = s
-		}
+	if s, err := getStringProp("ServiceName"); err == nil {
+		rule.Set("service_name", s)
 	}
 
 	return rule, nil
 }
 
 // GenWindowsFirewallRules retrieves the firewall rules from Windows Firewall.
-func GenWindowsFirewallRules(ctx context.Context) ([]map[string]interface{}, error) {
-	var rulesList []map[string]interface{}
+func GenWindowsFirewallRules(ctx *sqlctx.Context) (*result.Results, error) {
+	rulesList := result.NewQueryResult()
 
 	// Initialize COM.
 	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
@@ -264,7 +207,7 @@ func GenWindowsFirewallRules(ctx context.Context) ([]map[string]interface{}, err
 		}
 
 		// Append the rule to the list.
-		rulesList = append(rulesList, rule)
+		rulesList.AppendResult(*rule)
 		return nil
 	})
 	if err != nil {

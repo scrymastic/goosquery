@@ -6,32 +6,22 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows/registry"
 )
 
-// PythonPackage represents a Python package's metadata
-type PythonPackage struct {
-	Name      string `json:"name"`
-	Version   string `json:"version"`
-	Summary   string `json:"summary"`
-	Author    string `json:"author"`
-	License   string `json:"license"`
-	Path      string `json:"path"`
-	Directory string `json:"directory"`
-}
-
 // readPackageMetadata reads and parses package metadata from METADATA or PKG-INFO files
-func readPackageMetadata(path string, directory string) (*PythonPackage, error) {
+func readPackageMetadata(path string, directory string, ctx *sqlctx.Context) (*result.Result, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	pkg := &PythonPackage{
-		Path:      path,
-		Directory: directory,
-	}
+	pkg := result.NewResult(ctx, Schema)
+	pkg.Set("path", path)
+	pkg.Set("directory", directory)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -46,15 +36,15 @@ func readPackageMetadata(path string, directory string) (*PythonPackage, error) 
 
 		switch key {
 		case "Name":
-			pkg.Name = value
+			pkg.Set("name", value)
 		case "Version":
-			pkg.Version = value
+			pkg.Set("version", value)
 		case "Summary":
-			pkg.Summary = value
+			pkg.Set("summary", value)
 		case "Author":
-			pkg.Author = value
+			pkg.Set("author", value)
 		case "License":
-			pkg.License = value
+			pkg.Set("license", value)
 		}
 	}
 
@@ -62,8 +52,8 @@ func readPackageMetadata(path string, directory string) (*PythonPackage, error) 
 }
 
 // scanSitePackages scans a directory for Python packages
-func scanSitePackages(siteDir string) ([]PythonPackage, error) {
-	var packages []PythonPackage
+func scanSitePackages(siteDir string, ctx *sqlctx.Context) (*result.Results, error) {
+	packages := result.NewQueryResult()
 
 	entries, err := os.ReadDir(siteDir)
 	if err != nil {
@@ -87,12 +77,12 @@ func scanSitePackages(siteDir string) ([]PythonPackage, error) {
 			continue
 		}
 
-		pkg, err := readPackageMetadata(metadataPath, siteDir)
+		pkg, err := readPackageMetadata(metadataPath, siteDir, ctx)
 		if err != nil {
 			continue // Skip packages with unreadable metadata
 		}
 
-		packages = append(packages, *pkg)
+		packages.AppendResult(*pkg)
 	}
 
 	return packages, nil
@@ -146,8 +136,8 @@ func getPythonInstallPaths() ([]string, error) {
 }
 
 // GenPythonPackages returns all Python packages installed on the system
-func GenPythonPackages() ([]PythonPackage, error) {
-	var allPackages []PythonPackage
+func GenPythonPackages(ctx *sqlctx.Context) (*result.Results, error) {
+	allPackages := result.NewQueryResult()
 
 	// Get Python installation paths from registry
 	paths, err := getPythonInstallPaths()
@@ -157,11 +147,11 @@ func GenPythonPackages() ([]PythonPackage, error) {
 
 	// Scan each site-packages directory
 	for _, path := range paths {
-		packages, err := scanSitePackages(path)
+		packages, err := scanSitePackages(path, ctx)
 		if err != nil {
 			continue // Skip directories we can't read
 		}
-		allPackages = append(allPackages, packages...)
+		allPackages.AppendResults(*packages)
 	}
 
 	return allPackages, nil
