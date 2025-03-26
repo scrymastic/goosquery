@@ -19,7 +19,7 @@ type _EventFilter struct {
 	QueryLanguage  string
 }
 
-func GenWMIEventFilters(ctx *sqlctx.Context) (*result.Results, error) {
+func GenWmiEventFilters(ctx *sqlctx.Context) (*result.Results, error) {
 
 	var filters []_EventFilter
 	query := "SELECT * FROM __EventFilter"

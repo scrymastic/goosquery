@@ -6,26 +6,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"github.com/scrymastic/goosquery/tables/system/users"
 )
-
-type SSHConfig struct {
-	UID           int64  `json:"uid"`
-	Block         string `json:"block"`
-	Option        string `json:"option"`
-	SSHConfigFile string `json:"ssh_config_file"`
-}
 
 const (
 	WindowsSystemwideSSHConfig = "C:\\ProgramData\\ssh\\ssh_config"
 )
 
-func genSSHConfig(uid int64, configFilePath string) ([]SSHConfig, error) {
-	var results []SSHConfig
+func genSshConfig(ctx *sqlctx.Context, uid int64, configFilePath string) (*result.Results, error) {
+	sshConfigs := result.NewQueryResult()
 
 	file, err := os.Open(configFilePath)
 	if err != nil {
-		return results, err
+		return sshConfigs, err
 	}
 	defer file.Close()
 
@@ -33,6 +28,7 @@ func genSSHConfig(uid int64, configFilePath string) ([]SSHConfig, error) {
 	block := ""
 
 	for scanner.Scan() {
+		sshConfig := result.NewResult(ctx, Schema)
 		line := strings.TrimSpace(scanner.Text())
 
 		// Skip empty lines and comments
@@ -46,48 +42,48 @@ func genSSHConfig(uid int64, configFilePath string) ([]SSHConfig, error) {
 			block = line
 		} else {
 			// Add the option to results
-			results = append(results, SSHConfig{
-				UID:           uid,
-				Block:         block,
-				Option:        line,
-				SSHConfigFile: configFilePath,
-			})
+			sshConfig.Set("uid", uid)
+			sshConfig.Set("block", block)
+			sshConfig.Set("option", line)
+			sshConfig.Set("ssh_config_file", configFilePath)
+			sshConfigs.AppendResult(*sshConfig)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return results, err
+		return sshConfigs, err
 	}
 
-	return results, nil
+	return sshConfigs, nil
 }
 
-func genSSHConfigForUser(uid int64, directory string) ([]SSHConfig, error) {
+func genSshConfigForUser(ctx *sqlctx.Context, uid int64, directory string) (*result.Results, error) {
 	sshConfigFile := filepath.Join(directory, ".ssh", "config")
 
 	// Check if the file exists
 	if _, err := os.Stat(sshConfigFile); os.IsNotExist(err) {
-		return []SSHConfig{}, nil
+		return result.NewQueryResult(), nil
 	}
 
-	return genSSHConfig(uid, sshConfigFile)
+	return genSshConfig(ctx, uid, sshConfigFile)
 }
 
-func GenSSHConfigs() ([]SSHConfig, error) {
-	var allConfigs []SSHConfig
+func GenSshConfigs(ctx *sqlctx.Context) (*result.Results, error) {
+	results := result.NewQueryResult()
 
 	// Get all users
-	users, err := users.GenUsers()
+	users, err := users.GenUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// Process each user's SSH config
-	for _, user := range users {
-		if user.Directory != "" {
-			configs, err := genSSHConfigForUser(user.UID, user.Directory)
+	for i := 0; i < users.Size(); i++ {
+		user := users.GetRow(i)
+		if user.Get("directory") != "" {
+			configs, err := genSshConfigForUser(ctx, user.Get("uid").(int64), user.Get("directory").(string))
 			if err == nil {
-				allConfigs = append(allConfigs, configs...)
+				results.AppendResults(*configs)
 			}
 			// We don't return on error for individual users, just continue
 		}
@@ -95,11 +91,11 @@ func GenSSHConfigs() ([]SSHConfig, error) {
 
 	// Check for system-wide SSH config
 	if _, err := os.Stat(WindowsSystemwideSSHConfig); err == nil {
-		configs, err := genSSHConfig(0, WindowsSystemwideSSHConfig)
+		configs, err := genSshConfig(ctx, 0, WindowsSystemwideSSHConfig)
 		if err == nil {
-			allConfigs = append(allConfigs, configs...)
+			results.AppendResults(*configs)
 		}
 	}
 
-	return allConfigs, nil
+	return results, nil
 }

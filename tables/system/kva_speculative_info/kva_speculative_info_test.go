@@ -10,7 +10,7 @@ import (
 
 func TestGetKVASpeculativeInfo(t *testing.T) {
 	ctx := sqlctx.NewContext()
-	info, err := GenKVASpeculativeInfo(ctx)
+	info, err := GenKvaSpeculativeInfo(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get KVA speculative info: %v", err)
 	}

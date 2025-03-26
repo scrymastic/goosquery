@@ -1,4 +1,4 @@
-package ie_extensions
+package shellbags
 
 import (
 	"fmt"
@@ -7,6 +7,6 @@ import (
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
-func GenIeExtensions(ctx *sqlctx.Context) (*result.Results, error) {
+func GenShellbags(ctx *sqlctx.Context) (*result.Results, error) {
 	return nil, fmt.Errorf("not implemented")
 }

@@ -9,17 +9,6 @@ import (
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
-// DeviceGuardStatus represents the Device Guard security status information
-type DeviceGuardStatus struct {
-	Version            string `json:"version"`
-	InstanceID         string `json:"instance_identifier"`
-	VBSStatus          string `json:"vbs_status"`
-	CodeIntegrityMode  string `json:"code_integrity_policy_enforcement_status"`
-	ConfiguredServices string `json:"configured_security_services"`
-	RunningServices    string `json:"running_security_services"`
-	UMCIMode           string `json:"umci_policy_status"`
-}
-
 // Win32_DeviceGuard represents the WMI Win32_DeviceGuard class structure
 type Win32_DeviceGuard struct {
 	Version                                      string
@@ -70,8 +59,8 @@ func formatServices(services []int32) string {
 	return strings.Join(names, " ")
 }
 
-// GenDeviceguardStatus retrieves the Device Guard status information
-func GenDeviceguardStatus(ctx *sqlctx.Context) (*result.Results, error) {
+// GenDeviceGuardStatus retrieves the Device Guard status information
+func GenDeviceGuardStatus(ctx *sqlctx.Context) (*result.Results, error) {
 	var guards []Win32_DeviceGuard
 	query := "SELECT * FROM Win32_DeviceGuard"
 	namespace := `ROOT\MICROSOFT\WINDOWS\DEVICEGUARD`

@@ -10,7 +10,7 @@ import (
 
 func TestGenWMIEventFilters(t *testing.T) {
 	ctx := sqlctx.NewContext()
-	filters, err := GenWMIEventFilters(ctx)
+	filters, err := GenWmiEventFilters(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get WMI event filters: %v", err)
 	}

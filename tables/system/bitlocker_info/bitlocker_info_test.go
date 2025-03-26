@@ -25,7 +25,7 @@ func TestGetBitLockerInfo(t *testing.T) {
 
 	// Basic validation of returned data
 	for i := 0; i < volumes.Size(); i++ {
-		volume, _ := volumes.GetRow(i)
+		volume := volumes.GetRow(i)
 		if volume.Get("device_id") == "" {
 			t.Errorf("Volume[%d] has empty DeviceID", i)
 		}

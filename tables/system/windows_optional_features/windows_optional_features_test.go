@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenWinOptionalFeatures(t *testing.T) {
-	features, err := GenWinOptionalFeatures()
+	ctx := sqlctx.NewContext()
+	features, err := GenWindowsOptionalFeatures(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get Windows Optional Features: %v", err)
 	}
@@ -20,14 +23,14 @@ func TestGenWinOptionalFeatures(t *testing.T) {
 		t.Fatalf("Failed to marshal Windows Optional Features to JSON: %v", err)
 	}
 	fmt.Printf("Windows Optional Features Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total features: %d\n", len(features))
+	fmt.Printf("Total features: %d\n", features.Size())
 
 	// Basic validation of returned data
-	for _, feature := range features {
-		if feature.Name == "" {
+	for _, feature := range *features {
+		if feature.Get("name").(string) == "" {
 			t.Error("Found feature with empty Name")
 		}
-		if feature.StateName == "" {
+		if feature.Get("statename").(string) == "" {
 			t.Error("Found feature with empty StateName")
 		}
 	}

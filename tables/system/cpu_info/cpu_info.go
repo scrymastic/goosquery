@@ -26,8 +26,8 @@ type Win32_Processor struct {
 	LoadPercentage            uint16
 }
 
-// GenCPUInfo retrieves CPU information using WMI query
-func GenCPUInfo(ctx *sqlctx.Context) (*result.Results, error) {
+// GenCpuInfo retrieves CPU information using WMI query
+func GenCpuInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	var processors []Win32_Processor
 	query := "SELECT * FROM Win32_Processor"
 	if err := wmi.Query(query, &processors); err != nil {

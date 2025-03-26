@@ -4,20 +4,9 @@ import (
 	"fmt"
 
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-// Share represents a Windows share with its properties
-type SharedResource struct {
-	Description    string `json:"description"`
-	InstallDate    string `json:"install_date"`
-	Status         string `json:"status"`
-	AllowMaximum   bool   `json:"allow_maximum"`
-	MaximumAllowed uint64 `json:"maximum_allowed"`
-	Name           string `json:"name"`
-	Path           string `json:"path"`
-	Type           uint32 `json:"type"`
-	TypeName       string `json:"type_name"`
-}
 
 type Win32_Share struct {
 	Description    string
@@ -50,27 +39,26 @@ func getShareTypeName(shareType uint32) string {
 }
 
 // GenSharedResources queries WMI for Windows shares and returns a list of Share structs
-func GenSharedResources() ([]SharedResource, error) {
+func GenSharedResources(ctx *sqlctx.Context) (*result.Results, error) {
 	var wmiShares []Win32_Share
 	query := "SELECT * FROM Win32_Share"
 	if err := wmi.Query(query, &wmiShares); err != nil {
 		return nil, fmt.Errorf("failed to execute WMI query: %w", err)
 	}
 
-	var shares []SharedResource
+	var shares = result.NewQueryResult()
 	for _, wmiShare := range wmiShares {
-		share := SharedResource{
-			Description:    wmiShare.Description,
-			InstallDate:    wmiShare.InstallDate,
-			Status:         wmiShare.Status,
-			AllowMaximum:   wmiShare.AllowMaximum,
-			MaximumAllowed: uint64(wmiShare.MaximumAllowed),
-			Name:           wmiShare.Name,
-			Path:           wmiShare.Path,
-			Type:           uint32(wmiShare.Type),
-			TypeName:       getShareTypeName(uint32(wmiShare.Type)),
-		}
-		shares = append(shares, share)
+		share := result.NewResult(ctx, Schema)
+		share.Set("description", wmiShare.Description)
+		share.Set("install_date", wmiShare.InstallDate)
+		share.Set("status", wmiShare.Status)
+		share.Set("allow_maximum", wmiShare.AllowMaximum)
+		share.Set("maximum_allowed", uint64(wmiShare.MaximumAllowed))
+		share.Set("name", wmiShare.Name)
+		share.Set("path", wmiShare.Path)
+		share.Set("type", uint32(wmiShare.Type))
+		share.Set("type_name", getShareTypeName(uint32(wmiShare.Type)))
+		shares.AppendResult(*share)
 	}
 
 	return shares, nil

@@ -27,10 +27,7 @@ func TestGenDiskInfo(t *testing.T) {
 	fmt.Printf("Total disks found: %d\n", disks.Size())
 
 	// Basic validation of first disk's fields
-	firstDisk, ok := disks.GetRow(0)
-	if !ok {
-		t.Fatalf("Failed to get first disk: %v", err)
-	}
+	firstDisk := disks.GetRow(0)
 	if firstDisk.Get("name") == "" {
 		t.Error("Disk name is empty")
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // DataGenerator is a function that generates data for a table
-type DataGenerator func(sqlctx.Context) ([]map[string]interface{}, error)
+type DataGenerator func(ctx *sqlctx.Context) (*result.Results, error)
 
 // TableExecutor is a generic executor for tables that return []map[string]interface{}
 type TableExecutor struct {
@@ -36,11 +36,11 @@ func (e *TableExecutor) Execute(stmt *sqlparser.Select) (*result.Results, error)
 	requiredColumns := e.GetAllRequiredColumns(stmt)
 
 	// Create context for query execution
-	ctx := sqlctx.Context{}
+	ctx := sqlctx.NewContext()
 
 	// Get constants from WHERE clause
 	if stmt.Where != nil {
-		e.GetConstants(stmt.Where.Expr, &ctx)
+		e.GetConstants(stmt.Where.Expr, ctx)
 	}
 
 	// Set the columns in the context to ensure all required data is fetched
@@ -56,7 +56,7 @@ func (e *TableExecutor) Execute(stmt *sqlparser.Select) (*result.Results, error)
 	res := result.NewQueryResult()
 
 	// Apply WHERE clause if present
-	for _, itemMap := range data {
+	for _, itemMap := range *data {
 		if stmt.Where == nil || e.MatchesWhereClause(itemMap, stmt.Where.Expr) {
 			// Add all columns at this stage - we'll project down later
 			res.AppendResult(itemMap)

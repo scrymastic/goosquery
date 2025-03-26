@@ -11,20 +11,6 @@ import (
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
-// The hidden field looks not correct. It still needs to be refined.
-type ScheduledTask struct {
-	Name           string `json:"name"`
-	Action         string `json:"action"`
-	Path           string `json:"path"`
-	Enabled        bool   `json:"enabled"`
-	State          string `json:"state"`
-	Hidden         bool   `json:"hidden"`
-	LastRunTime    int64  `json:"last_run_time"`
-	NextRunTime    int64  `json:"next_run_time"`
-	LastRunMessage string `json:"last_run_message"`
-	LastRunCode    uint32 `json:"last_run_code"`
-}
-
 var taskStates = map[int]string{
 	0: "unknown",
 	1: "disabled",
@@ -143,6 +129,9 @@ func parseTask(taskObj *ole.IDispatch, ctx *sqlctx.Context) *result.Result {
 		}
 	}
 
+	if !ctx.IsColumnUsed("action") {
+		return task
+	}
 	// Get actions
 	definition, err := oleutil.GetProperty(taskObj, "Definition")
 	if err != nil {

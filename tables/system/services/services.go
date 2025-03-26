@@ -7,22 +7,10 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc/mgr"
-)
 
-type Service struct {
-	Name            string `json:"name"`
-	ServiceType     string `json:"service_type"`
-	DisplayName     string `json:"display_name"`
-	Status          string `json:"status"`
-	PID             uint32 `json:"pid"`
-	StartType       string `json:"start_type"`
-	Win32ExitCode   uint32 `json:"win32_exit_code"`
-	ServiceExitCode uint32 `json:"service_exit_code"`
-	Path            string `json:"path"`
-	ModulePath      string `json:"module_path"`
-	Description     string `json:"description"`
-	UserAccount     string `json:"user_account"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 // Service types mapping
 var (
@@ -123,7 +111,8 @@ func getServiceModulePath(serviceName string) (string, error) {
 	return windows.UTF16ToString(buffer), nil
 }
 
-func getService(scmHandle windows.Handle, ssp *windows.ENUM_SERVICE_STATUS_PROCESS) (*Service, error) {
+func getService(ctx *sqlctx.Context, scmHandle windows.Handle, ssp *windows.ENUM_SERVICE_STATUS_PROCESS) (*result.Result, error) {
+	info := result.NewResult(ctx, Schema)
 	var serviceName string = windows.UTF16PtrToString(ssp.ServiceName)
 	svcHandle, err := windows.OpenService(
 		scmHandle,
@@ -134,90 +123,91 @@ func getService(scmHandle windows.Handle, ssp *windows.ENUM_SERVICE_STATUS_PROCE
 		return nil, fmt.Errorf("failed to open service %s: %v", serviceName, err)
 	}
 
-	defer windows.CloseHandle(svcHandle)
-	var cbBufSize uint32
-
-	// First call to get buffer size
-	err = windows.QueryServiceConfig(
-		svcHandle,
-		nil,
-		0,
-		&cbBufSize,
-	)
-
-	if err != windows.ERROR_INSUFFICIENT_BUFFER {
-		return nil, fmt.Errorf("failed to get buffer size: %v", err)
-	}
-
-	buf := make([]byte, cbBufSize)
-	// Cast to QUERY_SERVICE_CONFIG struct
-	svcConfig := (*windows.QUERY_SERVICE_CONFIG)(unsafe.Pointer(&buf[0]))
-	err = windows.QueryServiceConfig(
-		svcHandle,
-		svcConfig,
-		cbBufSize,
-		&cbBufSize,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query service config: %v", err)
-	}
+	info.Set("name", serviceName)
+	info.Set("display_name", windows.UTF16PtrToString(ssp.DisplayName))
 
 	var svcStatusProcess windows.SERVICE_STATUS_PROCESS = ssp.ServiceStatusProcess
+	info.Set("pid", svcStatusProcess.ProcessId)
+	info.Set("status", svcStatusStatesToString(svcStatusProcess.CurrentState))
+	info.Set("win32_exit_code", svcStatusProcess.Win32ExitCode)
+	info.Set("service_exit_code", svcStatusProcess.ServiceSpecificExitCode)
 
-	modulePath, err := getServiceModulePath(windows.UTF16PtrToString(ssp.ServiceName))
-	if err != nil {
-		log.Printf("failed to get service module path: %v", err)
+	if ctx.IsColumnUsed("module_path") {
+		modulePath, err := getServiceModulePath(windows.UTF16PtrToString(ssp.ServiceName))
+		if err != nil {
+			log.Printf("failed to get service module path: %v", err)
+		}
+		info.Set("module_path", modulePath)
 	}
 
-	var description string
-
-	// Get service description
-	err = windows.QueryServiceConfig2(
-		svcHandle,
-		windows.SERVICE_CONFIG_DESCRIPTION,
-		nil,
-		0,
-		&cbBufSize,
-	)
-	if err == windows.ERROR_INSUFFICIENT_BUFFER {
-		buf = make([]byte, cbBufSize)
-		svcConfig2 := (*windows.SERVICE_DESCRIPTION)(unsafe.Pointer(&buf[0]))
-		err = windows.QueryServiceConfig2(
+	defer windows.CloseHandle(svcHandle)
+	var cbBufSize uint32
+	if ctx.IsAnyOfColumnsUsed([]string{"service_type", "start_type", "path", "user_account"}) {
+		// First call to get buffer size
+		err = windows.QueryServiceConfig(
 			svcHandle,
-			windows.SERVICE_CONFIG_DESCRIPTION,
-			(*byte)(unsafe.Pointer(svcConfig2)),
+			nil,
+			0,
+			&cbBufSize,
+		)
+
+		if err != windows.ERROR_INSUFFICIENT_BUFFER {
+			return nil, fmt.Errorf("failed to get buffer size: %v", err)
+		}
+
+		buf := make([]byte, cbBufSize)
+		// Cast to QUERY_SERVICE_CONFIG struct
+		svcConfig := (*windows.QUERY_SERVICE_CONFIG)(unsafe.Pointer(&buf[0]))
+		err = windows.QueryServiceConfig(
+			svcHandle,
+			svcConfig,
 			cbBufSize,
 			&cbBufSize,
 		)
 		if err != nil {
-			log.Printf("failed to query description for service %s: %v", serviceName, err)
+			return nil, fmt.Errorf("failed to query service config: %v", err)
 		}
 
-		description = windows.UTF16PtrToString(svcConfig2.Description)
-
-	} else {
-		log.Printf("failed to get buffer size for service description: %v", err)
+		info.Set("service_type", serviceTypesToString(svcConfig.ServiceType))
+		info.Set("start_type", svcStartTypesToString(svcConfig.StartType))
+		info.Set("path", windows.UTF16PtrToString(svcConfig.BinaryPathName))
+		info.Set("user_account", windows.UTF16PtrToString(svcConfig.ServiceStartName))
 	}
 
-	info := &Service{
-		Name:            serviceName,
-		ServiceType:     serviceTypesToString(svcConfig.ServiceType),
-		DisplayName:     windows.UTF16PtrToString(ssp.DisplayName),
-		Status:          svcStatusStatesToString(svcStatusProcess.CurrentState),
-		PID:             svcStatusProcess.ProcessId,
-		StartType:       svcStartTypesToString(svcConfig.StartType),
-		Win32ExitCode:   svcStatusProcess.Win32ExitCode,
-		ServiceExitCode: svcStatusProcess.ServiceSpecificExitCode,
-		Path:            windows.UTF16PtrToString(svcConfig.BinaryPathName),
-		ModulePath:      modulePath,
-		Description:     description,
-		UserAccount:     windows.UTF16PtrToString(svcConfig.ServiceStartName),
+	if ctx.IsColumnUsed("description") {
+		// Get service description
+		err = windows.QueryServiceConfig2(
+			svcHandle,
+			windows.SERVICE_CONFIG_DESCRIPTION,
+			nil,
+			0,
+			&cbBufSize,
+		)
+		if err == windows.ERROR_INSUFFICIENT_BUFFER {
+			buf := make([]byte, cbBufSize)
+			svcConfig2 := (*windows.SERVICE_DESCRIPTION)(unsafe.Pointer(&buf[0]))
+			err = windows.QueryServiceConfig2(
+				svcHandle,
+				windows.SERVICE_CONFIG_DESCRIPTION,
+				(*byte)(unsafe.Pointer(svcConfig2)),
+				cbBufSize,
+				&cbBufSize,
+			)
+			if err != nil {
+				log.Printf("failed to query description for service %s: %v", serviceName, err)
+			}
+
+			info.Set("description", windows.UTF16PtrToString(svcConfig2.Description))
+
+		} else {
+			log.Printf("failed to get buffer size for service description: %v", err)
+		}
 	}
 
 	return info, nil
 }
 
-func GenServices() ([]Service, error) {
+func GenServices(ctx *sqlctx.Context) (*result.Results, error) {
 	// Open with more privileges to access drivers
 	m, err := mgr.Connect()
 	if err != nil {
@@ -266,7 +256,7 @@ func GenServices() ([]Service, error) {
 		return nil, fmt.Errorf("failed to enumerate services: %v", err)
 	}
 
-	services := make([]Service, 0, servicesReturned)
+	services := result.NewQueryResult()
 
 	// Parse the buffer into ENUM_SERVICE_STATUS_PROCESS structures
 	var ssp *windows.ENUM_SERVICE_STATUS_PROCESS
@@ -277,13 +267,13 @@ func GenServices() ([]Service, error) {
 			),
 		)
 
-		info, err := getService(scmHandle, ssp)
+		info, err := getService(ctx, scmHandle, ssp)
 		if err != nil {
 			log.Printf("failed to get service info: %v", err)
 			continue
 		}
 
-		services = append(services, *info)
+		services.AppendResult(*info)
 	}
 
 	return services, nil

@@ -47,7 +47,7 @@ func GenListeningPorts(ctx *sqlctx.Context) (*result.Results, error) {
 	results := result.NewQueryResult()
 
 	for i := 0; i < sockets.Size(); i++ {
-		socket, _ := sockets.GetRow(i)
+		socket := sockets.GetRow(i)
 		// Skip anonymous unix domain sockets
 		if family, ok := socket.Get("family").(int32); ok && family == syscall.AF_UNIX {
 			if path, ok := socket.Get("path").(string); ok && path == "" {

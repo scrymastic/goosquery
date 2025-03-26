@@ -107,8 +107,10 @@ func executeQuery(sqlEngine *engine.Engine, query string, jsonOutput bool) {
 			return
 		}
 		fmt.Println(jsonData)
+		fmt.Printf("Total rows: %d\n", queryResult.Size())
 	} else {
 		// Display the result as a formatted table
 		displayAsTable(queryResult)
+		fmt.Printf("Total rows: %d\n", queryResult.Size())
 	}
 }

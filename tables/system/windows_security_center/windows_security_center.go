@@ -6,17 +6,10 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc/mgr"
-)
 
-type WindowsSecurityCenter struct {
-	Firewall              string `json:"firewall"`
-	Autoupdate            string `json:"autoupdate"`
-	Antivirus             string `json:"antivirus"`
-	Antispyware           string `json:"antispyware"`
-	InternetSettings      string `json:"internet_settings"`
-	WindowsSecurityCenter string `json:"windows_security_center_service"`
-	UserAccountControl    string `json:"user_account_control"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 const (
 	WSC_SECURITY_PROVIDER_NONE                 = 0x0
@@ -128,23 +121,22 @@ func getWindowsUpdateHealth() string {
 
 	return productHealth
 }
-func GenWindowsSecurityCenter() ([]WindowsSecurityCenter, error) {
+func GenWindowsSecurityCenter(ctx *sqlctx.Context) (*result.Results, error) {
 	if procWscGetSecurityProviderHealth == nil {
 		return nil, fmt.Errorf("failed to initialize wscapi.dll")
 	}
 
 	// Get Windows Security Center info
-	result := []WindowsSecurityCenter{
-		{
-			Firewall:              getProductHealth(WSC_SECURITY_PROVIDER_FIREWALL),
-			Autoupdate:            getWindowsUpdateHealth(),
-			Antivirus:             getProductHealth(WSC_SECURITY_PROVIDER_ANTIVIRUS),
-			Antispyware:           getProductHealth(WSC_SECURITY_PROVIDER_ANTISPYWARE),
-			InternetSettings:      getProductHealth(WSC_SECURITY_PROVIDER_INTERNET_SETTINGS),
-			UserAccountControl:    getProductHealth(WSC_SECURITY_PROVIDER_USER_ACCOUNT_CONTROL),
-			WindowsSecurityCenter: getProductHealth(WSC_SECURITY_PROVIDER_SERVICE),
-		},
-	}
+	secCenterInfo := result.NewQueryResult()
+	securityCenter := result.NewResult(ctx, Schema)
+	securityCenter.Set("firewall", getProductHealth(WSC_SECURITY_PROVIDER_FIREWALL))
+	securityCenter.Set("autoupdate", getWindowsUpdateHealth())
+	securityCenter.Set("antivirus", getProductHealth(WSC_SECURITY_PROVIDER_ANTIVIRUS))
+	securityCenter.Set("antispyware", getProductHealth(WSC_SECURITY_PROVIDER_ANTISPYWARE))
+	securityCenter.Set("internet_settings", getProductHealth(WSC_SECURITY_PROVIDER_INTERNET_SETTINGS))
+	securityCenter.Set("user_account_control", getProductHealth(WSC_SECURITY_PROVIDER_USER_ACCOUNT_CONTROL))
+	securityCenter.Set("windows_security_center_service", getProductHealth(WSC_SECURITY_PROVIDER_SERVICE))
+	secCenterInfo.AppendResult(*securityCenter)
 
-	return result, nil
+	return secCenterInfo, nil
 }

@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenSSHConfig(t *testing.T) {
-	sshConfigs, err := GenSSHConfigs()
+	ctx := sqlctx.NewContext()
+	sshConfigs, err := GenSshConfigs(ctx)
 	if err != nil {
 		t.Fatalf("Error generating SSH configs: %v", err)
 	}
@@ -19,5 +22,5 @@ func TestGenSSHConfig(t *testing.T) {
 
 	fmt.Println(string(json))
 
-	fmt.Printf("Generated %d SSH configs", len(sshConfigs))
+	fmt.Printf("Generated %d SSH configs", sshConfigs.Size())
 }

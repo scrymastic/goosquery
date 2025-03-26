@@ -7,13 +7,10 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/windows"
-)
 
-type WinBaseObj struct {
-	SessionId  uint32 `json:"session_id"`
-	ObjectName string `json:"object_name"`
-	ObjectType string `json:"object_type"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 type ObjectEntry struct {
 	Name string
@@ -156,8 +153,8 @@ func enumBaseNamedObjectsLinks(session ObjectEntry) ([]ObjectEntry, error) {
 
 }
 
-func GenWinBaseObj() ([]WinBaseObj, error) {
-	var results []WinBaseObj
+func GenWinbaseObj(ctx *sqlctx.Context) (*result.Results, error) {
+	objs := result.NewQueryResult()
 	sessions, err := enumObjectNamespace(bnoLinks)
 	if err != nil {
 		return nil, fmt.Errorf("failed to enumerate objects: %w", err)
@@ -172,18 +169,18 @@ func GenWinBaseObj() ([]WinBaseObj, error) {
 		for _, object := range objects {
 			// Try to convert the object name to a session ID as num
 			var sessionId uint32
-			if id, err := strconv.Atoi(session.Name); err == nil {
+			if id, err := strconv.Atoi(object.Name); err == nil {
 				sessionId = uint32(id)
 			} else {
 				sessionId = 0
 			}
-			results = append(results, WinBaseObj{
-				SessionId:  sessionId,
-				ObjectName: object.Name,
-				ObjectType: object.Type,
-			})
+			obj := result.NewResult(ctx, Schema)
+			obj.Set("session_id", sessionId)
+			obj.Set("object_name", object.Name)
+			obj.Set("object_type", object.Type)
+			objs.AppendResult(*obj)
 		}
 	}
 
-	return results, nil
+	return objs, nil
 }

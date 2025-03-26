@@ -3,10 +3,13 @@ package system_info
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestSystemInfo(t *testing.T) {
-	info, err := GenSystemInfo()
+	ctx := sqlctx.NewContext()
+	info, err := GenSystemInfo(ctx)
 	if err != nil {
 		t.Errorf("Error generating system info: %v", err)
 	}

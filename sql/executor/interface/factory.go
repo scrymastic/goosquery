@@ -47,19 +47,19 @@ func GetExecutor(tableName string) (Executor, error) {
 }
 
 func getExecutorApplications(tableName string) (Executor, error) {
-	return nil, nil
+	return nil, fmt.Errorf("unsupported table: %s", tableName)
 }
 
 func getExecutorCloud(tableName string) (Executor, error) {
-	return nil, nil
+	return nil, fmt.Errorf("unsupported table: %s", tableName)
 }
 
 func getExecutorEvents(tableName string) (Executor, error) {
-	return nil, nil
+	return nil, fmt.Errorf("unsupported table: %s", tableName)
 }
 
 func getExecutorForensics(tableName string) (Executor, error) {
-	return nil, nil
+	return nil, fmt.Errorf("unsupported table: %s", tableName)
 }
 
 func getExecutorNetworking(tableName string) (Executor, error) {
@@ -79,11 +79,11 @@ func getExecutorNetworking(tableName string) (Executor, error) {
 			TableName: "curl",
 			Generator: networking.GenCurl,
 		}, nil
-	// case "curl_certificate":
-	// 	return &impl.TableExecutor{
-	// 		TableName: "curl_certificate",
-	// 		Generator: networking.GenCurlCertificate,
-	// 	}, nil
+	case "curl_certificate":
+		return &impl.TableExecutor{
+			TableName: "curl_certificate",
+			Generator: networking.GenCurlCertificate,
+		}, nil
 	case "etc_hosts":
 		return &impl.TableExecutor{
 			TableName: "etc_hosts",
@@ -139,7 +139,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "appcompat_shims":
 		return &impl.TableExecutor{
 			TableName: "appcompat_shims",
-			Generator: system.GenAppcompatShims,
+			Generator: system.GenAppCompatShims,
 		}, nil
 	case "authenticode":
 		return &impl.TableExecutor{
@@ -179,22 +179,22 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "cpu_info":
 		return &impl.TableExecutor{
 			TableName: "cpu_info",
-			Generator: system.GenCPUInfo,
+			Generator: system.GenCpuInfo,
 		}, nil
 	case "cpuid":
 		return &impl.TableExecutor{
 			TableName: "cpuid",
-			Generator: system.GenCPUID,
+			Generator: system.GenCpuId,
 		}, nil
 	case "default_environment":
 		return &impl.TableExecutor{
 			TableName: "default_environment",
-			Generator: system.GenDefaultEnvironment,
+			Generator: system.GenDefaultEnvironments,
 		}, nil
 	case "deviceguard_status":
 		return &impl.TableExecutor{
 			TableName: "deviceguard_status",
-			Generator: system.GenDeviceguardStatus,
+			Generator: system.GenDeviceGuardStatus,
 		}, nil
 	case "disk_info":
 		return &impl.TableExecutor{
@@ -204,7 +204,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "dns_cache":
 		return &impl.TableExecutor{
 			TableName: "dns_cache",
-			Generator: system.GenDNSCache,
+			Generator: system.GenDnsCache,
 		}, nil
 	case "drivers":
 		return &impl.TableExecutor{
@@ -224,7 +224,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "ie_extensions":
 		return &impl.TableExecutor{
 			TableName: "ie_extensions",
-			Generator: system.GenIEExtensions,
+			Generator: system.GenIeExtensions,
 		}, nil
 	case "kernel_info":
 		return &impl.TableExecutor{
@@ -234,7 +234,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "kva_speculative_info":
 		return &impl.TableExecutor{
 			TableName: "kva_speculative_info",
-			Generator: system.GenKVASpeculativeInfo,
+			Generator: system.GenKvaSpeculativeInfo,
 		}, nil
 	case "logged_in_users":
 		return &impl.TableExecutor{
@@ -264,7 +264,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "ntfs_acl_permissions":
 		return &impl.TableExecutor{
 			TableName: "ntfs_acl_permissions",
-			Generator: system.GenNTFSACLPermissions,
+			Generator: system.GenNtfsAclPermissions,
 		}, nil
 	case "os_version":
 		return &impl.TableExecutor{
@@ -354,7 +354,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "ssh_configs":
 		return &impl.TableExecutor{
 			TableName: "ssh_configs",
-			Generator: system.GenSSHConfigs,
+			Generator: system.GenSshConfigs,
 		}, nil
 	case "startup_items":
 		return &impl.TableExecutor{
@@ -369,7 +369,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "tpm_info":
 		return &impl.TableExecutor{
 			TableName: "tpm_info",
-			Generator: system.GenTPMInfo,
+			Generator: system.GenTpmInfo,
 		}, nil
 	case "uptime":
 		return &impl.TableExecutor{
@@ -384,12 +384,12 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "user_ssh_keys":
 		return &impl.TableExecutor{
 			TableName: "user_ssh_keys",
-			Generator: system.GenUserSSHKeys,
+			Generator: system.GenUserSshKeys,
 		}, nil
 	case "userassist":
 		return &impl.TableExecutor{
 			TableName: "userassist",
-			Generator: system.GenUserassist,
+			Generator: system.GenUserAssist,
 		}, nil
 	case "users":
 		return &impl.TableExecutor{
@@ -404,7 +404,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "winbaseobj":
 		return &impl.TableExecutor{
 			TableName: "winbaseobj",
-			Generator: system.GenWinbaseobj,
+			Generator: system.GenWinbaseObj,
 		}, nil
 	case "windows_crashes":
 		return &impl.TableExecutor{
@@ -414,7 +414,7 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "windows_eventlog":
 		return &impl.TableExecutor{
 			TableName: "windows_eventlog",
-			Generator: system.GenWindowsEventlog,
+			Generator: system.GenWindowsEventLog,
 		}, nil
 	case "windows_optional_features":
 		return &impl.TableExecutor{
@@ -444,27 +444,27 @@ func getExecutorSystem(tableName string) (Executor, error) {
 	case "wmi_bios_info":
 		return &impl.TableExecutor{
 			TableName: "wmi_bios_info",
-			Generator: system.GenWMIBiosInfo,
+			Generator: system.GenWmiBiosInfo,
 		}, nil
 	case "wmi_cli_event_consumers":
 		return &impl.TableExecutor{
 			TableName: "wmi_cli_event_consumers",
-			Generator: system.GenWMICLIEventConsumers,
+			Generator: system.GenWmiCliEventConsumers,
 		}, nil
 	case "wmi_event_filters":
 		return &impl.TableExecutor{
 			TableName: "wmi_event_filters",
-			Generator: system.GenWMIEventFilters,
+			Generator: system.GenWmiEventFilters,
 		}, nil
 	case "wmi_filter_consumer_binding":
 		return &impl.TableExecutor{
 			TableName: "wmi_filter_consumer_binding",
-			Generator: system.GenWMIFilterConsumerBinding,
+			Generator: system.GenWmiFilterConsumerBinding,
 		}, nil
 	case "wmi_script_event_consumers":
 		return &impl.TableExecutor{
 			TableName: "wmi_script_event_consumers",
-			Generator: system.GenWMIScriptEventConsumers,
+			Generator: system.GenWmiScriptEventConsumers,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported table: %s", tableName)
@@ -489,5 +489,5 @@ func getExecutorUtility(tableName string) (Executor, error) {
 }
 
 func getExecutorYara(tableName string) (Executor, error) {
-	return nil, nil
+	return nil, fmt.Errorf("unsupported table: %s", tableName)
 }

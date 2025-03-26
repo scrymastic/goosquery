@@ -9,7 +9,7 @@ import (
 )
 
 func TestGenDNSCache(t *testing.T) {
-	cache, err := GenDNSCache(sqlctx.NewContext())
+	cache, err := GenDnsCache(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get DNS cache: %v", err)
 	}

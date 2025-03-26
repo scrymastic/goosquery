@@ -9,7 +9,7 @@ import (
 )
 
 func TestGenCPUInfo(t *testing.T) {
-	cpuInfos, err := GenCPUInfo(sqlctx.NewContext())
+	cpuInfos, err := GenCpuInfo(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get CPU info: %v", err)
 	}

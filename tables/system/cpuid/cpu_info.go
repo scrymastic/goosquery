@@ -3,9 +3,10 @@ package cpuid
 import (
 	"fmt"
 
+	"github.com/scrymastic/goosquery/sql/result"
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
-func GenCPUID(ctx *sqlctx.Context) ([]map[string]interface{}, error) {
+func GenCpuId(ctx *sqlctx.Context) (*result.Results, error) {
 	return nil, fmt.Errorf("not implemented")
 }

@@ -9,7 +9,8 @@ import (
 )
 
 func TestGenUptime(t *testing.T) {
-	uptime, err := GenUptime(sqlctx.Context{})
+	ctx := sqlctx.NewContext()
+	uptime, err := GenUptime(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get uptime: %v", err)
 	}

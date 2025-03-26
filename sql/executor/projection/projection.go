@@ -123,14 +123,6 @@ func getFinalProjectionColumns(selectExprs sqlparser.SelectExprs) []string {
 				// For aggregation function
 				funcName := strings.ToUpper(funcExpr.Name.String())
 
-				// Special case for COUNT(*)
-				if funcName == "COUNT" && len(funcExpr.Exprs) == 0 {
-					if expr.As.IsEmpty() {
-						columns = append(columns, "COUNT(*)")
-					}
-					continue
-				}
-
 				// For other aggregation functions
 				if len(funcExpr.Exprs) > 0 && expr.As.IsEmpty() {
 					if argAliasedExpr, ok := funcExpr.Exprs[0].(*sqlparser.AliasedExpr); ok {

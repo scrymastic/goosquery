@@ -30,8 +30,8 @@ func boolToInt32(b bool) int32 {
 	return 0
 }
 
-// GenKVASpeculativeInfo generates KVA and speculative execution information
-func GenKVASpeculativeInfo(ctx *sqlctx.Context) (*result.Results, error) {
+// GenKvaSpeculativeInfo generates KVA and speculative execution information
+func GenKvaSpeculativeInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	var kvaInfo SYSTEM_KERNEL_VA_SHADOW_INFORMATION
 	var specInfo SYSTEM_SPECULATION_CONTROL_INFORMATION
 

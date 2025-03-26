@@ -75,7 +75,7 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string, c
 	// Process each subkey
 	for _, subkeyName := range subkeys {
 		subReg := result.NewResult(ctx, Schema)
-		subReg.Set("key", searchKey)
+		subReg.Set("search", searchKey)
 		subReg.Set("path", searchKey+"\\"+subkeyName)
 		subReg.Set("name", subkeyName)
 		subReg.Set("type", "subkey")
@@ -121,7 +121,7 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string, c
 		}
 
 		entry := result.NewResult(ctx, Schema)
-		entry.Set("key", searchKey)
+		entry.Set("search", searchKey)
 		entry.Set("path", searchKey+"\\"+valueName)
 		entry.Set("name", valueName)
 		entry.Set("type", regType)
@@ -135,7 +135,7 @@ func getRegistryValues(rootKey registry.Key, keyPath string, searchKey string, c
 }
 
 func GenRegistry(ctx *sqlctx.Context) (*result.Results, error) {
-	searchKey := ctx.GetConstants("key")
+	searchKey := ctx.GetConstants("search")
 	results := result.NewQueryResult()
 	rootKey, keyPath, err := parseSearchKey(searchKey[0])
 	if err != nil {

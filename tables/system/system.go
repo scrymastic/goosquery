@@ -1,6 +1,7 @@
 package system
 
 import (
+	"github.com/scrymastic/goosquery/sql/result"
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"github.com/scrymastic/goosquery/tables/system/appcompat_shims"
 	"github.com/scrymastic/goosquery/tables/system/authenticode"
@@ -52,7 +53,9 @@ import (
 	"github.com/scrymastic/goosquery/tables/system/uptime"
 	"github.com/scrymastic/goosquery/tables/system/user_groups"
 	"github.com/scrymastic/goosquery/tables/system/user_ssh_keys"
+	"github.com/scrymastic/goosquery/tables/system/userassist"
 	"github.com/scrymastic/goosquery/tables/system/users"
+	"github.com/scrymastic/goosquery/tables/system/video_info"
 	"github.com/scrymastic/goosquery/tables/system/winbaseobj"
 	"github.com/scrymastic/goosquery/tables/system/windows_crashes"
 	"github.com/scrymastic/goosquery/tables/system/windows_eventlog"
@@ -68,258 +71,266 @@ import (
 	"github.com/scrymastic/goosquery/tables/system/wmi_script_event_consumers"
 )
 
-func GenAppCompatShims(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenAppCompatShims(ctx *sqlctx.Context) (*result.Results, error) {
 	return appcompat_shims.GenAppCompatShims(ctx)
 }
 
-func GenAuthenticode(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenAuthenticode(ctx *sqlctx.Context) (*result.Results, error) {
 	return authenticode.GenAuthenticode(ctx)
 }
 
-func GenAutoexec(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenAutoexec(ctx *sqlctx.Context) (*result.Results, error) {
 	return autoexec.GenAutoexec(ctx)
 }
 
-func GenBackgroundActivitiesModerator(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenBackgroundActivitiesModerator(ctx *sqlctx.Context) (*result.Results, error) {
 	return background_activities_moderator.GenBackgroundActivitiesModerator(ctx)
 }
 
-func GenBitlockerInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenBitlockerInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return bitlocker_info.GenBitlockerInfo(ctx)
 }
 
-func GenCertificates(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenCertificates(ctx *sqlctx.Context) (*result.Results, error) {
 	return certificates.GenCertificates(ctx)
 }
 
-func GenChassisInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenChassisInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return chassis_info.GenChassisInfo(ctx)
 }
 
-func GenChocolateyPackages(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenChocolateyPackages(ctx *sqlctx.Context) (*result.Results, error) {
 	return chocolatey_packages.GenChocolateyPackages(ctx)
 }
 
-func GenCpuInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenCpuInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return cpu_info.GenCpuInfo(ctx)
 }
 
-func GenCpuid(ctx sqlctx.Context) ([]map[string]interface{}, error) {
-	return cpuid.GenCpuid(ctx)
+func GenCpuId(ctx *sqlctx.Context) (*result.Results, error) {
+	return cpuid.GenCpuId(ctx)
 }
 
-func GenDefaultEnvironments(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenDefaultEnvironments(ctx *sqlctx.Context) (*result.Results, error) {
 	return default_environment.GenDefaultEnvironments(ctx)
 }
 
-func GenDeviceGuardStatus(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenDeviceGuardStatus(ctx *sqlctx.Context) (*result.Results, error) {
 	return deviceguard_status.GenDeviceGuardStatus(ctx)
 }
 
-func GenDiskInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenDiskInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return disk_info.GenDiskInfo(ctx)
 }
 
-func GenDnsCache(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenDnsCache(ctx *sqlctx.Context) (*result.Results, error) {
 	return dns_cache.GenDnsCache(ctx)
 }
 
-func GenDrivers(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenDrivers(ctx *sqlctx.Context) (*result.Results, error) {
 	return drivers.GenDrivers(ctx)
 }
 
-func GenGroups(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenGroups(ctx *sqlctx.Context) (*result.Results, error) {
 	return groups.GenGroups(ctx)
 }
 
-func GenHash(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenHash(ctx *sqlctx.Context) (*result.Results, error) {
 	return hash.GenHash(ctx)
 }
 
-func GenIeExtensions(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenIeExtensions(ctx *sqlctx.Context) (*result.Results, error) {
 	return ie_extensions.GenIeExtensions(ctx)
 }
 
-func GenKernelInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenKernelInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return kernel_info.GenKernelInfo(ctx)
 }
 
-func GenKvaSpeculativeInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenKvaSpeculativeInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return kva_speculative_info.GenKvaSpeculativeInfo(ctx)
 }
 
-func GenLoggedInUsers(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenLoggedInUsers(ctx *sqlctx.Context) (*result.Results, error) {
 	return logged_in_users.GenLoggedInUsers(ctx)
 }
 
-func GenLogicalDrives(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenLogicalDrives(ctx *sqlctx.Context) (*result.Results, error) {
 	return logical_drives.GenLogicalDrives(ctx)
 }
 
-func GenLogonSessions(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenLogonSessions(ctx *sqlctx.Context) (*result.Results, error) {
 	return logon_sessions.GenLogonSessions(ctx)
 }
 
-func GenMemoryDevices(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenMemoryDevices(ctx *sqlctx.Context) (*result.Results, error) {
 	return memory_devices.GenMemoryDevices(ctx)
 }
 
-func GenNTDomains(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenNTDomains(ctx *sqlctx.Context) (*result.Results, error) {
 	return ntdomains.GenNTDomains(ctx)
 }
 
-func GenNtfsAclPermissions(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenNtfsAclPermissions(ctx *sqlctx.Context) (*result.Results, error) {
 	return ntfs_acl_permissions.GenNtfsAclPermissions(ctx)
 }
 
-func GenOSVersion(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenOSVersion(ctx *sqlctx.Context) (*result.Results, error) {
 	return os_version.GenOSVersion(ctx)
 }
 
-func GenPatches(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPatches(ctx *sqlctx.Context) (*result.Results, error) {
 	return patches.GenPatches(ctx)
 }
 
-func GenPhysicalDiskPerformance(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPhysicalDiskPerformance(ctx *sqlctx.Context) (*result.Results, error) {
 	return physical_disk_performance.GenPhysicalDiskPerformance(ctx)
 }
 
-func GenPipes(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPipes(ctx *sqlctx.Context) (*result.Results, error) {
 	return pipes.GenPipes(ctx)
 }
 
-func GenPlatformInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPlatformInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return platform_info.GenPlatformInfo(ctx)
 }
 
-func GenPrefetch(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPrefetch(ctx *sqlctx.Context) (*result.Results, error) {
 	return prefetch.GenPrefetch(ctx)
 }
 
-func GenProcessMemoryMap(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenProcessMemoryMap(ctx *sqlctx.Context) (*result.Results, error) {
 	return process_memory_map.GenProcessMemoryMap(ctx)
 }
 
-func GenProcesses(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenProcesses(ctx *sqlctx.Context) (*result.Results, error) {
 	return processes.GenProcesses(ctx)
 }
 
-func GenPrograms(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPrograms(ctx *sqlctx.Context) (*result.Results, error) {
 	return programs.GenPrograms(ctx)
 }
 
-func GenPythonPackages(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenPythonPackages(ctx *sqlctx.Context) (*result.Results, error) {
 	return python_packages.GenPythonPackages(ctx)
 }
 
-func GenRegistry(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenRegistry(ctx *sqlctx.Context) (*result.Results, error) {
 	return registry.GenRegistry(ctx)
 }
 
-func GenScheduledTasks(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenScheduledTasks(ctx *sqlctx.Context) (*result.Results, error) {
 	return scheduled_tasks.GenScheduledTasks(ctx)
 }
 
-func GenSecurityProfileInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenSecurityProfileInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return security_profile_info.GenSecurityProfileInfo(ctx)
 }
 
-func GenServices(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenServices(ctx *sqlctx.Context) (*result.Results, error) {
 	return services.GenServices(ctx)
 }
 
-func GenSharedResources(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenSharedResources(ctx *sqlctx.Context) (*result.Results, error) {
 	return shared_resources.GenSharedResources(ctx)
 }
 
-func GenShellbags(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenShellbags(ctx *sqlctx.Context) (*result.Results, error) {
 	return shellbags.GenShellbags(ctx)
 }
 
-func GenShimcache(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenShimcache(ctx *sqlctx.Context) (*result.Results, error) {
 	return shimcache.GenShimcache(ctx)
 }
 
-func GenSshConfigs(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenSshConfigs(ctx *sqlctx.Context) (*result.Results, error) {
 	return ssh_configs.GenSshConfigs(ctx)
 }
 
-func GenStartupItems(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenStartupItems(ctx *sqlctx.Context) (*result.Results, error) {
 	return startup_items.GenStartupItems(ctx)
 }
 
-func GenSystemInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenSystemInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return system_info.GenSystemInfo(ctx)
 }
 
-func GenTpmInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenTpmInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return tpm_info.GenTpmInfo(ctx)
 }
 
-func GenUptime(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenUptime(ctx *sqlctx.Context) (*result.Results, error) {
 	return uptime.GenUptime(ctx)
 }
 
-func GenUserGroups(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenUserGroups(ctx *sqlctx.Context) (*result.Results, error) {
 	return user_groups.GenUserGroups(ctx)
 }
 
-func GenUserSshKeys(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenUserSshKeys(ctx *sqlctx.Context) (*result.Results, error) {
 	return user_ssh_keys.GenUserSshKeys(ctx)
 }
 
-func GenUsers(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenUserAssist(ctx *sqlctx.Context) (*result.Results, error) {
+	return userassist.GenUserAssist(ctx)
+}
+
+func GenUsers(ctx *sqlctx.Context) (*result.Results, error) {
 	return users.GenUsers(ctx)
 }
 
-func GenWinbaseObj(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenVideoInfo(ctx *sqlctx.Context) (*result.Results, error) {
+	return video_info.GenVideoInfo(ctx)
+}
+
+func GenWinbaseObj(ctx *sqlctx.Context) (*result.Results, error) {
 	return winbaseobj.GenWinbaseObj(ctx)
 }
 
-func GenWindowsCrashes(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsCrashes(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_crashes.GenWindowsCrashes(ctx)
 }
 
-func GenWindowsEventLog(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsEventLog(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_eventlog.GenWindowsEventLog(ctx)
 }
 
-func GenWindowsOptionalFeatures(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsOptionalFeatures(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_optional_features.GenWindowsOptionalFeatures(ctx)
 }
 
-func GenWindowsSearch(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsSearch(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_search.GenWindowsSearch(ctx)
 }
 
-func GenWindowsSecurityCenter(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsSecurityCenter(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_security_center.GenWindowsSecurityCenter(ctx)
 }
 
-func GenWindowsSecurityProducts(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsSecurityProducts(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_security_products.GenWindowsSecurityProducts(ctx)
 }
 
-func GenWindowsUpdateHistory(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWindowsUpdateHistory(ctx *sqlctx.Context) (*result.Results, error) {
 	return windows_update_history.GenWindowsUpdateHistory(ctx)
 }
 
-func GenWmiBiosInfo(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWmiBiosInfo(ctx *sqlctx.Context) (*result.Results, error) {
 	return wmi_bios_info.GenWmiBiosInfo(ctx)
 }
 
-func GenWmiCliEventConsumers(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWmiCliEventConsumers(ctx *sqlctx.Context) (*result.Results, error) {
 	return wmi_cli_event_consumers.GenWmiCliEventConsumers(ctx)
 }
 
-func GenWmiEventFilters(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWmiEventFilters(ctx *sqlctx.Context) (*result.Results, error) {
 	return wmi_event_filters.GenWmiEventFilters(ctx)
 }
 
-func GenWmiFilterConsumerBinding(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWmiFilterConsumerBinding(ctx *sqlctx.Context) (*result.Results, error) {
 	return wmi_filter_consumer_binding.GenWmiFilterConsumerBinding(ctx)
 }
 
-func GenWmiScriptEventConsumers(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenWmiScriptEventConsumers(ctx *sqlctx.Context) (*result.Results, error) {
 	return wmi_script_event_consumers.GenWmiScriptEventConsumers(ctx)
 }

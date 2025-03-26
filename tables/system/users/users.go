@@ -7,20 +7,10 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
-)
 
-type User struct {
-	UID         int64  `json:"uid"`
-	GID         int64  `json:"gid"`
-	UIDSigned   int64  `json:"uid_signed"`
-	GIDSigned   int64  `json:"gid_signed"`
-	Username    string `json:"username"`
-	Description string `json:"description"`
-	Directory   string `json:"directory"`
-	Shell       string `json:"shell"`
-	UUID        string `json:"uuid"`
-	Type        string `json:"type"`
-}
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
+)
 
 var (
 	modNetapi32               = windows.NewLazySystemDLL("netapi32.dll")
@@ -159,8 +149,8 @@ func getUserHomeDir(sid string) (string, error) {
 	return windows.UTF16ToString(dst), nil
 }
 
-func getLocalUsers(processedSids []string) ([]User, []string, error) {
-	var users []User
+func getLocalUsers(ctx *sqlctx.Context, processedSids []string) (*result.Results, []string, error) {
+	users := result.NewQueryResult()
 
 	var entriesRead uint32
 	var totalEntries uint32
@@ -191,10 +181,10 @@ func getLocalUsers(processedSids []string) ([]User, []string, error) {
 		userInfo := (*_USER_INFO_0)(unsafe.Pointer(bufptr))
 		for i := uint32(0); i < entriesRead; i++ {
 
-			user := User{}
-			user.Username = windows.UTF16PtrToString(userInfo.usri0_name)
-			user.Shell = defaultShell
-			user.Type = userTypeLocal
+			user := result.NewResult(ctx, Schema)
+			user.Set("username", windows.UTF16PtrToString(userInfo.usri0_name))
+			user.Set("shell", defaultShell)
+			user.Set("type", userTypeLocal)
 
 			var userInfoLvl4 *_USER_INFO_4
 			if err := windows.NetUserGetInfo(
@@ -208,20 +198,27 @@ func getLocalUsers(processedSids []string) ([]User, []string, error) {
 					processedSids = append(processedSids, userInfoLvl4.usri4_user_sid.String())
 				}
 
-				user.UUID = userInfoLvl4.usri4_user_sid.String()
+				user.Set("uuid", userInfoLvl4.usri4_user_sid.String())
 
-				user.UID = getRidFromSid(userInfoLvl4.usri4_user_sid)
-				user.GID, err = getGidFromUsername(windows.UTF16PtrToString(userInfoLvl4.usri4_name))
+				user.Set("uid", getRidFromSid(userInfoLvl4.usri4_user_sid))
+				gid, err := getGidFromUsername(windows.UTF16PtrToString(userInfoLvl4.usri4_name))
 				if err != nil {
-					user.GID = user.UID
+					user.Set("gid", user.Get("uid"))
+				} else {
+					user.Set("gid", gid)
 				}
-				user.UIDSigned = int64(user.UID)
-				user.GIDSigned = int64(user.GID)
-				user.Description = windows.UTF16PtrToString(userInfoLvl4.usri4_comment)
-				user.Directory, _ = getUserHomeDir(userInfoLvl4.usri4_user_sid.String())
+				user.Set("uid_signed", user.Get("uid").(int64))
+				user.Set("gid_signed", user.Get("gid").(int64))
+				user.Set("description", windows.UTF16PtrToString(userInfoLvl4.usri4_comment))
+				directory, err := getUserHomeDir(userInfoLvl4.usri4_user_sid.String())
+				if err != nil {
+					user.Set("directory", "")
+				} else {
+					user.Set("directory", directory)
+				}
 			}
 
-			users = append(users, user)
+			users.AppendResult(*user)
 			userInfo = (*_USER_INFO_0)(unsafe.Pointer(uintptr(unsafe.Pointer(userInfo)) + unsafe.Sizeof(*userInfo)))
 		}
 
@@ -233,8 +230,8 @@ func getLocalUsers(processedSids []string) ([]User, []string, error) {
 	return users, processedSids, nil
 }
 
-func getRoamingUsers(processedSids []string) ([]User, []string, error) {
-	var users []User
+func getRoamingUsers(ctx *sqlctx.Context, processedSids []string) (*result.Results, []string, error) {
+	users := result.NewQueryResult()
 
 	key, err := registry.OpenKey(
 		registry.LOCAL_MACHINE,
@@ -251,7 +248,7 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 	}
 
 	for _, profileSid := range subkeys {
-		user := User{}
+		user := result.NewResult(ctx, Schema)
 
 		profileSidPtr := windows.StringToUTF16Ptr(profileSid)
 
@@ -265,22 +262,29 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 			continue
 		}
 
-		user.UUID = profileSid
+		user.Set("uuid", profileSid)
 		if slices.Contains(wellKnownSids, profileSid) {
-			user.Type = userTypeSpecial
+			user.Set("type", userTypeSpecial)
 		} else {
-			user.Type = userTypeRoaming
+			user.Set("type", userTypeRoaming)
 		}
 
-		user.UID = getRidFromSid(sid)
-		user.GID, err = getGidFromUsername(profileSid)
+		user.Set("uid", getRidFromSid(sid))
+		gid, err := getGidFromUsername(profileSid)
 		if err != nil {
-			user.GID = user.UID
+			user.Set("gid", user.Get("uid"))
+		} else {
+			user.Set("gid", gid)
 		}
-		user.UIDSigned = int64(user.UID)
-		user.GIDSigned = int64(user.GID)
-		user.Shell = defaultShell
-		user.Directory, _ = getUserHomeDir(profileSid)
+		user.Set("uid_signed", user.Get("uid").(int64))
+		user.Set("gid_signed", user.Get("gid").(int64))
+		user.Set("shell", defaultShell)
+		directory, err := getUserHomeDir(profileSid)
+		if err != nil {
+			user.Set("directory", "")
+		} else {
+			user.Set("directory", directory)
+		}
 
 		var usernamePtr [256]uint16
 		var usernameLength uint32 = 256
@@ -299,7 +303,7 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 			continue
 		}
 
-		user.Username = windows.UTF16PtrToString((*uint16)(unsafe.Pointer(&usernamePtr)))
+		user.Set("username", windows.UTF16PtrToString((*uint16)(unsafe.Pointer(&usernamePtr))))
 
 		windows.LocalFree(windows.Handle(unsafe.Pointer(sid)))
 
@@ -311,31 +315,31 @@ func getRoamingUsers(processedSids []string) ([]User, []string, error) {
 			2,
 			(**byte)(unsafe.Pointer(&userInfoLvl2)),
 		); err == nil && userInfoLvl2 != nil {
-			user.Description = windows.UTF16PtrToString(userInfoLvl2.usri2_comment)
+			user.Set("description", windows.UTF16PtrToString(userInfoLvl2.usri2_comment))
 		}
 
-		users = append(users, user)
+		users.AppendResult(*user)
 	}
 
 	return users, processedSids, nil
 }
 
-func GenUsers() ([]User, error) {
-	var users []User
+func GenUsers(ctx *sqlctx.Context) (*result.Results, error) {
+	users := result.NewQueryResult()
 	var processedSids []string
 	// Get local users
-	localUsers, processedSids, err := getLocalUsers(processedSids)
+	localUsers, processedSids, err := getLocalUsers(ctx, processedSids)
 	if err != nil {
 		return nil, fmt.Errorf("error getting local users: %w", err)
 	}
-	users = append(users, localUsers...)
+	users.AppendResults(*localUsers)
 
 	// Get roaming/special users from registry
-	roamingUsers, _, err := getRoamingUsers(processedSids)
+	roamingUsers, _, err := getRoamingUsers(ctx, processedSids)
 	if err != nil {
 		return nil, fmt.Errorf("error getting roaming users: %w", err)
 	}
-	users = append(users, roamingUsers...)
+	users.AppendResults(*roamingUsers)
 
 	return users, nil
 }

@@ -11,32 +11,6 @@ import (
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
-type SecurityProfileInfo struct {
-	MinimumPasswordAge     uint32 `json:"minimum_password_age"`
-	MaximumPasswordAge     uint32 `json:"maximum_password_age"`
-	MinimumPasswordLength  uint32 `json:"minimum_password_length"`
-	PasswordComplexity     uint32 `json:"password_complexity"`
-	PasswordHistorySize    uint32 `json:"password_history_size"`
-	LockoutBadCount        uint32 `json:"lockout_bad_count"`
-	LogonToChangePassword  uint32 `json:"logon_to_change_password"`
-	ForceLogoffWhenExpire  uint32 `json:"force_logoff_when_expire"`
-	NewAdministratorName   string `json:"new_administrator_name"`
-	NewGuestName           string `json:"new_guest_name"`
-	ClearTextPassword      uint32 `json:"clear_text_password"`
-	LsaAnonymousNameLookup uint32 `json:"lsa_anonymous_name_lookup"`
-	EnableAdminAccount     uint32 `json:"enable_admin_account"`
-	EnableGuestAccount     uint32 `json:"enable_guest_account"`
-	AuditSystemEvents      uint32 `json:"audit_system_events"`
-	AuditLogonEvents       uint32 `json:"audit_logon_events"`
-	AuditObjectAccess      uint32 `json:"audit_object_access"`
-	AuditPrivilegeUse      uint32 `json:"audit_privilege_use"`
-	AuditPolicyChange      uint32 `json:"audit_policy_change"`
-	AuditAccountManage     uint32 `json:"audit_account_manage"`
-	AuditProcessTracking   uint32 `json:"audit_process_tracking"`
-	AuditDsAccess          uint32 `json:"audit_ds_access"`
-	AuditAccountLogon      uint32 `json:"audit_account_logon"`
-}
-
 var (
 	kernel32         = windows.NewLazySystemDLL("kernel32.dll")
 	procIsBadReadPtr = kernel32.NewProc("IsBadReadPtr")

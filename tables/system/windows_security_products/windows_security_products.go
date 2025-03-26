@@ -6,18 +6,10 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
-
-// WindowsSecurityProduct represents a single security product entry
-type WindowsSecurityProduct struct {
-	Type               string `json:"type"`
-	Name               string `json:"name"`
-	State              string `json:"state"`
-	StateTimestamp     string `json:"state_timestamp"`
-	RemediationPath    string `json:"remediation_path"`
-	SignaturesUpToDate int32  `json:"signatures_up_to_date"`
-}
 
 const (
 	CLSCTX_INPROC_SERVER = 1
@@ -51,7 +43,7 @@ var securityProviderStates = map[int]string{
 	WSC_SECURITY_PRODUCT_STATE_EXPIRED: "Expired",
 }
 
-func GenWindowsSecurityProducts() ([]WindowsSecurityProduct, error) {
+func GenWindowsSecurityProducts(ctx *sqlctx.Context) (*result.Results, error) {
 	// var productListClassPtr *windows.GUID
 
 	CLSID_WSCProductList := windows.NewLazySystemDLL("wscapi.dll").NewProc("CLSID_WSCProductList")

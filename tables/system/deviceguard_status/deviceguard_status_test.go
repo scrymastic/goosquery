@@ -9,7 +9,7 @@ import (
 )
 
 func TestGenDeviceguardStatus(t *testing.T) {
-	status, err := GenDeviceguardStatus(sqlctx.NewContext())
+	status, err := GenDeviceGuardStatus(sqlctx.NewContext())
 	if err != nil {
 		t.Fatalf("Failed to get Device Guard status: %v", err)
 	}

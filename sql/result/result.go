@@ -99,13 +99,12 @@ func (r *Results) SetValue(rowIndex int, columnName string, value interface{}) b
 }
 
 // GetRow returns a specific result by index
-// Returns the result and a boolean indicating if the result was found
-func (r *Results) GetRow(rowIndex int) (Result, bool) {
+func (r *Results) GetRow(rowIndex int) Result {
 	if rowIndex < 0 || rowIndex >= r.Size() {
-		return nil, false
+		return nil
 	}
 
-	return (*r)[rowIndex], true
+	return (*r)[rowIndex]
 }
 
 // GetColumnValues returns all values for a specific column

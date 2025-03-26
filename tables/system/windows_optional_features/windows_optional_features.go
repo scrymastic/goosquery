@@ -2,15 +2,9 @@ package windows_optional_features
 
 import (
 	"github.com/StackExchange/wmi"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
-
-// WindowsOptionalFeature represents a Windows optional feature
-type WindowsOptionalFeature struct {
-	Name      string `json:"name"`
-	Caption   string `json:"caption"`
-	State     int    `json:"state"`
-	StateName string `json:"state_name"`
-}
 
 type Win32_OptionalFeature struct {
 	Name         string
@@ -29,23 +23,22 @@ func getDismPackageFeatureStateName(state uint32) string {
 	return stateNames[state]
 }
 
-// GenWinOptionalFeatures queries the Windows optional features and returns them as a slice of Feature
-func GenWinOptionalFeatures() ([]WindowsOptionalFeature, error) {
+// GenWindowsOptionalFeatures queries the Windows optional features and returns them as a slice of Feature
+func GenWindowsOptionalFeatures(ctx *sqlctx.Context) (*result.Results, error) {
 	var features []Win32_OptionalFeature
 	query := "SELECT Caption, Name, InstallState FROM Win32_OptionalFeature"
 	if err := wmi.Query(query, &features); err != nil {
 		return nil, err
 	}
 
-	var results []WindowsOptionalFeature
+	results := result.NewQueryResult()
 	for _, item := range features {
-		stateName := getDismPackageFeatureStateName(item.InstallState)
-		results = append(results, WindowsOptionalFeature{
-			Name:      item.Name,
-			Caption:   item.Caption,
-			State:     int(item.InstallState),
-			StateName: stateName,
-		})
+		feature := result.NewResult(ctx, Schema)
+		feature.Set("name", item.Name)
+		feature.Set("caption", item.Caption)
+		feature.Set("state", int(item.InstallState))
+		feature.Set("statename", getDismPackageFeatureStateName(item.InstallState))
+		results.AppendResult(*feature)
 	}
 
 	return results, nil

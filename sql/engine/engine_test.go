@@ -7,7 +7,7 @@ import (
 // Test query execution
 func TestExecute(t *testing.T) {
 	engine := NewEngine()
-	query := "select uid from file where path = 'C:\\users\\sonx\\desktop\\cursor.lnk';"
+	query := "select count(*) from registry where search = 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services';"
 	result, err := engine.Execute(query)
 
 	if err != nil {

@@ -72,7 +72,7 @@ func (c *Context) SetColumns(columns []string) {
 // If no columns are specified (empty Columns slice),
 // it returns true for all columns.
 func (c *Context) IsColumnUsed(column string) bool {
-	if len(c.Columns) == 0 {
+	if len(c.Columns) == 1 && c.Columns[0] == "*" {
 		return true
 	}
 	return slices.Contains(c.Columns, column)

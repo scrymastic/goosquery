@@ -31,7 +31,7 @@ func TestGenGroups(t *testing.T) {
 	foundAdmins := false
 	foundUsers := false
 	for i := 0; i < groups.Size(); i++ {
-		group, _ := groups.GetRow(i)
+		group := groups.GetRow(i)
 		if group.Get("groupname") == "Administrators" {
 			foundAdmins = true
 		}

@@ -105,7 +105,11 @@ func (e *BaseExecutor) GetAllRequiredColumns(stmt *sqlparser.Select) []string {
 
 	// Add columns from SELECT clause
 	for _, col := range e.GetSelectedColumns(stmt.SelectExprs) {
-		columnsMap[col] = true
+		if col != "*" {
+			columnsMap[col] = true
+		} else {
+			return []string{"*"}
+		}
 	}
 
 	// Add columns from WHERE clause

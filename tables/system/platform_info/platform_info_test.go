@@ -27,11 +27,7 @@ func TestGenPlatformInfo(t *testing.T) {
 		return
 	}
 
-	platformInfo, ok := info.GetRow(0)
-	if !ok {
-		t.Error("Failed to get platform info")
-		return
-	}
+	platformInfo := info.GetRow(0)
 	// Check that essential fields are not empty
 	if platformInfo.Get("vendor") == "" {
 		t.Error("Vendor is empty")

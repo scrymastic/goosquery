@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
 func TestGenSharedResources(t *testing.T) {
-	shares, err := GenSharedResources()
+	ctx := sqlctx.NewContext()
+	shares, err := GenSharedResources(ctx)
 	if err != nil {
 		t.Fatalf("Failed to get shared resources: %v", err)
 	}
@@ -18,20 +21,20 @@ func TestGenSharedResources(t *testing.T) {
 		t.Fatalf("Failed to marshal shared resources to JSON: %v", err)
 	}
 	fmt.Printf("Shared Resources Results:\n%s\n", string(jsonData))
-	fmt.Printf("Total shares: %d\n", len(shares))
+	fmt.Printf("Total shares: %d\n", shares.Size())
 
 	// Basic validation of the results
-	for i, share := range shares {
+	for i, share := range *shares {
 		// Check that required fields are not empty
-		if share.Name == "" {
+		if share.Get("name") == "" {
 			t.Errorf("Share #%d has empty Name field", i)
 		}
 
 		// Verify that TypeName matches the Type
-		expectedTypeName := getShareTypeName(share.Type)
-		if share.TypeName != expectedTypeName {
+		expectedTypeName := getShareTypeName(share.Get("type").(uint32))
+		if share.Get("type_name") != expectedTypeName {
 			t.Errorf("Share #%d has mismatched TypeName. Got: %s, Expected: %s",
-				i, share.TypeName, expectedTypeName)
+				i, share.Get("type_name"), expectedTypeName)
 		}
 	}
 }

@@ -6,6 +6,8 @@ import (
 
 	"github.com/go-ole/go-ole"
 	"github.com/go-ole/go-ole/oleutil"
+	"github.com/scrymastic/goosquery/sql/result"
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"golang.org/x/sys/windows"
 )
 
@@ -23,21 +25,6 @@ type WindowsUpdateHistory struct {
 	UpdateID        string `json:"update_id"`
 	UpdateRevision  uint64 `json:"update_revision"`
 }
-
-// struct WindowsUpdateHistoryEntry {
-// 	std::string clientAppID;
-// 	LONGLONG date;
-// 	std::string description;
-// 	LONG hresult;
-// 	UpdateOperation updateOp;
-// 	OperationResultCode resultCode;
-// 	ServerSelection serverSelection;
-// 	std::string serviceID;
-// 	std::string supportUrl;
-// 	std::string title;
-// 	std::string updateID;
-// 	LONG updateRevision;
-//   };
 
 func convertOperationToString(operation int32) string {
 	switch operation {
@@ -129,7 +116,7 @@ func variantTimeToUnixTime(date float64) int64 {
 	return nsec
 }
 
-func GenWindowsUpdateHistory() ([]WindowsUpdateHistory, error) {
+func GenWindowsUpdateHistory(ctx *sqlctx.Context) (*result.Results, error) {
 	ole.CoInitializeEx(0, ole.COINIT_MULTITHREADED)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("failed to initialize COM: %v", err)
@@ -166,7 +153,7 @@ func GenWindowsUpdateHistory() ([]WindowsUpdateHistory, error) {
 	}
 	defer historyCollection.ToIDispatch().Release()
 
-	var results []WindowsUpdateHistory
+	updateHistories := result.NewQueryResult()
 
 	length, _ := oleutil.GetProperty(historyCollection.ToIDispatch(), "Count")
 	count = int(length.Val)
@@ -201,23 +188,22 @@ func GenWindowsUpdateHistory() ([]WindowsUpdateHistory, error) {
 		updateID, _ := oleutil.GetProperty(identityDispatch, "UpdateID")
 		updateRevision, _ := oleutil.GetProperty(identityDispatch, "RevisionNumber")
 
-		history := WindowsUpdateHistory{
-			ClientAppID:     clientAppID.ToString(),
-			Date:            variantTimeToUnixTime(*(*float64)(unsafe.Pointer(&date.Val))),
-			Description:     description.ToString(),
-			HResult:         uint64(hresult.Val),
-			Operation:       convertOperationToString(int32(operation.Val)),
-			ResultCode:      convertResultCodeToString(int32(resultCode.Val)),
-			ServerSelection: convertServerSelectionToString(int32(serverSelection.Val)),
-			ServiceID:       serviceID.ToString(),
-			SupportURL:      supportUrl.ToString(),
-			Title:           title.ToString(),
-			UpdateID:        updateID.ToString(),
-			UpdateRevision:  uint64(updateRevision.Val),
-		}
+		history := result.NewResult(ctx, Schema)
+		history.Set("client_app_id", clientAppID.ToString())
+		history.Set("date", variantTimeToUnixTime(*(*float64)(unsafe.Pointer(&date.Val))))
+		history.Set("description", description.ToString())
+		history.Set("hresult", uint64(hresult.Val))
+		history.Set("operation", convertOperationToString(int32(operation.Val)))
+		history.Set("result_code", convertResultCodeToString(int32(resultCode.Val)))
+		history.Set("server_selection", convertServerSelectionToString(int32(serverSelection.Val)))
+		history.Set("service_id", serviceID.ToString())
+		history.Set("support_url", supportUrl.ToString())
+		history.Set("title", title.ToString())
+		history.Set("update_id", updateID.ToString())
+		history.Set("update_revision", uint64(updateRevision.Val))
 
-		results = append(results, history)
+		updateHistories.AppendResult(*history)
 	}
 
-	return results, nil
+	return updateHistories, nil
 }

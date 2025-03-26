@@ -73,67 +73,82 @@ func printOutputMode(jsonOutput bool) {
 	}
 }
 
-// displayAsTable formats the query result as an ASCII table
+// displayAsTable prints the query result in a formatted table with box-drawing characters
 func displayAsTable(queryResult *result.Results) {
-	// Unpack the query result which is a slice of map[string]interface{}
-	records := *queryResult
-
-	if len(records) == 0 {
-		fmt.Println("No results found.")
+	if queryResult == nil || queryResult.Size() == 0 {
 		return
 	}
 
-	// Get all column names
-	var columnNames []string
-	columnWidths := make(map[string]int)
+	// Get column names
+	columns := (*queryResult).GetColumns()
 
-	// First, extract column names from the first record
-	firstRecord := records[0]
-	for colName := range firstRecord {
-		columnNames = append(columnNames, colName)
-		// Initialize column width to column name length
-		columnWidths[colName] = len(colName)
+	// Calculate column widths
+	columnWidths := make(map[string]int)
+	for _, col := range columns {
+		columnWidths[col] = len(col)
 	}
 
 	// Find the maximum width needed for each column
-	for _, record := range records {
-		for colName, value := range record {
-			valueStr := fmt.Sprintf("%v", value)
-			if len(valueStr) > columnWidths[colName] {
-				columnWidths[colName] = len(valueStr)
+	for _, row := range *queryResult {
+		for col, value := range row {
+			strValue := fmt.Sprintf("%v", value)
+			if len(strValue) > columnWidths[col] {
+				columnWidths[col] = len(strValue)
 			}
 		}
 	}
 
 	// Print header
-	printTableDivider(columnNames, columnWidths)
-	for _, colName := range columnNames {
-		fmt.Printf("| %-*s ", columnWidths[colName], colName)
+	// Top border
+	fmt.Print("┌")
+	for i, col := range columns {
+		fmt.Print(strings.Repeat("─", columnWidths[col]+2))
+		if i < len(columns)-1 {
+			fmt.Print("┬")
+		}
 	}
-	fmt.Println("|")
-	printTableDivider(columnNames, columnWidths)
+	fmt.Println("┐")
+
+	// Column names
+	fmt.Print("│")
+	for _, col := range columns {
+		fmt.Printf(" %-*s │", columnWidths[col], col)
+	}
+	fmt.Println()
+
+	// Separator line
+	fmt.Print("├")
+	for i, col := range columns {
+		fmt.Print(strings.Repeat("─", columnWidths[col]+2))
+		if i < len(columns)-1 {
+			fmt.Print("┼")
+		}
+	}
+	fmt.Println("┤")
 
 	// Print rows
-	for _, record := range records {
-		for _, colName := range columnNames {
-			value := record[colName]
-			valueStr := fmt.Sprintf("%v", value)
-			fmt.Printf("| %-*s ", columnWidths[colName], valueStr)
+	for _, row := range *queryResult {
+		fmt.Print("│")
+		for _, col := range columns {
+			value, exists := row[col]
+			strValue := ""
+			if exists {
+				strValue = fmt.Sprintf("%v", value)
+			}
+			fmt.Printf(" %-*s │", columnWidths[col], strValue)
 		}
-		fmt.Println("|")
+		fmt.Println()
 	}
 
-	// Print footer
-	printTableDivider(columnNames, columnWidths)
-	fmt.Printf("%d rows in set\n", len(records))
-}
-
-// printTableDivider prints a horizontal line for the table
-func printTableDivider(columnNames []string, columnWidths map[string]int) {
-	for _, colName := range columnNames {
-		fmt.Printf("+-%s-", strings.Repeat("-", columnWidths[colName]))
+	// Bottom border
+	fmt.Print("└")
+	for i, col := range columns {
+		fmt.Print(strings.Repeat("─", columnWidths[col]+2))
+		if i < len(columns)-1 {
+			fmt.Print("┴")
+		}
 	}
-	fmt.Println("+")
+	fmt.Println("┘")
 }
 
 // formatResultAsJSON converts the query result to JSON format

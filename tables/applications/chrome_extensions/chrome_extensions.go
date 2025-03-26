@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/scrymastic/goosquery/sql/sqlctx"
 	"github.com/scrymastic/goosquery/tables/system/users"
 )
 
@@ -122,19 +123,20 @@ type ChromeProfileSnapshot struct {
 func getUserInformationList() ([]UserInformation, error) {
 	userInfoList := []UserInformation{}
 
-	users, err := users.GenUsers()
+	ctx := sqlctx.NewContext()
+	users, err := users.GenUsers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate users: %w", err)
 	}
 
-	for _, user := range users {
-		if user.UID == 0 || user.Directory == "" {
+	for _, user := range *users {
+		if user.Get("uid").(int64) == 0 || user.Get("directory").(string) == "" {
 			continue
 		}
 
 		userInfoList = append(userInfoList, UserInformation{
-			Uid:  user.UID,
-			Path: user.Directory,
+			Uid:  user.Get("uid").(int64),
+			Path: user.Get("directory").(string),
 		})
 	}
 

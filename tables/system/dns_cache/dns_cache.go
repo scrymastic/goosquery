@@ -73,7 +73,7 @@ var (
 	}
 )
 
-func GenDNSCache(ctx *sqlctx.Context) (*result.Results, error) {
+func GenDnsCache(ctx *sqlctx.Context) (*result.Results, error) {
 	modDnsapi := windows.NewLazySystemDLL("dnsapi.dll")
 	if modDnsapi.Load() != nil {
 		return nil, fmt.Errorf("failed to load dnsapi.dll")

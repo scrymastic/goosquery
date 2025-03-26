@@ -14,7 +14,7 @@ var (
 )
 
 // GenUptime returns the system uptime information
-func GenUptime(ctx sqlctx.Context) ([]map[string]interface{}, error) {
+func GenUptime(ctx *sqlctx.Context) (*result.Results, error) {
 	// GetTickCount64 returns the number of milliseconds since system startup
 	ret, _, err := getTickCount64.Call()
 	if ret == 0 {
@@ -23,27 +23,15 @@ func GenUptime(ctx sqlctx.Context) ([]map[string]interface{}, error) {
 
 	totalSeconds := uint64(ret) / 1000
 
-	result := specs.Init(ctx, Schema)
+	uptime := result.NewResult(ctx, Schema)
 
-	if ctx.IsColumnUsed("days") {
-		result["days"] = uint32(totalSeconds / 86400)
-	}
+	uptime.Set("days", uint32(totalSeconds/86400))
+	uptime.Set("hours", uint16(totalSeconds%86400/3600))
+	uptime.Set("minutes", uint16(totalSeconds%3600/60))
+	uptime.Set("seconds", uint16(totalSeconds%60))
+	uptime.Set("total_seconds", totalSeconds)
 
-	if ctx.IsColumnUsed("hours") {
-		result["hours"] = uint16(totalSeconds % 86400 / 3600)
-	}
-
-	if ctx.IsColumnUsed("minutes") {
-		result["minutes"] = uint16(totalSeconds % 3600 / 60)
-	}
-
-	if ctx.IsColumnUsed("seconds") {
-		result["seconds"] = uint16(totalSeconds % 60)
-	}
-
-	if ctx.IsColumnUsed("total_seconds") {
-		result["total_seconds"] = totalSeconds
-	}
-
-	return []map[string]interface{}{result}, nil
+	results := result.NewQueryResult()
+	results.AppendResult(*uptime)
+	return results, nil
 }
