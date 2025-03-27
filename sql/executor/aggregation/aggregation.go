@@ -57,7 +57,7 @@ func ApplyAggregations(results *result.Results, aggregations []AggregationInfo, 
 // aggregateAll applies aggregations to the entire result set (no GROUP BY)
 func aggregateAll(results *result.Results, aggregations []AggregationInfo) (*result.Results, error) {
 	// Create a single aggregated row
-	aggregatedRow := make(map[string]interface{})
+	aggregatedRow := result.NewQueryResult()
 
 	// Apply each aggregation function
 	for _, agg := range aggregations {
@@ -65,12 +65,14 @@ func aggregateAll(results *result.Results, aggregations []AggregationInfo) (*res
 		if err != nil {
 			return nil, err
 		}
-		aggregatedRow[agg.Alias] = value
+		res := result.NewEmptyResult()
+		res.Add(agg.Alias, value)
+		aggregatedRow.AppendResult(*res)
 	}
 
 	// Create a new result with just the aggregated row
 	aggregatedResult := result.NewQueryResult()
-	aggregatedResult.AppendResult(aggregatedRow)
+	aggregatedResult.AppendResults(*aggregatedRow)
 
 	return aggregatedResult, nil
 }
@@ -116,11 +118,13 @@ func aggregateByGroups(results *result.Results, aggregations []AggregationInfo, 
 		}
 
 		// Create a row with group by columns and aggregated values
-		aggregatedRow := make(map[string]interface{})
+		aggregatedRow := result.NewQueryResult()
 
 		// First, add the group by columns
 		for _, col := range groupByColumns {
-			aggregatedRow[col] = (*results)[rowIndices[0]][col]
+			res := result.NewEmptyResult()
+			res.Add(col, (*results)[rowIndices[0]][col])
+			aggregatedRow.AppendResult(*res)
 		}
 
 		// Then add the aggregated values
@@ -129,10 +133,12 @@ func aggregateByGroups(results *result.Results, aggregations []AggregationInfo, 
 			if err != nil {
 				return nil, err
 			}
-			aggregatedRow[agg.Alias] = value
+			res := result.NewEmptyResult()
+			res.Add(agg.Alias, value)
+			aggregatedRow.AppendResult(*res)
 		}
 
-		aggregatedResult.AppendResult(aggregatedRow)
+		aggregatedResult.AppendResults(*aggregatedRow)
 	}
 
 	return aggregatedResult, nil
@@ -144,25 +150,20 @@ func calculateAggregation(results *result.Results, agg AggregationInfo) (interfa
 		return nil, nil
 	}
 
-	// Handle COUNT(*) as a special case
-	if agg.Type == Count && agg.Column == "*" {
-		return len(*results), nil
-	}
-
 	// For other aggregations, collect the values to aggregate
 	var values []interface{}
 
 	// If distinct, collect unique values
 	if agg.IsDistinct {
-		uniqueValues := make(map[string]interface{})
+		uniqueValues := result.NewQueryResult()
 		for _, row := range *results {
 			if val, exists := row[agg.Column]; exists && val != nil {
 				// Use string representation as map key
-				uniqueValues[fmt.Sprintf("%v", val)] = val
+				uniqueValues.AppendResult(row)
 			}
 		}
 
-		for _, val := range uniqueValues {
+		for _, val := range *uniqueValues {
 			values = append(values, val)
 		}
 	} else {

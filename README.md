@@ -76,12 +76,12 @@ goosquery -q "SELECT name, pid FROM processes" -json
 GoOsquery supports two output formats:
 
 1. **Table Format (Default)**: Displays results in a formatted ASCII table
-   ```
-   +------+-----+
-   | name | pid |
-   +------+-----+
-   | cmd  | 123 |
-   +------+-----+
+   ```plaintext
+   ┌─────────┬─────┐
+   │ name    │ pid │
+   ├─────────┼─────┤
+   │ cmd.exe │ 123 │
+   └─────────┴─────┘
    ```
 
 2. **JSON Format**: Outputs results as JSON data
@@ -118,7 +118,6 @@ GoOSQuery supports a wide range of SQL features for powerful data processing:
 ### SQL Functions
 
 - **Aggregation Functions**:
-  - `COUNT(*)` - Count all rows
   - `COUNT(column)` - Count non-null values in a column
   - `COUNT(DISTINCT column)` - Count unique values in a column
   - `SUM(column)` - Sum of values in a column
@@ -144,7 +143,7 @@ GoOSQuery supports a wide range of SQL features for powerful data processing:
 
 Count processes by name:
 ```sql
-SELECT name, COUNT(*) AS count FROM processes GROUP BY name ORDER BY count DESC LIMIT 5;
+SELECT name, COUNT(pid) AS count FROM processes GROUP BY name ORDER BY count DESC LIMIT 5;
 ```
 
 Get average memory usage by process type:
@@ -303,7 +302,7 @@ To add a new table to Goosquery, follow these steps:
 
 2. Implement a data generator function with the following signature:
    ```go
-   func GenNewTable(context context.Context) ([]map[string]interface{}, error)
+   func GenNewTable(ctx *sqlctx.Context) (*result.Results, error)
    ```
    
    This function should:
@@ -311,27 +310,26 @@ To add a new table to Goosquery, follow these steps:
    - Only fetch the data needed for the columns requested
    - Return data as a slice of maps where keys are column names
 
-3. Define column types in a map to ensure consistent type handling:
+3. Define column types in a map to ensure consistent type handling in `schema.go`:
    ```go
-   var columnDefs = map[string]string{
-       "column1": "string",
-       "column2": "int64",
-       "column3": "int32",
+   var schema = result.Schema{
+       result.Column{Name: "column1", Type: "TEXT", Description: "Description of column1"},
+       result.Column{Name: "column2", Type: "BIGINT", Description: "Description of column2"},
+       result.Column{Name: "column3", Type: "INTEGER", Description: "Description of column3"},
    }
    ```
 
 4. Use the utility function to initialize columns with appropriate default values:
    ```go
-   result := util.InitColumns(ctx, columnDefs)
+   data := result.NewResult(ctx, schema)
    ```
 
 5. Register the table in `sql/executor/executor.go` by adding a new case to the `GetExecutor` function:
    ```go
    case "newtable":
-       return &tableExecutor{
-           BaseExecutor: BaseExecutor{},
-           tableName:    "newtable",
-           dataFunc:     newtable.GenNewTable,
+       return &impl.TableExecutor{
+           TableName:    "newtable",
+           Generator:    newtable.GenNewTable,
        }, nil
    ```
 

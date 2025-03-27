@@ -7,7 +7,7 @@ import (
 // Test query execution
 func TestExecute(t *testing.T) {
 	engine := NewEngine()
-	query := "select count(*) from registry where search = 'HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services';"
+	query := "select count(name) from processes where name = 'Cursor.exe';"
 	result, err := engine.Execute(query)
 
 	if err != nil {

@@ -1,10 +1,9 @@
 package impl
 
 import (
-	"strings"
-
 	"github.com/blastrain/vitess-sqlparser/sqlparser"
 	"github.com/scrymastic/goosquery/sql/executor/operations"
+	"github.com/scrymastic/goosquery/sql/result"
 	"github.com/scrymastic/goosquery/sql/sqlctx"
 )
 
@@ -12,7 +11,7 @@ import (
 type BaseExecutor struct{}
 
 // MatchesWhereClause checks if a row matches the WHERE clause
-func (e *BaseExecutor) MatchesWhereClause(row map[string]interface{}, expr sqlparser.Expr) bool {
+func (e *BaseExecutor) MatchesWhereClause(row result.Result, expr sqlparser.Expr) bool {
 	switch expr := expr.(type) {
 	case *sqlparser.ComparisonExpr:
 		return e.EvaluateComparison(row, expr)
@@ -29,7 +28,7 @@ func (e *BaseExecutor) MatchesWhereClause(row map[string]interface{}, expr sqlpa
 }
 
 // EvaluateComparison evaluates a comparison expression
-func (e *BaseExecutor) EvaluateComparison(row map[string]interface{}, expr *sqlparser.ComparisonExpr) bool {
+func (e *BaseExecutor) EvaluateComparison(row result.Result, expr *sqlparser.ComparisonExpr) bool {
 	// Get left operand
 	var leftValue interface{}
 	if colName, ok := expr.Left.(*sqlparser.ColName); ok {
@@ -229,12 +228,6 @@ func (e *BaseExecutor) GetAggregationColumns(selectExprs sqlparser.SelectExprs) 
 
 		funcExpr, ok := aliasedExpr.Expr.(*sqlparser.FuncExpr)
 		if !ok {
-			continue
-		}
-
-		funcName := strings.ToUpper(funcExpr.Name.String())
-		if funcName == "COUNT" && len(funcExpr.Exprs) == 0 {
-			// COUNT(*) doesn't need any specific column
 			continue
 		}
 

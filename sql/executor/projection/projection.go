@@ -82,13 +82,6 @@ func buildAliasMap(selectExprs sqlparser.SelectExprs) map[string]string {
 		if funcExpr, ok := aliasedExpr.Expr.(*sqlparser.FuncExpr); ok {
 			funcName := strings.ToUpper(funcExpr.Name.String())
 
-			// Special case for COUNT(*)
-			if funcName == "COUNT" && len(funcExpr.Exprs) == 0 {
-				// COUNT(*) is stored using the function name as the original column
-				aliasMap["COUNT(*)"] = alias
-				continue
-			}
-
 			// For other aggregation functions with a single column argument
 			if len(funcExpr.Exprs) > 0 {
 				if argAliasedExpr, ok := funcExpr.Exprs[0].(*sqlparser.AliasedExpr); ok {
